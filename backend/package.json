@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"const fs=require('fs');if(!fs.existsSync('public'))fs.mkdirSync('public');fs.writeFileSync('public/index.html','<!DOCTYPE html><html><body><h1>AI Toon API is Live</h1></body></html>')\"",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test:retry": "tsx src/test-ai-retry.ts",
