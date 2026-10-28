@@ -367,8 +367,8 @@ export const StoryGeneratorPage: React.FC = () => {
                         {ex.title}
                       </h4>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--navy-500)', fontWeight: 600 }}>
-                        <span>{ex.scenes.length} Scenes</span>
-                        <span style={{ color: 'var(--sky-600)', fontWeight: 800 }}>Read Story →</span>
+                        <span>{ex.keyPoints?.length || 5} Points • {ex.illustrations?.length || 2} Diagrams</span>
+                        <span style={{ color: 'var(--sky-600)', fontWeight: 800 }}>Explore Guide →</span>
                       </div>
                     </div>
                   ))}

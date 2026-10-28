@@ -1,4 +1,4 @@
-import type { Story, StoryGenerationRequest, StoryScene } from '@ai-toon/shared';
+import type { Story, StoryGenerationRequest } from '@ai-toon/shared';
 import type { IAiProvider, GeneratedStorySchema } from './ai.types.js';
 
 export class GeminiProvider implements IAiProvider {
@@ -92,7 +92,9 @@ export class GeminiProvider implements IAiProvider {
       }
 
       const parsedStory = this.parseAndValidate(rawText, request);
-      console.log(`[GeminiProvider] Story generated successfully in ${elapsedMs}ms. Scenes: ${parsedStory.scenes.length}`);
+      console.log(
+        `[GeminiProvider] Story generated successfully in ${elapsedMs}ms. Points: ${parsedStory.keyPoints.length}, Illustrations: ${parsedStory.illustrations.length}, Quiz: ${parsedStory.quizQuestions?.length || 0}`
+      );
       return parsedStory;
     } catch (err: unknown) {
       clearTimeout(timeoutTimer);
@@ -122,28 +124,63 @@ export class GeminiProvider implements IAiProvider {
 
     const targetLang = languageNames[request.language] || 'English';
     const difficulty = request.difficulty || 'intermediate';
+    const pointsCount = difficulty === 'beginner' ? '4 to 5' : difficulty === 'advanced' ? '6 to 7' : '5 to 6';
 
-    return `You are AI Toon, an expert educational cartoon creator.
-Generate a concise, captivating, educational story divided into 3 to 4 cartoon scenes about: "${request.topic}".
+    return `You are AI Toon, an expert educator and visual learning specialist.
+Explain the educational topic "${request.topic}" as an engaging point-wise learning guide supported by 2 to 3 cartoon illustrations and a 3-question quiz.
 
-Story Specifications:
-- Storytelling Tone: ${request.tone.toUpperCase()} (funny = humorous, witty jokes; adventure = exciting discovery and quest; comic = animated superheroes, sound effects like BOOM/WHOOSH).
-- Target Language: ${targetLang}. All story text, scene titles, summary, and educational explanations MUST be written in ${targetLang}.
+CRITICAL INSTRUCTIONS:
+- DO NOT generate scenes, slides, chapters, or comic panels.
+- Generate a unified, point-wise educational explanation that will be read as a single continuous article.
+- Target Language: ${targetLang}. All titles, introductions, headings, bullet points, captions, takeaways, and quiz questions MUST be written in ${targetLang}.
+- Educational Tone / Flavor: ${request.tone.toUpperCase()} (conversational, fun, relatable, with clever analogies, but strictly educational).
 - Student Level: ${difficulty.toUpperCase()}.
-- Length: Exactly 3 to 4 scenes. Keep text concise and punchy to conserve student attention.
+- Number of Key Points: Exactly ${pointsCount} numbered points. Each point MUST have a clear heading and 1 to 3 informative bullet points.
+- Illustrations: Exactly 2 to 3 educational cartoon illustration concepts that visually explain the core concepts (place them after points like point 2 and point 4).
+- Quiz: Exactly 3 quick multiple-choice quiz questions with 4 options ('a', 'b', 'c', 'd'), the correct option ID, and a brief explanation.
 
 Required JSON Schema output:
 {
-  "title": "Short creative cartoon title",
-  "summary": "1-2 sentence overview of the concept taught",
-  "keyTakeaways": ["Core lesson 1", "Core lesson 2", "Core lesson 3"],
-  "scenes": [
+  "title": "Clear, engaging educational title",
+  "introduction": "1-2 sentences introducing the core concept clearly and engagingly.",
+  "keyPoints": [
     {
-      "title": "Scene title",
-      "text": "2-3 sentences of engaging cartoon narrative dialog/action",
-      "educationalExplanation": "1-2 sentences clearly explaining the real scientific/academic principle",
-      "visualDescription": "Detailed cartoon description for the illustration (e.g. A smiling green leaf wearing chef hat inside a laboratory)",
-      "illustrationKeyword": "leaf_solar"
+      "pointNumber": 1,
+      "heading": "Short descriptive heading for Point 1",
+      "bulletPoints": [
+        "First concise explanation sentence highlighting key concepts.",
+        "Second supportive detail, analogy, or real-world example."
+      ]
+    }
+  ],
+  "illustrations": [
+    {
+      "title": "Illustration 1 Title",
+      "caption": "1 sentence explaining what this diagram/cartoon visualizes for the student",
+      "description": "Vivid cartoon description (e.g. Cartoon tectonic plates sliding with jagged edges and glowing stress lines beneath Earth's crust)",
+      "keyword": "earthquake_fault",
+      "positionIndex": 2
+    },
+    {
+      "title": "Illustration 2 Title",
+      "caption": "1 sentence explaining seismic wave propagation or safety",
+      "description": "Cartoon shockwaves rippling out in colorful rings from a glowing underground hypocenter focus",
+      "keyword": "seismic_waves",
+      "positionIndex": 4
+    }
+  ],
+  "keyTakeaway": "1-2 sentences summarizing the most essential learning takeaway.",
+  "quizQuestions": [
+    {
+      "question": "Clear multiple choice question testing understanding of the topic?",
+      "options": [
+        { "id": "a", "text": "Option A" },
+        { "id": "b", "text": "Option B" },
+        { "id": "c", "text": "Option C" },
+        { "id": "d", "text": "Option D" }
+      ],
+      "correctOptionId": "b",
+      "explanation": "Why option B is correct."
     }
   ]
 }
@@ -166,21 +203,58 @@ Return ONLY valid JSON matching this schema. Do not add markdown backticks outsi
       throw new Error('Failed to parse AI output as structured story JSON.');
     }
 
-    if (!parsed.title || !Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
-      throw new Error('AI output was incomplete (missing story title or scenes).');
+    if (!parsed.title || !Array.isArray(parsed.keyPoints) || parsed.keyPoints.length === 0) {
+      throw new Error('AI output was incomplete (missing title or educational key points).');
     }
 
     const storyId = `story_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    const scenes: StoryScene[] = parsed.scenes.map((s, index) => ({
-      id: `${storyId}_scene_${index + 1}`,
-      order: index + 1,
-      title: s.title || `Scene ${index + 1}`,
-      text: s.text || '',
-      educationalExplanation: s.educationalExplanation || 'Key educational insight for this scene.',
-      visualDescription: s.visualDescription || 'Cartoon scene depicting the story.',
-      illustrationKeyword: s.illustrationKeyword || request.topic.toLowerCase().replace(/\s+/g, '_'),
+    const keyPoints = parsed.keyPoints.map((p, idx) => ({
+      pointNumber: typeof p.pointNumber === 'number' ? p.pointNumber : idx + 1,
+      heading: p.heading || `Point ${idx + 1}`,
+      bulletPoints: Array.isArray(p.bulletPoints) && p.bulletPoints.length > 0 ? p.bulletPoints : ['Key concept explanation.'],
     }));
+
+    const rawIllustrations = Array.isArray(parsed.illustrations) && parsed.illustrations.length > 0
+      ? parsed.illustrations
+      : [
+          {
+            title: `${request.topic} Overview`,
+            caption: `Visual overview of ${request.topic}`,
+            description: `Cartoon diagram illustrating ${request.topic}`,
+            keyword: request.topic.toLowerCase().replace(/\s+/g, '_'),
+            positionIndex: 2,
+          },
+          {
+            title: `${request.topic} Mechanism`,
+            caption: `How ${request.topic} works in nature`,
+            description: `Detailed cartoon process of ${request.topic}`,
+            keyword: request.topic.toLowerCase().replace(/\s+/g, '_'),
+            positionIndex: 4,
+          },
+        ];
+
+    const illustrations = rawIllustrations.slice(0, 3).map((ill, idx) => ({
+      id: `${storyId}_ill_${idx + 1}`,
+      title: ill.title || `Concept Illustration ${idx + 1}`,
+      caption: ill.caption || ill.description || 'Educational illustration',
+      description: ill.description || 'Cartoon illustration explaining the concept',
+      keyword: ill.keyword || request.topic.toLowerCase().replace(/\s+/g, '_'),
+      positionIndex: typeof ill.positionIndex === 'number' ? ill.positionIndex : (idx + 1) * 2,
+    }));
+
+    const quizQuestions = Array.isArray(parsed.quizQuestions)
+      ? parsed.quizQuestions.slice(0, 3).map((q, idx) => ({
+          id: `${storyId}_q_${idx + 1}`,
+          question: q.question,
+          options: (q.options || []).map((o, oIdx) => ({
+            id: o.id || String.fromCharCode(97 + oIdx),
+            text: o.text || '',
+          })),
+          correctOptionId: q.correctOptionId || 'a',
+          explanation: q.explanation || 'Correct answer explanation.',
+        }))
+      : [];
 
     return {
       id: storyId,
@@ -189,13 +263,18 @@ Return ONLY valid JSON matching this schema. Do not add markdown backticks outsi
       tone: request.tone,
       language: request.language,
       difficulty: request.difficulty,
-      summary: parsed.summary || `An educational story about ${request.topic}.`,
-      scenes,
-      keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
+      introduction: parsed.introduction || `Let's explore ${request.topic} with this point-wise visual learning guide.`,
+      keyPoints,
+      illustrations,
+      keyTakeaway: parsed.keyTakeaway || 'Mastering this concept helps us understand the world around us.',
+      quizQuestions,
       createdAt: new Date().toISOString(),
       isCached: false,
       isExample: false,
       provider: this.name,
+      summary: parsed.introduction || parsed.keyTakeaway,
+      keyTakeaways: [parsed.keyTakeaway || 'Key educational concept mastered.'],
     };
   }
 }
+

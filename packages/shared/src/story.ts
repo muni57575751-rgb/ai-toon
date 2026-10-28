@@ -1,3 +1,5 @@
+import type { QuizQuestion } from './quiz.js';
+
 export type StoryTone = 'funny' | 'adventure' | 'comic';
 
 export type StoryDifficulty = 'beginner' | 'intermediate' | 'advanced';
@@ -11,15 +13,20 @@ export type SupportedLanguage =
   | 'de' // German
   | 'ta'; // Tamil
 
-export interface StoryScene {
+export interface KeyPoint {
+  pointNumber: number;
+  heading: string;
+  bulletPoints: string[];
+}
+
+export interface TopicIllustration {
   id: string;
-  order: number;
   title: string;
-  text: string;
-  educationalExplanation: string;
-  visualDescription: string;
-  illustrationKeyword?: string;
-  speechText?: string;
+  caption: string;
+  description: string;
+  keyword: string;
+  positionIndex: number; // point after which this illustration appears (e.g. 2, 4)
+  imageUrl?: string;
 }
 
 export interface Story {
@@ -29,15 +36,19 @@ export interface Story {
   tone: StoryTone;
   language: SupportedLanguage;
   difficulty?: StoryDifficulty;
-  summary: string;
-  scenes: StoryScene[];
-  keyTakeaways: string[];
+  introduction: string;
+  keyPoints: KeyPoint[];
+  illustrations: TopicIllustration[];
+  keyTakeaway: string;
+  quizQuestions?: QuizQuestion[];
   createdAt: string;
   userId?: string;
   isFavorite?: boolean;
   isCached?: boolean;
   isExample?: boolean;
   provider?: string;
+  summary?: string;
+  keyTakeaways?: string[];
 }
 
 export interface StoryGenerationRequest {
@@ -47,3 +58,4 @@ export interface StoryGenerationRequest {
   difficulty?: StoryDifficulty;
   targetAgeGroup?: 'kids' | 'teens' | 'general';
 }
+

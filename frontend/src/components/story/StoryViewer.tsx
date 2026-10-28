@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { Story } from '@ai-toon/shared';
-import { SceneCard } from './SceneCard';
+import type { Story, QuizQuestion } from '@ai-toon/shared';
+import { CartoonIllustration } from './CartoonIllustration';
 
 interface StoryViewerProps {
   story: Story;
@@ -8,28 +8,36 @@ interface StoryViewerProps {
 }
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
-  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<'carousel' | 'comic'>('carousel');
+  // Interactive Quiz State
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
 
-  const totalScenes = story.scenes.length;
-  const currentScene = story.scenes[currentSceneIndex] || story.scenes[0];
+  const keyPoints = story.keyPoints || [];
+  const illustrations = story.illustrations || [];
+  const quizQuestions = story.quizQuestions || [];
 
-  const handleNext = () => {
-    if (currentSceneIndex < totalScenes - 1) {
-      setCurrentSceneIndex((prev) => prev + 1);
-    }
+  const handleSelectOption = (questionId: string, optionId: string) => {
+    if (submitted) return;
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [questionId]: optionId,
+    }));
   };
 
-  const handlePrev = () => {
-    if (currentSceneIndex > 0) {
-      setCurrentSceneIndex((prev) => prev - 1);
-    }
+  const handleResetQuiz = () => {
+    setSelectedAnswers({});
+    setSubmitted(false);
   };
 
-  const toneEmojis: Record<string, string> = {
-    funny: '🎭 Funny',
-    adventure: '🗺️ Adventure',
-    comic: '💥 Comic',
+  // Calculate score
+  const correctCount = quizQuestions.reduce((acc, q) => {
+    return selectedAnswers[q.id] === q.correctOptionId ? acc + 1 : acc;
+  }, 0);
+
+  const toneLabels: Record<string, string> = {
+    funny: 'Humorous & Fun',
+    adventure: 'Adventurous Quest',
+    comic: 'Dynamic Superhero',
   };
 
   const langNames: Record<string, string> = {
@@ -43,209 +51,545 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Story Meta Header */}
-      <div className="neoclay-card" style={{ padding: '2rem 2.25rem' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: '1.25rem',
-          marginBottom: '1rem',
-        }}>
-          <div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
-              <span className="neoclay-badge badge-sky">
-                Topic: {story.topic}
-              </span>
-              <span className="neoclay-badge badge-coral">
-                {toneEmojis[story.tone] || story.tone}
-              </span>
-              <span className="neoclay-badge badge-yellow">
-                {langNames[story.language] || story.language}
-              </span>
-              {story.difficulty && (
-                <span className="neoclay-badge badge-purple" style={{ textTransform: 'capitalize' }}>
-                  Level: {story.difficulty}
-                </span>
-              )}
-            </div>
-
-            <h2 style={{
-              fontSize: '2.1rem',
-              color: 'var(--navy-950)',
-              margin: '0.25rem 0 0.5rem',
-            }}>
-              {story.title}
-            </h2>
-          </div>
-
-          {/* Badges: Cached / Built-in / Live */}
+    <article
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
+        maxWidth: '920px',
+        margin: '0 auto',
+        width: '100%',
+      }}
+    >
+      {/* 1. Header Card with Title, Metadata, and Back Button */}
+      <header
+        className="neoclay-card"
+        style={{
+          padding: '2.25rem 2.5rem',
+          borderRadius: 'var(--radius-xl)',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%)',
+          border: '2px solid rgba(14, 165, 233, 0.25)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginBottom: '1rem',
+          }}
+        >
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span className="neoclay-badge badge-sky" style={{ fontWeight: 700 }}>
+              Topic: {story.topic}
+            </span>
+            {story.difficulty && (
+              <span className="neoclay-badge badge-navy" style={{ fontWeight: 700, textTransform: 'capitalize' }}>
+                Level: {story.difficulty}
+              </span>
+            )}
+            <span className="neoclay-badge badge-amber" style={{ fontWeight: 700 }}>
+              Language: {langNames[story.language] || story.language}
+            </span>
+            <span className="neoclay-badge badge-sky" style={{ fontWeight: 700 }}>
+              Tone: {toneLabels[story.tone] || story.tone}
+            </span>
             {story.isCached && (
-              <span className="neoclay-badge badge-green" title="Reused from cache to preserve free AI quota">
-                ⚡ Quota Saved (Cached)
+              <span className="neoclay-badge badge-mint" style={{ fontWeight: 700 }}>
+                ⚡ Fast Cached
               </span>
             )}
             {story.isExample && (
-              <span className="neoclay-badge badge-sky" title="Original built-in offline educational story">
+              <span className="neoclay-badge badge-amber" style={{ fontWeight: 700 }}>
                 📚 Built-in Catalog
               </span>
             )}
-            {onReset && (
-              <button
-                onClick={onReset}
-                className="btn-neoclay-secondary"
-                style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+          </div>
+
+          {onReset && (
+            <button
+              onClick={onReset}
+              className="neoclay-btn btn-secondary"
+              style={{
+                fontSize: '0.85rem',
+                padding: '0.5rem 1rem',
+                borderRadius: 'var(--radius-pill)',
+              }}
+            >
+              ← Explore Another Topic
+            </button>
+          )}
+        </div>
+
+        {/* Main Article Title */}
+        <h1
+          style={{
+            fontSize: '2.1rem',
+            fontWeight: 900,
+            color: 'var(--navy-900)',
+            lineHeight: 1.25,
+            marginBottom: '1.25rem',
+          }}
+        >
+          {story.title}
+        </h1>
+
+        {/* Introduction Callout */}
+        <div
+          style={{
+            padding: '1.15rem 1.35rem',
+            borderRadius: 'var(--radius-lg)',
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderLeft: '5px solid var(--sky-500)',
+            boxShadow: '0 4px 12px rgba(15, 43, 72, 0.05)',
+            fontSize: '1.05rem',
+            lineHeight: 1.65,
+            color: 'var(--navy-800)',
+            fontWeight: 500,
+          }}
+        >
+          {story.introduction || story.summary}
+        </div>
+      </header>
+
+      {/* 2. Unified Point-Wise Educational Content */}
+      <section
+        className="neoclay-card"
+        style={{
+          padding: '2.5rem',
+          borderRadius: 'var(--radius-xl)',
+          background: '#ffffff',
+        }}
+      >
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              background: 'var(--sky-100)',
+              color: 'var(--sky-700)',
+              fontWeight: 900,
+              fontSize: '1rem',
+            }}
+          >
+            ✓
+          </span>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: '1.45rem',
+              fontWeight: 800,
+              color: 'var(--navy-900)',
+            }}
+          >
+            Core Concepts & Point-Wise Breakdown
+          </h2>
+        </div>
+
+        {/* List of Numbered Points with Integrated Illustrations */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+          {keyPoints.map((point, index) => {
+            const pointNum = point.pointNumber || index + 1;
+
+            // Find illustrations positioned after this point
+            // By default, if positionIndex is not specified, place ill 0 after point 2 and ill 1 after point 4
+            const matchingIllustrations = illustrations.filter((ill, illIdx) => {
+              if (typeof ill.positionIndex === 'number') {
+                return ill.positionIndex === pointNum;
+              }
+              return (illIdx + 1) * 2 === pointNum;
+            });
+
+            return (
+              <React.Fragment key={`point_${pointNum}`}>
+                {/* Single Point Item */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '1.25rem',
+                    padding: '1.35rem 1.5rem',
+                    borderRadius: 'var(--radius-lg)',
+                    background: index % 2 === 0 ? 'rgba(240, 249, 255, 0.45)' : '#ffffff',
+                    border: '1.5px solid rgba(226, 232, 240, 0.8)',
+                    boxShadow: '0 4px 10px rgba(15, 43, 72, 0.03)',
+                  }}
+                >
+                  {/* Number Badge */}
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, var(--sky-500) 0%, var(--sky-600) 100%)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.15rem',
+                      fontWeight: 800,
+                      boxShadow: '0 4px 10px rgba(14, 165, 233, 0.35)',
+                    }}
+                  >
+                    {pointNum}
+                  </div>
+
+                  {/* Point Content */}
+                  <div style={{ flex: 1 }}>
+                    <h3
+                      style={{
+                        margin: '0 0 0.65rem 0',
+                        fontSize: '1.18rem',
+                        fontWeight: 800,
+                        color: 'var(--navy-900)',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {point.heading}
+                    </h3>
+
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '1.35rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.45rem',
+                        color: 'var(--navy-700)',
+                        fontSize: '0.98rem',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {point.bulletPoints.map((bullet, bIdx) => (
+                        <li key={bIdx} style={{ listStyleType: 'disc' }}>
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Integrated Cartoon Illustration inserted seamlessly between points */}
+                {matchingIllustrations.map((ill, illIdx) => {
+                  const globalIllIdx = illustrations.indexOf(ill) + 1;
+                  return (
+                    <CartoonIllustration
+                      key={ill.id || `ill_${illIdx}`}
+                      title={ill.title}
+                      caption={ill.caption}
+                      description={ill.description}
+                      keyword={ill.keyword}
+                      figureNumber={globalIllIdx > 0 ? globalIllIdx : illIdx + 1}
+                    />
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+
+          {/* Any remaining illustrations not placed yet */}
+          {illustrations
+            .filter((ill, illIdx) => {
+              const pos = typeof ill.positionIndex === 'number' ? ill.positionIndex : (illIdx + 1) * 2;
+              return pos > keyPoints.length;
+            })
+            .map((ill, illIdx) => {
+              const globalIllIdx = illustrations.indexOf(ill) + 1;
+              return (
+                <CartoonIllustration
+                  key={ill.id || `extra_ill_${illIdx}`}
+                  title={ill.title}
+                  caption={ill.caption}
+                  description={ill.description}
+                  keyword={ill.keyword}
+                  figureNumber={globalIllIdx > 0 ? globalIllIdx : illIdx + 1}
+                />
+              );
+            })}
+        </div>
+
+        {/* 3. Key Takeaway Section at the end of the explanation */}
+        <div
+          style={{
+            marginTop: '2.5rem',
+            padding: '1.5rem 1.75rem',
+            borderRadius: 'var(--radius-xl)',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%)',
+            border: '2px solid #fde047',
+            boxShadow: '0 8px 20px rgba(234, 179, 8, 0.15)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>🌟</span>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: '1.15rem',
+                fontWeight: 800,
+                color: '#854d0e',
+              }}
+            >
+              Key Takeaway
+            </h3>
+          </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '1.02rem',
+              lineHeight: 1.6,
+              color: '#713f12',
+              fontWeight: 600,
+            }}
+          >
+            {story.keyTakeaway || story.keyTakeaways?.[0] || 'Mastering this concept is a vital building block in scientific learning.'}
+          </p>
+        </div>
+      </section>
+
+      {/* 4. Interactive Quiz Section */}
+      {quizQuestions.length > 0 && (
+        <section
+          className="neoclay-card"
+          style={{
+            padding: '2.5rem',
+            borderRadius: 'var(--radius-xl)',
+            background: '#ffffff',
+            border: '2px solid rgba(99, 102, 241, 0.25)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginBottom: '1.75rem',
+            }}
+          >
+            <div>
+              <span
+                className="neoclay-badge badge-navy"
+                style={{
+                  fontWeight: 800,
+                  fontSize: '0.78rem',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  marginBottom: '0.35rem',
+                }}
               >
-                ✨ New Story
+                Knowledge Check
+              </span>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: '1.45rem',
+                  fontWeight: 900,
+                  color: 'var(--navy-900)',
+                }}
+              >
+                Quick Quiz ({quizQuestions.length} Questions)
+              </h2>
+            </div>
+
+            {submitted ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span
+                  style={{
+                    padding: '0.45rem 0.95rem',
+                    borderRadius: 'var(--radius-pill)',
+                    background: correctCount === quizQuestions.length ? '#dcfce7' : '#fef3c7',
+                    color: correctCount === quizQuestions.length ? '#15803d' : '#854d0e',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  Score: {correctCount} / {quizQuestions.length}
+                </span>
+                <button
+                  onClick={handleResetQuiz}
+                  className="neoclay-btn btn-secondary"
+                  style={{ fontSize: '0.85rem', padding: '0.45rem 0.85rem' }}
+                >
+                  ↺ Try Again
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSubmitted(true)}
+                disabled={Object.keys(selectedAnswers).length === 0}
+                className="neoclay-btn btn-primary"
+                style={{
+                  fontSize: '0.9rem',
+                  padding: '0.55rem 1.25rem',
+                  borderRadius: 'var(--radius-pill)',
+                  opacity: Object.keys(selectedAnswers).length === 0 ? 0.6 : 1,
+                  cursor: Object.keys(selectedAnswers).length === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Check Answers
               </button>
             )}
           </div>
-        </div>
 
-        {/* Story Summary */}
-        <p style={{
-          fontSize: '1.05rem',
-          color: 'var(--navy-700)',
-          lineHeight: 1.6,
-          margin: '0 0 1.25rem',
-          fontWeight: 600,
-        }}>
-          {story.summary}
-        </p>
+          {/* Quiz Questions List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.85rem' }}>
+            {quizQuestions.map((q: QuizQuestion, qIndex: number) => {
+              const selectedOptId = selectedAnswers[q.id];
+              const isCorrect = selectedOptId === q.correctOptionId;
 
-        {/* View Mode Switcher & Scene Dots */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          paddingTop: '1rem',
-          borderTop: '1px solid rgba(196, 221, 246, 0.6)',
-        }}>
-          {/* Scene Jump Dots (when in carousel mode) */}
-          {viewMode === 'carousel' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--navy-600)' }}>
-                Scenes:
-              </span>
-              {story.scenes.map((s, idx) => (
-                <button
-                  key={s.id}
-                  onClick={() => setCurrentSceneIndex(idx)}
+              return (
+                <div
+                  key={q.id || `q_${qIndex}`}
                   style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: currentSceneIndex === idx ? 'var(--sky-500)' : 'var(--clay-surface)',
-                    color: currentSceneIndex === idx ? '#ffffff' : 'var(--navy-800)',
-                    border: '1.5px solid rgba(255, 255, 255, 0.8)',
-                    boxShadow: currentSceneIndex === idx
-                      ? '0 4px 10px rgba(14, 165, 233, 0.4), inset 1.5px 1.5px 3px rgba(255, 255, 255, 0.8)'
-                      : 'var(--neo-shadow-sm)',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)',
+                    padding: '1.45rem 1.65rem',
+                    borderRadius: 'var(--radius-lg)',
+                    background: 'rgba(248, 250, 252, 0.75)',
+                    border: '1.5px solid rgba(226, 232, 240, 0.9)',
                   }}
-                  title={`Jump to Scene ${s.order}: ${s.title}`}
                 >
-                  {s.order}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span style={{ fontSize: '0.9rem', color: 'var(--navy-600)', fontWeight: 700 }}>
-              Viewing all {totalScenes} scenes in Comic Strip mode
-            </span>
-          )}
+                  <p
+                    style={{
+                      margin: '0 0 1rem 0',
+                      fontSize: '1.05rem',
+                      fontWeight: 800,
+                      color: 'var(--navy-900)',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span style={{ color: 'var(--sky-600)', marginRight: '0.5rem' }}>
+                      Q{qIndex + 1}.
+                    </span>
+                    {q.question}
+                  </p>
 
-          {/* Toggle Button */}
+                  {/* Options Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                      gap: '0.75rem',
+                      marginBottom: submitted ? '1rem' : 0,
+                    }}
+                  >
+                    {q.options.map((opt) => {
+                      const isSelected = selectedOptId === opt.id;
+                      const isThisCorrect = opt.id === q.correctOptionId;
+
+                      let optBg = '#ffffff';
+                      let optBorder = 'rgba(203, 213, 225, 0.8)';
+                      let optColor = 'var(--navy-800)';
+
+                      if (submitted) {
+                        if (isThisCorrect) {
+                          optBg = '#dcfce7';
+                          optBorder = '#22c55e';
+                          optColor = '#15803d';
+                        } else if (isSelected && !isThisCorrect) {
+                          optBg = '#fee2e2';
+                          optBorder = '#ef4444';
+                          optColor = '#b91c1c';
+                        }
+                      } else if (isSelected) {
+                        optBg = 'var(--sky-50)';
+                        optBorder = 'var(--sky-500)';
+                        optColor = 'var(--sky-800)';
+                      }
+
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleSelectOption(q.id, opt.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.65rem',
+                            padding: '0.75rem 1rem',
+                            borderRadius: 'var(--radius-md)',
+                            background: optBg,
+                            border: `2px solid ${optBorder}`,
+                            color: optColor,
+                            fontSize: '0.94rem',
+                            fontWeight: isSelected || (submitted && isThisCorrect) ? 700 : 500,
+                            textAlign: 'left',
+                            cursor: submitted ? 'default' : 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: isSelected ? 'var(--sky-500)' : '#e2e8f0',
+                              color: isSelected ? '#ffffff' : 'var(--navy-700)',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {opt.id}
+                          </span>
+                          <span style={{ flex: 1 }}>{opt.text}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Explanation card after submit */}
+                  {submitted && (
+                    <div
+                      style={{
+                        padding: '0.85rem 1.15rem',
+                        borderRadius: 'var(--radius-md)',
+                        background: isCorrect ? '#f0fdf4' : '#fffbeb',
+                        borderLeft: `4px solid ${isCorrect ? '#22c55e' : '#f59e0b'}`,
+                        fontSize: '0.9rem',
+                        lineHeight: 1.5,
+                        color: 'var(--navy-800)',
+                      }}
+                    >
+                      <strong style={{ color: isCorrect ? '#166534' : '#b45309' }}>
+                        {isCorrect ? '✓ Correct! ' : 'Note: '}
+                      </strong>
+                      {q.explanation}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Footer Return / Reset CTA */}
+      {onReset && (
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0 3rem' }}>
           <button
-            onClick={() => setViewMode(viewMode === 'carousel' ? 'comic' : 'carousel')}
-            className="btn-neoclay-secondary"
-            style={{ fontSize: '0.85rem', padding: '0.4rem 0.95rem' }}
+            onClick={onReset}
+            className="neoclay-btn btn-primary"
+            style={{
+              padding: '0.85rem 2.25rem',
+              fontSize: '1.05rem',
+              borderRadius: 'var(--radius-pill)',
+            }}
           >
-            {viewMode === 'carousel' ? '📜 Expand All Scenes' : '🎞️ Slide-by-Slide Mode'}
+            ✨ Learn Another Topic
           </button>
         </div>
-      </div>
-
-      {/* Main Scenes Rendering */}
-      {viewMode === 'carousel' ? (
-        <SceneCard
-          scene={currentScene}
-          totalScenes={totalScenes}
-          onNext={handleNext}
-          onPrev={handlePrev}
-          hasNext={currentSceneIndex < totalScenes - 1}
-          hasPrev={currentSceneIndex > 0}
-        />
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {story.scenes.map((scene, idx) => (
-            <SceneCard
-              key={scene.id}
-              scene={scene}
-              totalScenes={totalScenes}
-              onNext={() => {}}
-              onPrev={() => {}}
-              hasNext={idx < totalScenes - 1}
-              hasPrev={idx > 0}
-            />
-          ))}
-        </div>
       )}
-
-      {/* Key Takeaways Checklist Card */}
-      {story.keyTakeaways && story.keyTakeaways.length > 0 && (
-        <div className="neoclay-card" style={{ padding: '2rem 2.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-            <span style={{ fontSize: '1.6rem' }}>🎯</span>
-            <h3 style={{ fontSize: '1.35rem', margin: 0, color: 'var(--navy-950)' }}>
-              Key Educational Takeaways
-            </h3>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {story.keyTakeaways.map((takeaway, idx) => (
-              <div
-                key={idx}
-                className="neoclay-recessed"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.85rem',
-                  padding: '0.85rem 1.25rem',
-                }}
-              >
-                <span style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  background: 'var(--clay-mint)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.85rem',
-                  fontWeight: 800,
-                  flexShrink: 0,
-                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)',
-                }}>
-                  ✓
-                </span>
-                <span style={{ fontSize: '0.95rem', color: 'var(--navy-900)', fontWeight: 600 }}>
-                  {takeaway}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </article>
   );
 };

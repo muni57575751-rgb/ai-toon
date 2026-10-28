@@ -9,13 +9,25 @@ export interface IAiProvider {
 
 export interface GeneratedStorySchema {
   title: string;
-  summary: string;
-  keyTakeaways: string[];
-  scenes: Array<{
+  introduction: string;
+  keyPoints: Array<{
+    pointNumber?: number;
+    heading: string;
+    bulletPoints: string[];
+  }>;
+  illustrations: Array<{
     title: string;
-    text: string;
-    educationalExplanation: string;
-    visualDescription: string;
-    illustrationKeyword?: string;
+    caption: string;
+    description: string;
+    keyword: string;
+    positionIndex?: number;
+  }>;
+  keyTakeaway: string;
+  quizQuestions?: Array<{
+    question: string;
+    options: Array<{ id: string; text: string }>;
+    correctOptionId: string;
+    explanation: string;
   }>;
 }
+

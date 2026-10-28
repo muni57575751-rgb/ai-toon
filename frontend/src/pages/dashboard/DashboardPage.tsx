@@ -165,10 +165,10 @@ export const DashboardPage: React.FC = () => {
           <div className="neoclay-recessed" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
             <span style={{ fontSize: '2.8rem', display: 'block', marginBottom: '0.65rem' }}>🧙‍♂️📖✨</span>
             <h4 style={{ fontSize: '1.25rem', color: 'var(--navy-950)', marginBottom: '0.45rem' }}>
-              Turn Any Syllabus Topic into a Fun Cartoon Story!
+              Turn Any Syllabus Topic into a Visual Point-Wise Guide!
             </h4>
             <p style={{ maxWidth: '580px', margin: '0 auto 1.5rem', color: 'var(--navy-600)', fontSize: '0.92rem', lineHeight: 1.6 }}>
-              Select any science, history, or math concept. Choose from <strong>Funny</strong>, <strong>Adventure</strong>, or <strong>Comic</strong> style, and pick your preferred language (English, Telugu, or Hindi).
+              Select any academic concept. Get an engaging point-by-point breakdown with 2–3 cartoon illustrations, key takeaways, and an interactive quiz in English, Telugu, or Hindi.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
