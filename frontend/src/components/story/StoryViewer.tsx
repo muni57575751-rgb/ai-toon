@@ -276,7 +276,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                   </div>
                 </div>
 
-                {/* Integrated Cartoon Illustration inserted seamlessly between points */}
+                {/* Integrated Educational Illustration inserted seamlessly between points */}
                 {matchingIllustrations.map((ill, illIdx) => {
                   const globalIllIdx = illustrations.indexOf(ill) + 1;
                   return (
@@ -286,6 +286,16 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                       caption={ill.caption}
                       description={ill.description}
                       keyword={ill.keyword}
+                      imageUrl={ill.imageUrl}
+                      thumbnailUrl={ill.thumbnailUrl}
+                      sourcePageUrl={ill.sourcePageUrl}
+                      author={ill.author}
+                      license={ill.license}
+                      licenseUrl={ill.licenseUrl}
+                      attribution={ill.attribution}
+                      width={ill.width}
+                      height={ill.height}
+                      sourceType={ill.sourceType}
                       figureNumber={globalIllIdx > 0 ? globalIllIdx : illIdx + 1}
                     />
                   );
@@ -309,6 +319,16 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                   caption={ill.caption}
                   description={ill.description}
                   keyword={ill.keyword}
+                  imageUrl={ill.imageUrl}
+                  thumbnailUrl={ill.thumbnailUrl}
+                  sourcePageUrl={ill.sourcePageUrl}
+                  author={ill.author}
+                  license={ill.license}
+                  licenseUrl={ill.licenseUrl}
+                  attribution={ill.attribution}
+                  width={ill.width}
+                  height={ill.height}
+                  sourceType={ill.sourceType}
                   figureNumber={globalIllIdx > 0 ? globalIllIdx : illIdx + 1}
                 />
               );

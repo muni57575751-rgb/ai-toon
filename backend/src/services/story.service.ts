@@ -4,6 +4,7 @@ import { storyCache } from './cache.service.js';
 import { BUILT_IN_EXAMPLE_STORIES } from './exampleStories.data.js';
 import { config } from '../config/env.js';
 
+import { imageSearchService } from './imageSearch/imageSearch.service.js';
 import type { IAiProvider } from './ai/ai.types.js';
 
 export class StoryService {
@@ -33,7 +34,8 @@ export class StoryService {
     const provider = this.getProvider();
     if (!provider.isConfigured()) {
       if (matchingExample) {
-        return { story: matchingExample, cached: false };
+        const enhancedExample = await imageSearchService.enhanceStoryIllustrations(matchingExample);
+        return { story: enhancedExample, cached: false };
       }
       throw new Error(
         'No AI API key is configured on the server. Please set GEMINI_API_KEY in backend/.env, or choose one of our built-in example stories (Photosynthesis, The Solar System, or The Water Cycle).'
@@ -44,15 +46,24 @@ export class StoryService {
     try {
       const generated = await provider.generateStory(request, config.aiRequestTimeoutMs);
 
-      // Save to cache
-      storyCache.set(cacheKey, generated);
+      // 5. Enhance illustrations with authentic educational images from public sources
+      let finalStory = generated;
+      try {
+        finalStory = await imageSearchService.enhanceStoryIllustrations(generated);
+      } catch (imgErr) {
+        console.warn('[StoryService] Image enhancement failed, continuing with SVG fallback:', imgErr);
+      }
 
-      return { story: generated, cached: false };
+      // Save to cache (includes enhanced image metadata to prevent duplicate requests)
+      storyCache.set(cacheKey, finalStory);
+
+      return { story: finalStory, cached: false };
     } catch (err: unknown) {
       // If live AI provider fails or is rate-limited, fall back to matching example if available
       if (matchingExample) {
         console.warn(`[StoryService] Live AI generation failed. Falling back to built-in example for "${topic}".`, err);
-        return { story: matchingExample, cached: false };
+        const enhancedFallback = await imageSearchService.enhanceStoryIllustrations(matchingExample);
+        return { story: enhancedFallback, cached: false };
       }
       throw err;
     }

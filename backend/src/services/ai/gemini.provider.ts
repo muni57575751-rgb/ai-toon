@@ -266,7 +266,14 @@ CRITICAL INSTRUCTIONS:
 - Educational Tone / Flavor: ${request.tone.toUpperCase()} (conversational, fun, relatable, with clever analogies, but strictly educational).
 - Student Level: ${difficulty.toUpperCase()}.
 - Number of Key Points: Exactly ${pointsCount} numbered points. Each point MUST have a clear heading and 1 to 3 informative bullet points.
-- Illustrations: Exactly 2 to 3 educational cartoon illustration concepts that visually explain the core concepts (place them after points like point 2 and point 4).
+- Illustrations: Exactly 2 to 3 educational illustration concepts that visually explain the core concepts (place them after points like point 2 and point 4).
+  For each illustration, provide:
+  * title: Clear title of the visual concept
+  * caption: 1 sentence explaining what this diagram visualizes for the student
+  * description: Vivid visual description of what appears in the diagram
+  * keyword: 1-2 words identifying the concept (e.g. "binary_search", "photosynthesis")
+  * searchQuery: A specific 4 to 8 word image-search query containing relevant technical terms and educational context for finding authentic scientific diagrams or educational graphics (e.g. "binary search sorted array middle element diagram", "photosynthesis leaf sunlight carbon dioxide water oxygen diagram", "tectonic plates fault seismic waves educational diagram", "labeled heart blood flow diagram"). Never use only generic words or just the title; specify the visual elements.
+  * positionIndex: After which point to display it (e.g. 2, 4)
 - Quiz: Exactly 3 quick multiple-choice quiz questions with 4 options ('a', 'b', 'c', 'd'), the correct option ID, and a brief explanation.
 
 Required JSON Schema output:
@@ -286,9 +293,10 @@ Required JSON Schema output:
   "illustrations": [
     {
       "title": "Illustration 1 Title",
-      "caption": "1 sentence explaining what this diagram/cartoon visualizes for the student",
-      "description": "Vivid cartoon description (e.g. Cartoon tectonic plates sliding with jagged edges and glowing stress lines beneath Earth's crust)",
+      "caption": "1 sentence explaining what this diagram visualizes for the student",
+      "description": "Vivid diagram description (e.g. Cartoon tectonic plates sliding with jagged edges and glowing stress lines beneath Earth's crust)",
       "keyword": "earthquake_fault",
+      "searchQuery": "tectonic plates fault seismic waves educational diagram",
       "positionIndex": 2
     },
     {
@@ -296,6 +304,7 @@ Required JSON Schema output:
       "caption": "1 sentence explaining seismic wave propagation or safety",
       "description": "Cartoon shockwaves rippling out in colorful rings from a glowing underground hypocenter focus",
       "keyword": "seismic_waves",
+      "searchQuery": "seismic shock waves focus epicenter propagation diagram",
       "positionIndex": 4
     }
   ],
@@ -370,6 +379,7 @@ Return ONLY valid JSON matching this schema. Do not add markdown backticks outsi
       caption: ill.caption || ill.description || 'Educational illustration',
       description: ill.description || 'Cartoon illustration explaining the concept',
       keyword: ill.keyword || request.topic.toLowerCase().replace(/\s+/g, '_'),
+      searchQuery: ill.searchQuery || `${request.topic} ${ill.title || ''} diagram`.trim(),
       positionIndex: typeof ill.positionIndex === 'number' ? ill.positionIndex : (idx + 1) * 2,
     }));
 

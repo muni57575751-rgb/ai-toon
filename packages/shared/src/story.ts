@@ -26,7 +26,17 @@ export interface TopicIllustration {
   description: string;
   keyword: string;
   positionIndex: number; // point after which this illustration appears (e.g. 2, 4)
+  searchQuery?: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
+  sourcePageUrl?: string;
+  author?: string;
+  license?: string;
+  licenseUrl?: string;
+  attribution?: string;
+  width?: number;
+  height?: number;
+  sourceType?: 'wikimedia' | 'openverse' | 'svg_fallback';
 }
 
 export interface Story {

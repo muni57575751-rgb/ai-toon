@@ -20,6 +20,7 @@ export interface GeneratedStorySchema {
     caption: string;
     description: string;
     keyword: string;
+    searchQuery?: string;
     positionIndex?: number;
   }>;
   keyTakeaway: string;

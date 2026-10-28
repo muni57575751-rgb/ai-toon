@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface CartoonIllustrationProps {
   keyword?: string;
@@ -6,6 +6,16 @@ interface CartoonIllustrationProps {
   caption?: string;
   description?: string;
   figureNumber?: number;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  sourcePageUrl?: string;
+  author?: string;
+  license?: string;
+  licenseUrl?: string;
+  attribution?: string;
+  width?: number;
+  height?: number;
+  sourceType?: 'wikimedia' | 'openverse' | 'svg_fallback';
 }
 
 export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
@@ -14,7 +24,16 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
   caption,
   description,
   figureNumber = 1,
+  imageUrl,
+  thumbnailUrl,
+  sourcePageUrl,
+  author,
+  license,
+  licenseUrl,
+  attribution,
+  sourceType,
 }) => {
+  const [imageError, setImageError] = useState(false);
   const normKey = (keyword + ' ' + (description || '') + ' ' + (title || '')).toLowerCase();
 
   const renderSvgArtwork = () => {
@@ -387,51 +406,29 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
       );
     }
 
-    // 5. Default General Science Educational Diagram
+    // 5. Default General Educational Illustration Unavailable State
     return (
-      <svg viewBox="0 0 760 280" width="100%" height="100%" style={{ maxHeight: '280px' }} role="img" aria-label="Educational concept scientific diagram">
-        <defs>
-          <linearGradient id="sciBg" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f0f9ff" />
-            <stop offset="50%" stopColor="#e0f2fe" />
-            <stop offset="100%" stopColor="#bae6fd" />
-          </linearGradient>
-        </defs>
-        <rect x="0" y="0" width="760" height="280" fill="url(#sciBg)" rx="12" />
-
-        {/* Atom Orbitals Left */}
-        <g transform="translate(180, 140)">
-          <ellipse cx="0" cy="0" rx="75" ry="24" stroke="#0284c7" strokeWidth="2.5" fill="none" transform="rotate(30)" />
-          <ellipse cx="0" cy="0" rx="75" ry="24" stroke="#0284c7" strokeWidth="2.5" fill="none" transform="rotate(-30)" />
-          <ellipse cx="0" cy="0" rx="75" ry="24" stroke="#0284c7" strokeWidth="2.5" fill="none" transform="rotate(90)" />
-          <circle cx="0" cy="0" r="16" fill="#f59e0b" stroke="#d97706" strokeWidth="2" />
-          <circle cx="50" cy="20" r="6" fill="#38bdf8" />
-          <circle cx="-50" cy="-20" r="6" fill="#38bdf8" />
-          <circle cx="0" cy="65" r="6" fill="#38bdf8" />
-          <text x="-48" y="75" fill="#0369a1" fontSize="12" fontWeight="bold">Atomic Structure</text>
-        </g>
-
-        {/* Connecting Data Flow */}
-        <path d="M 280,140 L 480,140" stroke="#0284c7" strokeWidth="4" strokeDasharray="8,6" />
-        <polygon points="490,140 475,132 475,148" fill="#0284c7" />
-
-        {/* Core Discovery Lightbulb Right */}
-        <g transform="translate(560, 140)">
-          <path d="M -30,-20 C -30,-50 30,-50 30,-20 C 30,0 15,15 15,30 L -15,30 C -15,15 -30,0 -30,-20 Z" fill="#fef08a" stroke="#ca8a04" strokeWidth="3" />
-          <rect x="-14" y="32" width="28" height="6" rx="2" fill="#94a3b8" />
-          <rect x="-10" y="40" width="20" height="5" rx="2" fill="#64748b" />
-          <path d="M -8,-15 Q 0,-30 8,-15" stroke="#ea580c" strokeWidth="3" fill="none" />
-          {/* Idea Glow Rays */}
-          <line x1="0" y1="-58" x2="0" y2="-72" stroke="#eab308" strokeWidth="3.5" strokeLinecap="round" />
-          <line x1="-42" y1="-42" x2="-54" y2="-54" stroke="#eab308" strokeWidth="3.5" strokeLinecap="round" />
-          <line x1="42" y1="-42" x2="54" y2="-54" stroke="#eab308" strokeWidth="3.5" strokeLinecap="round" />
-          <text x="-45" y="70" fill="#854d0e" fontSize="12" fontWeight="bold">Core Mechanism</text>
-        </g>
-
-        {/* Title banner */}
-        <rect x="230" y="25" width="300" height="34" rx="8" fill="#0f172a" />
-        <text x="250" y="48" fill="#38bdf8" fontSize="13" fontWeight="bold">🔬 Visual Principle & Process Diagram</text>
-      </svg>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2.5rem 1.5rem',
+          textAlign: 'center',
+          background: '#f8fafc',
+          width: '100%',
+          minHeight: '180px',
+        }}
+      >
+        <span style={{ fontSize: '2.2rem', marginBottom: '0.4rem' }}>🖼️</span>
+        <h4 style={{ margin: '0 0 0.35rem 0', fontSize: '1rem', color: 'var(--navy-900)', fontWeight: 700 }}>
+          Educational Diagram Unavailable
+        </h4>
+        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--navy-600)', maxWidth: '440px', lineHeight: 1.5 }}>
+          No verified public domain diagram is available for this concept. Please refer to the concept guide below.
+        </p>
+      </div>
     );
   };
 
@@ -482,9 +479,19 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
             {title || 'Concept Illustration'}
           </h4>
         </div>
+
+        {imageUrl && !imageError ? (
+          <span className="neoclay-badge badge-mint" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem', fontWeight: 700 }}>
+            ✓ Verified Public Diagram
+          </span>
+        ) : (
+          <span className="neoclay-badge badge-sky" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem', fontWeight: 700 }}>
+            Topic Diagram
+          </span>
+        )}
       </div>
 
-      {/* SVG Cartoon Artwork */}
+      {/* Visual Display (Public Image or SVG Fallback) */}
       <div
         style={{
           width: '100%',
@@ -495,26 +502,103 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           alignItems: 'center',
           background: '#f8fafc',
           border: '1px solid rgba(226, 232, 240, 0.9)',
+          padding: imageUrl && !imageError ? '0.75rem' : '0',
         }}
       >
-        {renderSvgArtwork()}
+        {imageUrl && !imageError ? (
+          <img
+            src={thumbnailUrl || imageUrl}
+            alt={title ? `${title} - educational diagram` : 'Educational concept diagram'}
+            loading="lazy"
+            onError={() => setImageError(true)}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '440px',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 4px 12px rgba(15, 43, 72, 0.06)',
+            }}
+          />
+        ) : (
+          renderSvgArtwork()
+        )}
       </div>
 
-      {/* Educational Caption */}
+      {/* Educational Caption & Source Attribution */}
       <div
         style={{
           marginTop: '0.85rem',
-          padding: '0.85rem 1.15rem',
+          padding: '0.95rem 1.15rem',
           borderRadius: 'var(--radius-md)',
           background: 'rgba(240, 249, 255, 0.75)',
           borderLeft: '4px solid var(--sky-500)',
-          fontSize: '0.92rem',
-          color: 'var(--navy-700)',
-          lineHeight: 1.55,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.65rem',
         }}
       >
-        <strong>Concept Guide: </strong>
-        {caption || description || 'Detailed diagram illustrating the educational concept.'}
+        <div style={{ fontSize: '0.92rem', color: 'var(--navy-800)', lineHeight: 1.55 }}>
+          <strong>Concept Guide: </strong>
+          {caption || description || 'Detailed diagram illustrating the educational concept.'}
+        </div>
+
+        {/* Source and License Attribution */}
+        {imageUrl && !imageError && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+              paddingTop: '0.55rem',
+              borderTop: '1px solid rgba(14, 165, 233, 0.2)',
+              fontSize: '0.78rem',
+              color: 'var(--navy-600)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+              <span>📷 <strong>Source:</strong></span>
+              {sourcePageUrl ? (
+                <a
+                  href={sourcePageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--sky-700)', textDecoration: 'underline', fontWeight: 600 }}
+                  title="View original image on Wikimedia Commons"
+                >
+                  {sourceType === 'wikimedia' ? 'Wikimedia Commons ↗' : 'Public Media ↗'}
+                </a>
+              ) : (
+                <span>{sourceType === 'wikimedia' ? 'Wikimedia Commons' : 'Public Media'}</span>
+              )}
+              {author && <span>• <strong>Author:</strong> {author}</span>}
+              {attribution && attribution !== author && <span>• <strong>Credit:</strong> {attribution}</span>}
+            </div>
+
+            {license && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span className="neoclay-badge badge-sky" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}>
+                  {licenseUrl ? (
+                    <a
+                      href={licenseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'inherit', textDecoration: 'none' }}
+                      title="View license details"
+                    >
+                      ⚖️ {license} ↗
+                    </a>
+                  ) : (
+                    <span>⚖️ {license}</span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
