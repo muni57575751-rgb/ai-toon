@@ -14,7 +14,8 @@
 
     /* Paths */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ai-toon/shared": ["../packages/shared/dist/index.d.ts", "../packages/shared/src/index.ts"]
     },
 
     /* Strict Type-Checking */

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Story, QuizQuestion } from '@ai-toon/shared';
+import type { Story, QuizQuestion, KeyPoint, TopicIllustration, QuizOption } from '@ai-toon/shared';
 import { CartoonIllustration } from './CartoonIllustration';
 
 interface StoryViewerProps {
@@ -192,11 +192,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
 
         {/* List of Numbered Points with Integrated Visuals */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.85rem' }}>
-          {keyPoints.map((point, index) => {
+          {keyPoints.map((point: KeyPoint, index: number) => {
             const pointNum = point.pointNumber || index + 1;
 
             // Find illustrations positioned after this point
-            const matchingIllustrations = illustrations.filter((ill, illIdx) => {
+            const matchingIllustrations = illustrations.filter((ill: TopicIllustration, illIdx: number) => {
               if (typeof ill.positionIndex === 'number') {
                 return ill.positionIndex === pointNum;
               }
@@ -265,7 +265,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                         fontWeight: 500,
                       }}
                     >
-                      {point.bulletPoints.map((bullet, bIdx) => (
+                      {point.bulletPoints.map((bullet: string, bIdx: number) => (
                         <li key={bIdx} style={{ listStyleType: 'disc' }}>
                           {bullet}
                         </li>
@@ -275,7 +275,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                 </div>
 
                 {/* Integrated Educational Visual inserted seamlessly between points */}
-                {matchingIllustrations.map((ill, illIdx) => {
+                {matchingIllustrations.map((ill: TopicIllustration, illIdx: number) => {
                   const globalIllIdx = illustrations.indexOf(ill) + 1;
                   return (
                     <CartoonIllustration
@@ -304,11 +304,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
 
           {/* Any remaining visuals not placed yet */}
           {illustrations
-            .filter((ill, illIdx) => {
+            .filter((ill: TopicIllustration, illIdx: number) => {
               const pos = typeof ill.positionIndex === 'number' ? ill.positionIndex : (illIdx + 1) * 2;
               return pos > keyPoints.length;
             })
-            .map((ill, illIdx) => {
+            .map((ill: TopicIllustration, illIdx: number) => {
               const globalIllIdx = illustrations.indexOf(ill) + 1;
               return (
                 <CartoonIllustration
@@ -489,7 +489,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                       marginBottom: submitted ? '1.15rem' : 0,
                     }}
                   >
-                    {q.options.map((opt) => {
+                    {q.options.map((opt: QuizOption) => {
                       const isSelected = selectedOptId === opt.id;
                       const isThisCorrect = opt.id === q.correctOptionId;
 

@@ -14,6 +14,8 @@ dist/
 build/
 out/
 *.tsbuildinfo
+!packages/shared/dist/
+!packages/shared/dist/**
 
 # Logs
 logs/
