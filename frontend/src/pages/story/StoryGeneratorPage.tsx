@@ -60,7 +60,7 @@ export const StoryGeneratorPage: React.FC = () => {
 
     const trimmed = topic.trim();
     if (!trimmed) {
-      setErrorMsg('Please enter an educational topic (e.g., Photosynthesis, Gravity, Black Holes).');
+      setErrorMsg('Please enter a topic or person (e.g. Narendra Modi, Vignan University, Photosynthesis, Binary Search).');
       return;
     }
 
@@ -89,12 +89,12 @@ export const StoryGeneratorPage: React.FC = () => {
       const data: ApiResponse<Story> = await res.json();
 
       if (!res.ok || !data.success || !data.data) {
-        throw new Error(data.error?.message || 'Failed to generate story.');
+        throw new Error(data.error?.message || 'Failed to generate visual lesson.');
       }
 
       setGeneratedStory(data.data);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Story generation failed.');
+      setErrorMsg(err instanceof Error ? err.message : 'Visual lesson generation failed.');
     } finally {
       setIsGenerating(false);
     }
@@ -120,18 +120,22 @@ export const StoryGeneratorPage: React.FC = () => {
 
       <main className="container" style={{ padding: '2.5rem 1.75rem' }}>
         {/* Navigation Breadcrumb */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontSize: '0.88rem',
-          color: 'var(--navy-600)',
-          marginBottom: '1.5rem',
-          fontWeight: 600,
-        }}>
-          <Link to="/dashboard" style={{ color: 'var(--sky-700)' }}>← Back to Student Dashboard</Link>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.88rem',
+            color: 'var(--liquid-navy-muted)',
+            marginBottom: '1.5rem',
+            fontWeight: 700,
+          }}
+        >
+          <Link to="/dashboard" style={{ color: 'var(--accent-cyan-hover)' }}>
+            ← Back to Student Dashboard
+          </Link>
           <span>/</span>
-          <span>Story Generator</span>
+          <span>Visual Lesson Generator</span>
         </div>
 
         {/* If a story is loaded, show the StoryViewer */}
@@ -140,27 +144,36 @@ export const StoryGeneratorPage: React.FC = () => {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', gap: '2.5rem', alignItems: 'start' }}>
             {/* Left: Story Creation Form */}
-            <div className="neoclay-card" style={{ padding: '2.5rem 2.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                <div style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '14px',
-                  background: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.5rem',
-                  boxShadow: 'var(--clay-volume-subtle)',
-                }}>
+            <div
+              className="liquid-glass-card"
+              style={{
+                padding: '2.5rem 2.25rem',
+                borderRadius: 'var(--radius-xl)',
+                background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(221, 242, 255, 0.45) 50%, rgba(255, 228, 239, 0.45) 100%)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 50%, #ec4899 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.65rem',
+                    boxShadow: '0 8px 18px rgba(14, 165, 233, 0.25)',
+                  }}
+                >
                   ✨
                 </div>
                 <div>
-                  <h1 style={{ fontSize: '1.85rem', margin: 0, color: 'var(--navy-950)' }}>
-                    AI Story Generator
+                  <h1 style={{ fontSize: '1.95rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
+                    Visual Learning Generator
                   </h1>
-                  <span style={{ fontSize: '0.88rem', color: 'var(--navy-600)', fontWeight: 600 }}>
-                    Turn your syllabus concepts into engaging cartoon adventures
+                  <span style={{ fontSize: '0.9rem', color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>
+                    Enter any person, university, landmark, or science concept
                   </span>
                 </div>
               </div>
@@ -180,25 +193,23 @@ export const StoryGeneratorPage: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: '1 1 240px' }}>
-                    <span style={{ fontSize: '1.25rem' }}>⚠️</span>
-                    <span style={{ fontSize: '0.92rem', lineHeight: 1.45 }}>{errorMsg}</span>
+                    <span style={{ fontSize: '1.3rem' }}>⚠️</span>
+                    <span style={{ fontSize: '0.94rem', lineHeight: 1.45 }}>{errorMsg}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleGenerate()}
                     disabled={isGenerating}
-                    className="btn-neoclay-secondary"
+                    className="btn-liquid-secondary"
                     style={{
                       padding: '0.45rem 1rem',
                       fontSize: '0.85rem',
                       fontWeight: 700,
-                      color: 'var(--navy-900)',
                       cursor: isGenerating ? 'not-allowed' : 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.4rem',
                       whiteSpace: 'nowrap',
-                      boxShadow: 'var(--shadow-neoclay-flat)',
                     }}
                   >
                     <span>🔄</span>
@@ -208,32 +219,33 @@ export const StoryGeneratorPage: React.FC = () => {
               )}
 
               {/* Generator Form */}
-              <form onSubmit={handleGenerate} style={{ display: 'flex', flexDirection: 'column', gap: '1.35rem', marginTop: '1.5rem' }}>
+              <form
+                onSubmit={handleGenerate}
+                style={{ display: 'flex', flexDirection: 'column', gap: '1.45rem', marginTop: '1.5rem' }}
+              >
                 {/* Topic Input */}
                 <div className="form-group">
                   <label className="form-label" htmlFor="story-topic">
-                    Academic Topic or Curiosity Question
+                    Educational Topic, Person, or Institution
                   </label>
                   <input
                     id="story-topic"
                     type="text"
                     className="form-input"
-                    placeholder="e.g. Photosynthesis, Gravity, How volcano works, Solar System..."
+                    placeholder="e.g. Narendra Modi, Vignan University, Photosynthesis, Binary Search..."
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     disabled={isGenerating}
                     required
                   />
-                  <span style={{ fontSize: '0.78rem', color: 'var(--navy-500)', fontWeight: 600 }}>
-                    Tip: Enter any science, history, or math concept you want to learn.
+                  <span style={{ fontSize: '0.82rem', color: 'var(--liquid-navy-subtle)', fontWeight: 600 }}>
+                    💡 Topic-aware search retrieves official photographs for people/universities, and labeled diagrams for science/tech.
                   </span>
                 </div>
 
                 {/* Language Selector (English, Telugu, Hindi) */}
                 <div className="form-group">
-                  <label className="form-label">
-                    Story Language
-                  </label>
+                  <label className="form-label">Lesson Language</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                     {[
                       { code: 'en' as SupportedLanguage, label: 'English', flag: '🇬🇧' },
@@ -244,15 +256,16 @@ export const StoryGeneratorPage: React.FC = () => {
                         type="button"
                         key={lang.code}
                         onClick={() => setLanguage(lang.code)}
-                        className={language === lang.code ? 'btn-neoclay-primary' : 'btn-neoclay-secondary'}
+                        className={language === lang.code ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
                         style={{
-                          padding: '0.65rem 0.5rem',
-                          fontSize: '0.85rem',
+                          padding: '0.75rem 0.5rem',
+                          fontSize: '0.88rem',
                           flexDirection: 'column',
-                          gap: '0.2rem',
+                          gap: '0.25rem',
+                          borderRadius: 'var(--radius-md)',
                         }}
                       >
-                        <span style={{ fontSize: '1.1rem' }}>{lang.flag}</span>
+                        <span style={{ fontSize: '1.25rem' }}>{lang.flag}</span>
                         <span>{lang.label}</span>
                       </button>
                     ))}
@@ -261,30 +274,29 @@ export const StoryGeneratorPage: React.FC = () => {
 
                 {/* Storytelling Style / Tone Selector */}
                 <div className="form-group">
-                  <label className="form-label">
-                    Storytelling Style
-                  </label>
+                  <label className="form-label">Educational Tone</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                     {[
-                      { toneVal: 'funny' as StoryTone, label: 'Funny', emoji: '🎭', desc: 'Humorous & witty' },
-                      { toneVal: 'adventure' as StoryTone, label: 'Adventure', emoji: '🗺️', desc: 'Exciting discovery' },
-                      { toneVal: 'comic' as StoryTone, label: 'Comic', emoji: '💥', desc: 'Action-packed hero' },
+                      { toneVal: 'funny' as StoryTone, label: 'Funny', emoji: '🎭', desc: 'Witty & playful' },
+                      { toneVal: 'adventure' as StoryTone, label: 'Adventure', emoji: '🗺️', desc: 'Heroic discovery' },
+                      { toneVal: 'comic' as StoryTone, label: 'Comic', emoji: '💥', desc: 'Dynamic superhero' },
                     ].map((item) => (
                       <button
                         type="button"
                         key={item.toneVal}
                         onClick={() => setTone(item.toneVal)}
-                        className={tone === item.toneVal ? 'btn-neoclay-primary' : 'btn-neoclay-secondary'}
+                        className={tone === item.toneVal ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
                         style={{
-                          padding: '0.65rem 0.5rem',
-                          fontSize: '0.85rem',
+                          padding: '0.75rem 0.5rem',
+                          fontSize: '0.88rem',
                           flexDirection: 'column',
-                          gap: '0.2rem',
+                          gap: '0.25rem',
+                          borderRadius: 'var(--radius-md)',
                         }}
                       >
-                        <span style={{ fontSize: '1.2rem' }}>{item.emoji}</span>
+                        <span style={{ fontSize: '1.3rem' }}>{item.emoji}</span>
                         <strong>{item.label}</strong>
-                        <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>{item.desc}</span>
+                        <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>{item.desc}</span>
                       </button>
                     ))}
                   </div>
@@ -292,83 +304,98 @@ export const StoryGeneratorPage: React.FC = () => {
 
                 {/* Difficulty Selector */}
                 <div className="form-group">
-                  <label className="form-label">
-                    Difficulty Level (Optional)
-                  </label>
+                  <label className="form-label">Student Level</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                     {[
-                      { level: 'beginner' as StoryDifficulty, label: 'Beginner', badge: '🌱 Easy & Fun' },
-                      { level: 'intermediate' as StoryDifficulty, label: 'Intermediate', badge: '🧠 Balanced' },
-                      { level: 'advanced' as StoryDifficulty, label: 'Advanced', badge: '🔬 In-depth' },
+                      { level: 'beginner' as StoryDifficulty, label: 'Beginner', badge: '🌱 4-5 Points' },
+                      { level: 'intermediate' as StoryDifficulty, label: 'Intermediate', badge: '🧠 5-6 Points' },
+                      { level: 'advanced' as StoryDifficulty, label: 'Advanced', badge: '🔬 6-7 Points' },
                     ].map((item) => (
                       <button
                         type="button"
                         key={item.level}
                         onClick={() => setDifficulty(item.level)}
-                        className={difficulty === item.level ? 'btn-neoclay-primary' : 'btn-neoclay-secondary'}
+                        className={difficulty === item.level ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
                         style={{
-                          padding: '0.55rem 0.5rem',
-                          fontSize: '0.85rem',
+                          padding: '0.65rem 0.5rem',
+                          fontSize: '0.88rem',
                           flexDirection: 'column',
                           gap: '0.2rem',
+                          borderRadius: 'var(--radius-md)',
                         }}
                       >
                         <strong>{item.label}</strong>
-                        <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>{item.badge}</span>
+                        <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>{item.badge}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Generate Button */}
+                {/* Generate Button with Loading Indicator */}
                 <button
                   type="submit"
                   disabled={isGenerating}
-                  className="btn-neoclay-primary"
+                  className="btn-liquid-primary"
                   style={{
-                    padding: '0.95rem',
-                    fontSize: '1.05rem',
+                    padding: '1.05rem',
+                    fontSize: '1.1rem',
                     marginTop: '0.5rem',
-                    boxShadow: 'var(--shadow-neoclay-btn)',
                   }}
                 >
                   {isGenerating ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <span style={{
-                        width: '18px',
-                        height: '18px',
-                        borderRadius: '50%',
-                        border: '2.5px solid #ffffff',
-                        borderTopColor: 'transparent',
-                        animation: 'spin 0.8s linear infinite',
-                      }} />
-                      Generating Educational Lesson...
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          border: '2.5px solid #ffffff',
+                          borderTopColor: 'transparent',
+                          animation: 'spin 0.8s linear infinite',
+                        }}
+                      />
+                      Generating Point-Wise Visual Lesson...
                     </span>
                   ) : (
-                    '🚀 Generate Educational Lesson'
+                    '🚀 Generate Point-Wise Visual Lesson'
                   )}
                 </button>
               </form>
             </div>
 
-            {/* Right: Built-in Catalog & AI Quota Status */}
+            {/* Right: Built-in Catalog & Provider Metrics */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
               {/* Built-in Examples Card */}
-              <div className="neoclay-card" style={{ padding: '2rem 1.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '1.5rem' }}>📚</span>
+              <div
+                className="liquid-glass-card"
+                style={{
+                  padding: '2rem 1.85rem',
+                  borderRadius: 'var(--radius-xl)',
+                  background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(234, 228, 255, 0.45) 50%, rgba(221, 242, 255, 0.5) 100%)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '1.6rem' }}>📚</span>
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--navy-950)' }}>
-                      Built-in Example Stories
+                    <h3 style={{ fontSize: '1.3rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
+                      Built-in Example Lessons
                     </h3>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--navy-600)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>
                       No AI key required • Instant offline access
                     </span>
                   </div>
                 </div>
 
-                <p style={{ fontSize: '0.88rem', color: 'var(--navy-700)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
-                  Explore these curated, complete educational cartoon stories with full cartoon scene cards and educational explanations:
+                <p
+                  style={{
+                    fontSize: '0.9rem',
+                    color: 'var(--liquid-navy)',
+                    lineHeight: 1.55,
+                    marginBottom: '1.25rem',
+                    fontWeight: 500,
+                  }}
+                >
+                  Explore these curated, complete educational lessons with point-wise explanations and verified public diagrams:
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -376,73 +403,113 @@ export const StoryGeneratorPage: React.FC = () => {
                     <div
                       key={ex.id}
                       onClick={() => handleSelectExample(ex)}
-                      className="neoclay-recessed"
+                      className="liquid-glass-inset"
                       style={{
                         cursor: 'pointer',
-                        padding: '1rem 1.15rem',
-                        transition: 'transform var(--transition-fast)',
+                        padding: '1.05rem 1.25rem',
+                        transition: 'transform var(--transition-fast), border-color var(--transition-fast)',
                       }}
-                      title="Click to view story"
+                      title="Click to view lesson"
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                        <span style={{
-                          fontFamily: 'var(--font-heading)',
-                          fontSize: '0.78rem',
-                          color: 'var(--sky-700)',
-                          fontWeight: 800,
-                        }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '0.35rem',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-heading)',
+                            fontSize: '0.82rem',
+                            color: 'var(--accent-cyan-hover)',
+                            fontWeight: 800,
+                          }}
+                        >
                           {ex.topic}
                         </span>
-                        <span className="neoclay-badge badge-coral" style={{ fontSize: '0.7rem', padding: '0.15rem 0.5rem' }}>
+                        <span className="liquid-badge badge-pink" style={{ fontSize: '0.72rem', padding: '0.15rem 0.55rem' }}>
                           {ex.tone}
                         </span>
                       </div>
-                      <h4 style={{ fontSize: '0.95rem', margin: '0 0 0.35rem', color: 'var(--navy-950)' }}>
+                      <h4 style={{ fontSize: '0.98rem', margin: '0 0 0.35rem', color: 'var(--liquid-navy-dark)' }}>
                         {ex.title}
                       </h4>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--navy-500)', fontWeight: 600 }}>
-                        <span>{ex.keyPoints?.length || 5} Points • {ex.illustrations?.length || 2} Diagrams</span>
-                        <span style={{ color: 'var(--sky-600)', fontWeight: 800 }}>Explore Guide →</span>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '0.8rem',
+                          color: 'var(--liquid-navy-subtle)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <span>{ex.keyPoints?.length || 5} Points • {ex.illustrations?.length || 2} Visuals</span>
+                        <span style={{ color: 'var(--accent-cyan-hover)', fontWeight: 800 }}>Explore Guide →</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* AI Quota & Provider Status Card */}
-              <div className="neoclay-card" style={{ padding: '1.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+              {/* AI Engine & Quota Protection Card */}
+              <div
+                className="liquid-glass-card"
+                style={{
+                  padding: '1.85rem',
+                  borderRadius: 'var(--radius-xl)',
+                  background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 240, 223, 0.45) 50%, rgba(221, 242, 255, 0.5) 100%)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.85rem' }}>
+                  <span style={{ fontSize: '1.4rem' }}>🛡️</span>
                   <div>
-                    <h4 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--navy-950)' }}>
+                    <h4 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
                       AI Engine & Quota Protection
                     </h4>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--navy-600)', fontWeight: 600 }}>
-                      Replaceable Free-Tier Architecture
+                    <span style={{ fontSize: '0.8rem', color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>
+                      Free-Tier Rate Limiting & Wikimedia Caching
                     </span>
                   </div>
                 </div>
 
-                <div className="neoclay-recessed" style={{ padding: '0.85rem 1rem', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                <div
+                  className="liquid-glass-inset"
+                  style={{
+                    padding: '0.95rem 1.15rem',
+                    fontSize: '0.86rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.55rem',
+                  }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--navy-600)', fontWeight: 600 }}>Provider:</span>
-                    <strong style={{ color: 'var(--navy-950)' }}>{providerStatus?.providerName || 'Google Gemini (Free Tier)'}</strong>
+                    <span style={{ color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>Provider:</span>
+                    <strong style={{ color: 'var(--liquid-navy-dark)' }}>
+                      {providerStatus?.providerName || 'Google Gemini (Free Tier)'}
+                    </strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--navy-600)', fontWeight: 600 }}>Live Key Configured:</span>
+                    <span style={{ color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>Live AI Key:</span>
                     {providerStatus?.isConfigured ? (
-                      <span style={{ color: 'var(--clay-mint-dark)', fontWeight: 800 }}>● Active</span>
+                      <span style={{ color: '#047857', fontWeight: 800 }}>● Active</span>
                     ) : (
-                      <span style={{ color: 'var(--clay-yellow-dark)', fontWeight: 800 }}>○ Built-in Fallback Active</span>
+                      <span style={{ color: '#b45309', fontWeight: 800 }}>○ Built-in Fallback Active</span>
                     )}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--navy-600)', fontWeight: 600 }}>Cached Stories:</span>
-                    <strong style={{ color: 'var(--sky-700)' }}>{providerStatus?.cacheStats?.size ?? 0} saved</strong>
+                    <span style={{ color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>Cached Lessons:</span>
+                    <strong style={{ color: 'var(--accent-cyan-hover)' }}>
+                      {providerStatus?.cacheStats?.size ?? 0} saved
+                    </strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--navy-600)', fontWeight: 600 }}>Quota Cache Hits:</span>
-                    <strong style={{ color: 'var(--clay-mint-dark)' }}>{providerStatus?.cacheStats?.hits ?? 0} ({providerStatus?.cacheStats?.hitRate ?? '0%'})</strong>
+                    <span style={{ color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>Quota Cache Hits:</span>
+                    <strong style={{ color: '#047857' }}>
+                      {providerStatus?.cacheStats?.hits ?? 0} ({providerStatus?.cacheStats?.hitRate ?? '0%'})
+                    </strong>
                   </div>
                 </div>
               </div>

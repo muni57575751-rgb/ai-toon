@@ -1,5 +1,9 @@
 @import './tokens.css';
 
+/* =========================================================
+   Base Layout & Liquid Glass Canvas
+   ========================================================= */
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -9,8 +13,8 @@
 html, body {
   min-height: 100vh;
   font-family: var(--font-body);
-  color: var(--navy-900);
-  background: radial-gradient(circle at 15% 15%, #f4faff 0%, #e8f3fc 45%, #e1effa 100%);
+  color: var(--liquid-navy);
+  background: var(--gradient-canvas-mesh);
   background-attachment: fixed;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -18,31 +22,47 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Ambient Clay Glow Elements in Background */
+/* Ambient Floating Pastel Spheres for Liquid Glass Refraction */
 body::before, body::after {
   content: '';
   position: fixed;
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  filter: blur(90px);
-  opacity: 0.55;
+  filter: blur(80px);
+  opacity: 0.75;
 }
 
+/* Top-right Light Pink & Soft Lavender Sphere */
 body::before {
-  top: -10%;
-  right: -5%;
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, #bae6fd 0%, rgba(224, 242, 254, 0) 70%);
+  top: -12%;
+  right: -8%;
+  width: 580px;
+  height: 580px;
+  background: radial-gradient(circle, #ffe4ef 0%, #eae4ff 45%, rgba(255, 255, 255, 0) 75%);
+  animation: liquid-float-1 16s ease-in-out infinite alternate;
 }
 
+/* Bottom-left Sky Blue & Warm Cream Sphere */
 body::after {
   bottom: -15%;
-  left: -8%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, #e0f2fe 0%, rgba(240, 249, 255, 0) 70%);
+  left: -10%;
+  width: 650px;
+  height: 650px;
+  background: radial-gradient(circle, #ddf2ff 0%, #fff0df 50%, rgba(255, 255, 255, 0) 80%);
+  animation: liquid-float-2 18s ease-in-out infinite alternate;
+}
+
+@keyframes liquid-float-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-40px, 30px) scale(1.08); }
+  100% { transform: translate(-20px, 60px) scale(0.96); }
+}
+
+@keyframes liquid-float-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, -40px) scale(1.05); }
+  100% { transform: translate(25px, -70px) scale(0.94); }
 }
 
 #root {
@@ -52,20 +72,20 @@ body::after {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
-  color: var(--navy-950);
-  font-weight: 700;
+  color: var(--liquid-navy-dark);
+  font-weight: 800;
   line-height: 1.25;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  letter-spacing: -0.015em;
 }
 
 a {
-  color: var(--sky-700);
+  color: var(--accent-cyan-hover);
   text-decoration: none;
   transition: all var(--transition-fast);
 }
 
 a:hover {
-  color: var(--sky-500);
+  color: var(--accent-cyan);
 }
 
 button {
@@ -73,25 +93,25 @@ button {
   cursor: pointer;
   border: none;
   outline: none;
+  transition: all var(--transition-fast);
 }
 
-/* Neoclay Custom Scrollbar */
+/* Liquid Glass Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 12px;
+  width: 11px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--clay-bg-start);
-  box-shadow: var(--neo-inset-sm);
-  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, var(--sky-200), var(--sky-300));
+  background: linear-gradient(180deg, rgba(221, 242, 255, 0.9), rgba(234, 228, 255, 0.9));
   border-radius: var(--radius-pill);
-  box-shadow: var(--clay-volume-subtle);
-  border: 2px solid var(--clay-bg-start);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(36, 50, 75, 0.1);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--sky-300), var(--sky-400));
+  background: linear-gradient(180deg, #bae6fd, #c4b5fd);
 }
 
 /* Container */
@@ -103,135 +123,286 @@ button {
 }
 
 /* =========================================================
-   Neoclay (Neomorphic + Claymorphic) Base Components
+   Liquid Glass Core Surfaces & Panels
    ========================================================= */
 
-/* Plump, convex clay card with soft dual neumorphic drop shadow */
+/* Primary Translucent Liquid Glass Card */
+.liquid-glass-card,
 .neoclay-card {
-  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface-card) 100%);
+  background: var(--gradient-glass-card);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-radius: var(--radius-lg);
-  border: var(--clay-border-card);
-  box-shadow: var(--shadow-neoclay-card);
+  border: var(--liquid-border-card);
+  box-shadow: var(--shadow-liquid-glass);
   padding: 2rem;
-  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth), border-color var(--transition-fast);
   position: relative;
+  overflow: hidden;
 }
 
+.liquid-glass-card::before,
+.neoclay-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.liquid-glass-card:hover,
 .neoclay-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-neoclay-card-hover);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-liquid-hover);
+  border-color: rgba(255, 255, 255, 1);
 }
 
-/* Recessed Inset Clay Well (Molded deeply into the surface) */
+/* Translucent Layered Inset Well */
+.liquid-glass-inset,
 .neoclay-recessed {
-  background: var(--clay-surface);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
   border-radius: var(--radius-md);
-  border: var(--clay-border-recessed);
-  box-shadow: var(--neo-inset-md);
+  border: var(--liquid-border-input);
+  box-shadow: var(--shadow-liquid-inset);
   padding: 1.25rem 1.5rem;
 }
 
-/* Pill & Badges: Tactile Candy Clay */
+/* =========================================================
+   Pastel Cartoon Badges & Pills
+   ========================================================= */
+
+.liquid-badge,
 .neoclay-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   font-family: var(--font-heading);
   font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.45rem 1rem;
+  font-weight: 700;
+  padding: 0.38rem 0.95rem;
   border-radius: var(--radius-pill);
-  border: var(--clay-border-subtle);
-  transition: all var(--transition-fast);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   cursor: default;
 }
 
-.badge-sky {
-  background: linear-gradient(145deg, #e0f2fe 0%, #bae6fd 100%);
-  color: var(--navy-900);
-  box-shadow: 4px 5px 12px rgba(14, 165, 233, 0.22), -3px -3px 8px #ffffff, var(--clay-volume-badge);
+.liquid-badge:hover,
+.neoclay-badge:hover {
+  transform: translateY(-1px);
 }
 
-.badge-yellow {
-  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
-  color: var(--clay-yellow-dark);
-  box-shadow: 4px 5px 12px rgba(245, 158, 11, 0.2), -3px -3px 8px #ffffff, var(--clay-volume-badge);
+/* 1. Sky Blue Badge */
+.badge-sky,
+.badge-blue {
+  background: linear-gradient(135deg, rgba(221, 242, 255, 0.9) 0%, rgba(186, 230, 253, 0.8) 100%);
+  color: var(--liquid-navy);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-color: rgba(186, 230, 253, 0.8);
 }
 
-.badge-green {
-  background: linear-gradient(145deg, #f0fdf4 0%, #d1fae5 100%);
-  color: var(--clay-mint-dark);
-  box-shadow: 4px 5px 12px rgba(16, 185, 129, 0.2), -3px -3px 8px #ffffff, var(--clay-volume-badge);
-}
-
-.badge-purple {
-  background: linear-gradient(145deg, #faf5ff 0%, #ede9fe 100%);
-  color: var(--clay-purple-dark);
-  box-shadow: 4px 5px 12px rgba(139, 92, 246, 0.2), -3px -3px 8px #ffffff, var(--clay-volume-badge);
-}
-
+/* 2. Light Pink Badge */
+.badge-pink,
 .badge-coral {
-  background: linear-gradient(145deg, #fff1f2 0%, #ffe4e6 100%);
-  color: var(--clay-coral-dark);
-  box-shadow: 4px 5px 12px rgba(244, 63, 94, 0.2), -3px -3px 8px #ffffff, var(--clay-volume-badge);
+  background: linear-gradient(135deg, rgba(255, 228, 239, 0.95) 0%, rgba(254, 205, 226, 0.8) 100%);
+  color: #9d174d;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-color: rgba(254, 205, 226, 0.8);
 }
 
-/* Plump 3D Clay Action Button */
-.btn-neoclay-primary {
+/* 3. Soft Lavender Badge */
+.badge-lavender,
+.badge-purple {
+  background: linear-gradient(135deg, rgba(234, 228, 255, 0.95) 0%, rgba(216, 204, 255, 0.8) 100%);
+  color: #5b21b6;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-color: rgba(216, 204, 255, 0.8);
+}
+
+/* 4. Warm Cream Badge */
+.badge-cream,
+.badge-yellow,
+.badge-amber {
+  background: linear-gradient(135deg, rgba(255, 240, 223, 0.95) 0%, rgba(254, 228, 199, 0.8) 100%);
+  color: #92400e;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-color: rgba(254, 228, 199, 0.8);
+}
+
+/* 5. Mint / Success Badge */
+.badge-mint,
+.badge-green {
+  background: linear-gradient(135deg, rgba(209, 250, 229, 0.92) 0%, rgba(167, 243, 208, 0.8) 100%);
+  color: #065f46;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-color: rgba(167, 243, 208, 0.8);
+}
+
+/* 6. Navy Badge */
+.badge-navy {
+  background: linear-gradient(135deg, rgba(36, 50, 75, 0.9) 0%, rgba(22, 32, 50, 0.95) 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(22, 32, 50, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* =========================================================
+   Liquid Glass Buttons
+   ========================================================= */
+
+/* Primary Glossy Button */
+.btn-liquid-primary,
+.btn-neoclay-primary,
+.neoclay-btn.btn-primary {
+  font-family: var(--font-heading);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  font-family: var(--font-heading);
-  font-size: 1rem;
-  font-weight: 700;
-  padding: 0.85rem 1.75rem;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  background: var(--gradient-liquid-button);
   color: #ffffff;
-  border: 1.5px solid rgba(255, 255, 255, 0.6);
-  box-shadow: var(--shadow-neoclay-btn);
-  transition: all var(--transition-fast);
-  text-shadow: 0 1px 2px rgba(2, 44, 77, 0.35);
-  user-select: none;
+  font-size: 0.98rem;
+  font-weight: 700;
+  padding: 0.75rem 1.65rem;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  box-shadow: var(--shadow-liquid-button);
+  letter-spacing: 0.02em;
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
 }
 
-.btn-neoclay-primary:hover {
-  transform: translateY(-3px) scale(1.02);
-  background: linear-gradient(135deg, #7dd3fc 0%, #0ea5e9 100%);
-  box-shadow: 8px 14px 26px rgba(14, 165, 233, 0.45), -6px -6px 14px #ffffff, inset 3px 3px 6px rgba(255, 255, 255, 0.95);
+.btn-liquid-primary::after,
+.btn-neoclay-primary::after,
+.neoclay-btn.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
-.btn-neoclay-primary:active {
-  transform: translateY(2px) scale(0.98);
-  box-shadow: var(--shadow-neoclay-btn-active);
+.btn-liquid-primary:hover,
+.btn-neoclay-primary:hover,
+.neoclay-btn.btn-primary:hover {
+  transform: translateY(-2px);
+  background: var(--gradient-liquid-button-hover);
+  box-shadow: 0 12px 28px -2px rgba(14, 165, 233, 0.45), 0 4px 12px rgba(99, 102, 241, 0.3);
+  color: #ffffff;
 }
 
-/* Secondary Neumorphic Inflated Button */
-.btn-neoclay-secondary {
+.btn-liquid-primary:active,
+.btn-neoclay-primary:active,
+.neoclay-btn.btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+/* Secondary Translucent Glass Button */
+.btn-liquid-secondary,
+.btn-neoclay-secondary,
+.neoclay-btn.btn-secondary {
+  font-family: var(--font-heading);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-family: var(--font-heading);
-  font-size: 0.92rem;
-  font-weight: 600;
-  padding: 0.65rem 1.35rem;
+  gap: 0.55rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  color: var(--liquid-navy);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.7rem 1.45rem;
   border-radius: var(--radius-pill);
-  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface) 100%);
-  color: var(--navy-800);
-  border: var(--clay-border-card);
-  box-shadow: var(--neo-shadow-sm), var(--clay-volume-subtle);
+  border: var(--liquid-border-card);
+  box-shadow: var(--shadow-liquid-subtle);
   transition: all var(--transition-fast);
 }
 
-.btn-neoclay-secondary:hover {
+.btn-liquid-secondary:hover,
+.btn-neoclay-secondary:hover,
+.neoclay-btn.btn-secondary:hover {
   transform: translateY(-2px);
-  box-shadow: var(--neo-shadow-md), var(--clay-volume-subtle);
-  color: var(--sky-700);
+  background: #ffffff;
+  border-color: rgba(14, 165, 233, 0.4);
+  color: var(--accent-cyan-hover);
+  box-shadow: 0 8px 22px rgba(36, 50, 75, 0.08);
 }
 
-.btn-neoclay-secondary:active {
-  transform: translateY(1px);
-  box-shadow: var(--neo-inset-sm);
+/* =========================================================
+   Liquid Glass Inputs & Form Controls
+   ========================================================= */
+
+.liquid-glass-input,
+.form-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(221, 242, 255, 0.9);
+  box-shadow: var(--shadow-liquid-inset);
+  color: var(--liquid-navy-dark);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.liquid-glass-input:focus,
+.form-input:focus {
+  border-color: var(--accent-cyan);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15), var(--shadow-liquid-inset);
+}
+
+.liquid-glass-input::placeholder,
+.form-input::placeholder {
+  color: var(--liquid-navy-subtle);
+}
+
+/* =========================================================
+   Cartoon Accents & Mascot Floats
+   ========================================================= */
+
+.cartoon-mascot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ddf2ff 0%, #ffe4ef 50%, #eae4ff 100%);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.18), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+  font-size: 1.6rem;
+  animation: cartoon-wiggle 4s ease-in-out infinite;
+}
+
+@keyframes cartoon-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
+
+/* Accessible Reduced Motion Settings */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::before, body::after {
+    animation: none !important;
+  }
 }

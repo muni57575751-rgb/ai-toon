@@ -1,17 +1,50 @@
 :root {
   /* =========================================================
-     Neomorphic & Claymorphic (Neoclay) Design Tokens
+     AI Toon Liquid Glass Design System Tokens
+     Palette: White, Light Pink, Sky Blue, Soft Lavender, Warm Cream, Deep Navy
      ========================================================= */
 
-  /* Base Canvas & Clay Palette */
-  --clay-bg-start: #e8f3fc;
-  --clay-bg-mid: #f0f7fe;
-  --clay-bg-end: #e4f0fa;
-  --clay-surface: #edf6fd;
-  --clay-surface-white: #ffffff;
-  --clay-surface-card: #f5faff;
+  /* Specified Core Brand Palette */
+  --liquid-white: #ffffff;
+  --liquid-pink: #ffe4ef;
+  --liquid-pink-soft: rgba(255, 228, 239, 0.65);
+  --liquid-pink-glow: rgba(255, 228, 239, 0.4);
 
-  /* Sky-Blue Clay Spectrum */
+  --liquid-blue: #ddf2ff;
+  --liquid-blue-soft: rgba(221, 242, 255, 0.65);
+  --liquid-blue-glow: rgba(221, 242, 255, 0.45);
+
+  --liquid-lavender: #eae4ff;
+  --liquid-lavender-soft: rgba(234, 228, 255, 0.65);
+  --liquid-lavender-glow: rgba(234, 228, 255, 0.4);
+
+  --liquid-cream: #fff0df;
+  --liquid-cream-soft: rgba(255, 240, 223, 0.7);
+  --liquid-cream-glow: rgba(255, 240, 223, 0.45);
+
+  --liquid-navy: #24324b;
+  --liquid-navy-dark: #162032;
+  --liquid-navy-muted: #3f506b;
+  --liquid-navy-subtle: #61728d;
+  --liquid-navy-border: rgba(36, 50, 75, 0.1);
+
+  /* Vivid Cartoon Educational Accents */
+  --accent-cyan: #0ea5e9;
+  --accent-cyan-hover: #0284c7;
+  --accent-indigo: #6366f1;
+  --accent-pink: #ec4899;
+  --accent-amber: #f59e0b;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
+
+  /* Backward Compatibility Aliases for Existing Components */
+  --clay-bg-start: #f4f8fe;
+  --clay-bg-mid: #fdf6fa;
+  --clay-bg-end: #f5f3ff;
+  --clay-surface: rgba(255, 255, 255, 0.75);
+  --clay-surface-white: #ffffff;
+  --clay-surface-card: rgba(255, 255, 255, 0.85);
+
   --sky-50: #f0f9ff;
   --sky-100: #e0f2fe;
   --sky-200: #bae6fd;
@@ -21,40 +54,32 @@
   --sky-600: #0284c7;
   --sky-700: #0369a1;
 
-  /* Deep Navy Text */
-  --navy-950: #091a33;
-  --navy-900: #0f2747;
-  --navy-800: #19385f;
-  --navy-700: #264a78;
-  --navy-600: #3b6091;
-  --navy-500: #5579aa;
-  --navy-300: #93b3db;
-  --navy-200: #cadcf2;
-  --navy-100: #e7f0fa;
+  --navy-950: var(--liquid-navy-dark);
+  --navy-900: var(--liquid-navy);
+  --navy-800: #2c3c58;
+  --navy-700: var(--liquid-navy-muted);
+  --navy-600: var(--liquid-navy-subtle);
+  --navy-500: #7b8ba5;
+  --navy-400: #9eabc1;
+  --navy-300: #c4d0e2;
+  --navy-200: #e2e9f3;
+  --navy-100: #f1f5fa;
 
-  /* Pastel Clay Accents */
   --clay-yellow: #fbbf24;
-  --clay-yellow-surface: #fef9e7;
   --clay-yellow-dark: #b45309;
-
   --clay-coral: #fb7185;
-  --clay-coral-surface: #fff1f2;
   --clay-coral-dark: #be123c;
-
   --clay-mint: #34d399;
-  --clay-mint-surface: #ecfdf5;
   --clay-mint-dark: #047857;
-
   --clay-purple: #a78bfa;
-  --clay-purple-surface: #f5f3ff;
   --clay-purple-dark: #6d28d9;
 
   /* Typography */
-  --font-heading: 'Fredoka', 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Fredoka', 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* Curvatures (Generous, inflated Clay Radii) */
-  --radius-xs: 10px;
+  /* Generous Rounded Radii */
+  --radius-xs: 8px;
   --radius-sm: 14px;
   --radius-md: 20px;
   --radius-lg: 28px;
@@ -62,68 +87,98 @@
   --radius-pill: 9999px;
 
   /* =========================================================
-     Neomorphic & Claymorphic Dual-Light Shadow Systems
-     Light Source: Top-Left (White highlights)
-     Ambient Occlusion: Bottom-Right (Soft blue-tinted shadows)
+     Liquid Glass Shader & Translucent Shadow System
      ========================================================= */
 
-  /* Extruded Neumorphic Elevation (Outer) */
-  --neo-shadow-sm: 6px 6px 14px rgba(12, 58, 96, 0.09), -6px -6px 14px #ffffff;
-  --neo-shadow-md: 10px 14px 26px rgba(12, 58, 96, 0.11), -10px -10px 22px #ffffff;
-  --neo-shadow-lg: 16px 22px 38px rgba(12, 58, 96, 0.14), -14px -14px 30px #ffffff;
-  --neo-shadow-float: 20px 28px 48px rgba(12, 58, 96, 0.18), -16px -16px 36px #ffffff;
+  /* Multi-color Pastel Mesh Gradients */
+  --gradient-canvas-mesh:
+    radial-gradient(at 0% 0%, rgba(221, 242, 255, 0.75) 0px, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(255, 228, 239, 0.7) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(234, 228, 255, 0.65) 0px, transparent 55%),
+    radial-gradient(at 0% 100%, rgba(255, 240, 223, 0.75) 0px, transparent 50%),
+    linear-gradient(135deg, #ffffff 0%, #f6faff 100%);
 
-  /* Inset Neumorphic Well (Pressed / Recessed) */
-  --neo-inset-sm: inset 3px 3px 7px rgba(12, 58, 96, 0.12), inset -3px -3px 7px #ffffff;
-  --neo-inset-md: inset 6px 6px 14px rgba(12, 58, 96, 0.14), inset -6px -6px 14px #ffffff;
-  --neo-inset-lg: inset 8px 8px 18px rgba(12, 58, 96, 0.16), inset -8px -8px 18px #ffffff;
+  --gradient-glass-card:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 240, 223, 0.35) 25%,
+      rgba(221, 242, 255, 0.45) 60%,
+      rgba(234, 228, 255, 0.5) 100%
+    );
 
-  /* Claymorphic 3D Volume (Dual Inset Convex Pillows) */
-  --clay-volume-subtle:
-    inset 2px 2px 5px rgba(255, 255, 255, 0.95),
-    inset -3px -3px 7px rgba(12, 58, 96, 0.08);
+  --gradient-glass-card-hover:
+    linear-gradient(145deg,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 228, 239, 0.45) 30%,
+      rgba(221, 242, 255, 0.55) 70%,
+      rgba(234, 228, 255, 0.6) 100%
+    );
 
-  --clay-volume-card:
-    inset 3px 3px 6px rgba(255, 255, 255, 0.95),
-    inset -4px -4px 9px rgba(12, 58, 96, 0.07);
+  --gradient-glass-panel:
+    linear-gradient(135deg,
+      rgba(255, 255, 255, 0.75) 0%,
+      rgba(255, 255, 255, 0.4) 100%
+    );
 
-  --clay-volume-button:
-    inset 3px 3px 6px rgba(255, 255, 255, 0.85),
-    inset -3px -3px 8px rgba(3, 105, 161, 0.28);
+  --gradient-liquid-primary:
+    linear-gradient(135deg, #0ea5e9 0%, #6366f1 50%, #ec4899 100%);
 
-  --clay-volume-badge:
-    inset 2px 2px 4px rgba(255, 255, 255, 0.9),
-    inset -2px -2px 5px rgba(0, 0, 0, 0.08);
+  --gradient-liquid-button:
+    linear-gradient(135deg, #38bdf8 0%, #0284c7 60%, #4f46e5 100%);
 
-  /* Full Hybrid Combo: Neoclay (Outer Neumorphic + Inner Clay Volume) */
-  --shadow-neoclay-card:
-    10px 14px 28px rgba(14, 73, 115, 0.11),
-    -10px -10px 22px #ffffff,
-    inset 2px 2px 5px rgba(255, 255, 255, 0.95),
-    inset -3px -3px 8px rgba(14, 73, 115, 0.06);
+  --gradient-liquid-button-hover:
+    linear-gradient(135deg, #60a5fa 0%, #0ea5e9 50%, #ec4899 100%);
 
-  --shadow-neoclay-card-hover:
-    16px 22px 38px rgba(14, 73, 115, 0.16),
-    -12px -12px 28px #ffffff,
-    inset 3px 3px 6px rgba(255, 255, 255, 1),
-    inset -4px -4px 9px rgba(14, 73, 115, 0.08);
+  /* Translucent Liquid Glass Shadows with Subsurface Glow */
+  --shadow-liquid-subtle:
+    0 4px 16px -2px rgba(36, 50, 75, 0.05),
+    0 2px 6px -1px rgba(36, 50, 75, 0.03),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
 
-  --shadow-neoclay-btn:
-    6px 10px 20px rgba(14, 165, 233, 0.35),
-    -4px -4px 12px #ffffff,
-    inset 3px 3px 6px rgba(255, 255, 255, 0.8),
-    inset -4px -4px 8px rgba(2, 132, 199, 0.3);
+  --shadow-liquid-glass:
+    0 16px 36px -6px rgba(36, 50, 75, 0.09),
+    0 6px 16px -2px rgba(36, 50, 75, 0.04),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 2px 0 rgba(221, 242, 255, 0.4);
 
-  --shadow-neoclay-btn-active:
-    inset 4px 4px 10px rgba(2, 132, 199, 0.4),
-    inset -3px -3px 8px rgba(255, 255, 255, 0.8);
+  --shadow-liquid-hover:
+    0 22px 48px -8px rgba(36, 50, 75, 0.13),
+    0 8px 20px -3px rgba(36, 50, 75, 0.06),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 1),
+    inset 0 -2px 3px 0 rgba(234, 228, 255, 0.5);
 
-  /* Translucent Frosted Glass-Clay Borders */
-  --clay-border-card: 1.5px solid rgba(255, 255, 255, 0.85);
-  --clay-border-subtle: 1px solid rgba(255, 255, 255, 0.65);
-  --clay-border-recessed: 1.5px solid rgba(196, 221, 246, 0.6);
+  --shadow-liquid-inset:
+    inset 0 2px 5px 0 rgba(36, 50, 75, 0.07),
+    inset 0 -1px 2px 0 rgba(255, 255, 255, 0.8),
+    0 1px 2px 0 rgba(255, 255, 255, 0.9);
 
-  /* Transitions */
-  --transition-fast: 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
-  --transition-smooth: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --shadow-liquid-button:
+    0 8px 24px -2px rgba(14, 165, 233, 0.35),
+    0 3px 8px -1px rgba(99, 102, 241, 0.25),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -2px 4px 0 rgba(2, 132, 199, 0.4);
+
+  /* Fine Semi-transparent Borders */
+  --liquid-border-glass: 1.5px solid rgba(255, 255, 255, 0.85);
+  --liquid-border-card: 1.5px solid rgba(255, 255, 255, 0.9);
+  --liquid-border-panel: 1px solid rgba(234, 228, 255, 0.7);
+  --liquid-border-input: 1.5px solid rgba(221, 242, 255, 0.9);
+
+  /* Legacy Clay Aliases mapped to Liquid Glass */
+  --clay-border-card: var(--liquid-border-card);
+  --clay-border-subtle: var(--liquid-border-panel);
+  --clay-border-recessed: var(--liquid-border-input);
+  --shadow-neoclay-card: var(--shadow-liquid-glass);
+  --shadow-neoclay-card-hover: var(--shadow-liquid-hover);
+  --neo-shadow-sm: var(--shadow-liquid-subtle);
+  --neo-shadow-md: var(--shadow-liquid-glass);
+  --neo-shadow-lg: var(--shadow-liquid-hover);
+  --neo-inset-sm: var(--shadow-liquid-inset);
+  --neo-inset-md: var(--shadow-liquid-inset);
+  --clay-volume-subtle: inset 0 1px 2px rgba(255, 255, 255, 0.9);
+
+  /* Animation Timings */
+  --transition-fast: 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-smooth: 0.32s cubic-bezier(0.34, 1.45, 0.64, 1);
+  --transition-bounce: 0.45s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }

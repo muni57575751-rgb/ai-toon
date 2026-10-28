@@ -434,14 +434,16 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
 
   return (
     <div
-      className="neoclay-card"
+      className="liquid-glass-card"
       style={{
         margin: '2rem 0',
-        padding: '1.25rem',
+        padding: '1.5rem',
         borderRadius: 'var(--radius-xl)',
-        background: '#ffffff',
-        border: '2px solid rgba(14, 165, 233, 0.25)',
-        boxShadow: '0 16px 32px rgba(15, 43, 72, 0.08), inset 2px 2px 4px rgba(255, 255, 255, 0.9)',
+        background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(221, 242, 255, 0.45) 50%, rgba(255, 228, 239, 0.45) 100%)',
+        backdropFilter: 'blur(18px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(18px) saturate(160%)',
+        border: '1.5px solid rgba(255, 255, 255, 0.95)',
+        boxShadow: 'var(--shadow-liquid-glass)',
         overflow: 'hidden',
       }}
     >
@@ -451,17 +453,17 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: '0.85rem',
+          marginBottom: '1rem',
           flexWrap: 'wrap',
-          gap: '0.5rem',
+          gap: '0.65rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span
-            className="neoclay-badge badge-sky"
+            className="liquid-badge badge-blue"
             style={{
               fontWeight: 800,
-              fontSize: '0.78rem',
+              fontSize: '0.8rem',
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
             }}
@@ -471,9 +473,9 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           <h4
             style={{
               margin: 0,
-              fontSize: '1.05rem',
+              fontSize: '1.15rem',
               fontWeight: 800,
-              color: 'var(--navy-900)',
+              color: 'var(--liquid-navy-dark)',
             }}
           >
             {title || 'Concept Illustration'}
@@ -481,11 +483,11 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
         </div>
 
         {imageUrl && !imageError ? (
-          <span className="neoclay-badge badge-mint" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem', fontWeight: 700 }}>
-            ✓ Verified Public Diagram
+          <span className="liquid-badge badge-mint" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', fontWeight: 700 }}>
+            ✓ Verified Public Media
           </span>
         ) : (
-          <span className="neoclay-badge badge-sky" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem', fontWeight: 700 }}>
+          <span className="liquid-badge badge-lavender" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', fontWeight: 700 }}>
             Topic Diagram
           </span>
         )}
@@ -500,25 +502,27 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          background: '#f8fafc',
-          border: '1px solid rgba(226, 232, 240, 0.9)',
-          padding: imageUrl && !imageError ? '0.75rem' : '0',
+          background: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(10px)',
+          border: '1.5px solid rgba(255, 255, 255, 0.9)',
+          boxShadow: 'var(--shadow-liquid-inset)',
+          padding: imageUrl && !imageError ? '0.85rem' : '0',
         }}
       >
         {imageUrl && !imageError ? (
           <img
             src={thumbnailUrl || imageUrl}
-            alt={title ? `${title} - educational diagram` : 'Educational concept diagram'}
+            alt={title ? `${title} - educational visual` : 'Educational concept visual'}
             loading="lazy"
             onError={() => setImageError(true)}
             style={{
               maxWidth: '100%',
-              maxHeight: '440px',
+              maxHeight: '460px',
               width: 'auto',
               height: 'auto',
               objectFit: 'contain',
               borderRadius: 'var(--radius-md)',
-              boxShadow: '0 4px 12px rgba(15, 43, 72, 0.06)',
+              boxShadow: '0 6px 18px rgba(36, 50, 75, 0.08)',
             }}
           />
         ) : (
@@ -529,19 +533,22 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
       {/* Educational Caption & Source Attribution */}
       <div
         style={{
-          marginTop: '0.85rem',
-          padding: '0.95rem 1.15rem',
+          marginTop: '1rem',
+          padding: '1.1rem 1.35rem',
           borderRadius: 'var(--radius-md)',
-          background: 'rgba(240, 249, 255, 0.75)',
-          borderLeft: '4px solid var(--sky-500)',
+          background: 'rgba(255, 255, 255, 0.75)',
+          backdropFilter: 'blur(12px)',
+          borderLeft: '4px solid var(--accent-cyan)',
+          border: '1px solid rgba(221, 242, 255, 0.9)',
+          boxShadow: '0 4px 14px rgba(36, 50, 75, 0.04)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.65rem',
+          gap: '0.75rem',
         }}
       >
-        <div style={{ fontSize: '0.92rem', color: 'var(--navy-800)', lineHeight: 1.55 }}>
-          <strong>Concept Guide: </strong>
-          {caption || description || 'Detailed diagram illustrating the educational concept.'}
+        <div style={{ fontSize: '0.96rem', color: 'var(--liquid-navy)', lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--liquid-navy-dark)' }}>Visual Guide: </strong>
+          {caption || description || 'Authentic educational visual illustrating the concept.'}
         </div>
 
         {/* Source and License Attribution */}
@@ -552,21 +559,21 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: '0.5rem',
-              paddingTop: '0.55rem',
-              borderTop: '1px solid rgba(14, 165, 233, 0.2)',
-              fontSize: '0.78rem',
-              color: 'var(--navy-600)',
+              gap: '0.65rem',
+              paddingTop: '0.65rem',
+              borderTop: '1px solid rgba(221, 242, 255, 0.85)',
+              fontSize: '0.82rem',
+              color: 'var(--liquid-navy-muted)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span>📷 <strong>Source:</strong></span>
               {sourcePageUrl ? (
                 <a
                   href={sourcePageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: 'var(--sky-700)', textDecoration: 'underline', fontWeight: 600 }}
+                  style={{ color: 'var(--accent-cyan-hover)', textDecoration: 'underline', fontWeight: 700 }}
                   title="View original image on Wikimedia Commons"
                 >
                   {sourceType === 'wikimedia' ? 'Wikimedia Commons ↗' : 'Public Media ↗'}
@@ -580,7 +587,7 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
 
             {license && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span className="neoclay-badge badge-sky" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}>
+                <span className="liquid-badge badge-blue" style={{ fontSize: '0.74rem', padding: '0.2rem 0.6rem' }}>
                   {licenseUrl ? (
                     <a
                       href={licenseUrl}

@@ -5,35 +5,52 @@
 }
 
 /* =========================================================
-   Hero Banner — Neomorphic & Claymorphic (Neoclay)
+   Hero Banner — Liquid Glass Redesign
    ========================================================= */
 .hero-banner {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%);
+  background: var(--gradient-glass-card);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
   border-radius: var(--radius-xl);
-  border: var(--clay-border-card);
-  box-shadow: var(--shadow-neoclay-card);
+  border: var(--liquid-border-card);
+  box-shadow: var(--shadow-liquid-glass);
   display: grid;
   grid-template-columns: 1.35fr 1fr;
   gap: 2.5rem;
   align-items: center;
-  padding: 3rem;
+  padding: 3.25rem 3rem;
   margin-top: 1.5rem;
   margin-bottom: 2.5rem;
   position: relative;
   overflow: hidden;
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 
-/* Subtle decorative clay bubble in hero background */
+/* Liquid reflection highlight */
 .hero-banner::before {
   content: '';
   position: absolute;
-  top: -80px;
-  right: -60px;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(186, 230, 253, 0.45) 0%, rgba(224, 242, 254, 0) 70%);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 35%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
   pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Ambient pastel bloom inside hero */
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -50px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 228, 239, 0.65) 0%, rgba(234, 228, 255, 0.4) 50%, rgba(255, 255, 255, 0) 75%);
+  pointer-events: none;
+  filter: blur(20px);
 }
 
 /* Prominent Hero Brand Callout Badge */
@@ -41,11 +58,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface) 100%);
-  border: var(--clay-border-card);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: var(--liquid-border-card);
   border-radius: var(--radius-pill);
   padding: 0.45rem 1.25rem 0.45rem 0.5rem;
-  box-shadow: var(--neo-shadow-sm), var(--clay-volume-subtle);
+  box-shadow: var(--shadow-liquid-subtle);
   margin-bottom: 1.25rem;
   width: fit-content;
   transition: transform var(--transition-fast);
@@ -59,46 +77,45 @@
   font-family: var(--font-heading);
   font-size: 0.95rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: var(--gradient-liquid-button);
   color: #ffffff;
-  padding: 0.3rem 0.9rem;
+  padding: 0.3rem 0.95rem;
   border-radius: var(--radius-pill);
-  box-shadow: 2px 4px 10px rgba(14, 165, 233, 0.4), inset 2px 2px 4px rgba(255, 255, 255, 0.75);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.85);
   letter-spacing: 0.05em;
-  text-shadow: 0 1px 2px rgba(2, 44, 77, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .brand-pill-desc {
   font-family: var(--font-heading);
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--navy-800);
+  color: var(--liquid-navy);
 }
 
 .hero-title {
   font-size: 2.45rem;
   margin-bottom: 1.15rem;
   letter-spacing: -0.025em;
-  color: var(--navy-950);
+  color: var(--liquid-navy-dark);
+  line-height: 1.22;
 }
 
-/* Glowing, Tactile Brand Name In Hero Heading */
+/* Glowing Liquid Brand Name In Hero Heading */
 .hero-brand-name {
   display: inline-block;
   font-weight: 800;
-  color: var(--sky-600);
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  color: var(--accent-cyan-hover);
+  background: linear-gradient(135deg, rgba(221, 242, 255, 0.9) 0%, rgba(234, 228, 255, 0.85) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
   padding: 0.15rem 0.85rem;
-  border-radius: 16px;
-  box-shadow: 4px 6px 14px rgba(14, 165, 233, 0.25), inset 2px 2px 5px #ffffff, inset -2px -2px 6px rgba(2, 132, 199, 0.25);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.18), inset 0 1px 2px #ffffff;
   margin: 0 0.25rem;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .highlight-text {
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  background: var(--gradient-liquid-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
@@ -107,10 +124,10 @@
 
 .hero-description {
   font-size: 1.08rem;
-  color: var(--navy-700);
+  color: var(--liquid-navy-muted);
   line-height: 1.65;
   margin-bottom: 1.75rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .hero-tags {
@@ -119,28 +136,31 @@
   gap: 0.75rem;
 }
 
-/* Tactile Candy Clay Style Tags */
+/* Translucent Pastel Style Tags */
 .style-tag {
-  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface) 100%);
-  border: var(--clay-border-card);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: var(--liquid-border-panel);
   border-radius: var(--radius-pill);
   padding: 0.45rem 1rem;
   font-family: var(--font-heading);
   font-weight: 700;
   font-size: 0.88rem;
-  color: var(--navy-800);
-  box-shadow: 4px 6px 14px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff, var(--clay-volume-subtle);
+  color: var(--liquid-navy);
+  box-shadow: var(--shadow-liquid-subtle);
   transition: all var(--transition-fast);
   cursor: default;
 }
 
 .style-tag:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 6px 10px 18px rgba(12, 58, 96, 0.12), -4px -4px 10px #ffffff, var(--clay-volume-subtle);
-  color: var(--sky-700);
+  transform: translateY(-2px) scale(1.02);
+  background: #ffffff;
+  border-color: rgba(14, 165, 233, 0.4);
+  color: var(--accent-cyan-hover);
+  box-shadow: 0 6px 18px rgba(36, 50, 75, 0.08);
 }
 
-/* Hero 3D Tactile Floating Clay Totem */
+/* Hero 3D Tactile Floating Cartoon Mascot Card */
 .hero-illustration {
   display: flex;
   justify-content: center;
@@ -148,13 +168,14 @@
 }
 
 .floating-toon-card {
-  background: linear-gradient(145deg, #ffffff 0%, #e0f2fe 100%);
-  border: var(--clay-border-card);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(221, 242, 255, 0.6) 45%, rgba(255, 228, 239, 0.6) 100%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: var(--liquid-border-card);
   border-radius: var(--radius-xl);
   padding: 2.25rem 2rem;
-  box-shadow: 16px 24px 44px rgba(14, 73, 115, 0.16), -12px -12px 28px #ffffff, inset 4px 4px 8px rgba(255, 255, 255, 0.95), inset -5px -5px 12px rgba(14, 165, 233, 0.18);
+  box-shadow: var(--shadow-liquid-hover);
   text-align: center;
-  animation: neoclay-float 4.5s ease-in-out infinite;
+  animation: liquid-card-float 4.5s ease-in-out infinite;
   max-width: 320px;
   width: 100%;
 }
@@ -163,14 +184,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: var(--gradient-liquid-button);
   color: #ffffff;
   font-family: var(--font-heading);
   font-size: 0.85rem;
   font-weight: 800;
   padding: 0.35rem 0.95rem;
   border-radius: var(--radius-pill);
-  box-shadow: 2px 4px 10px rgba(14, 165, 233, 0.35), inset 2px 2px 4px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.8);
   letter-spacing: 0.05em;
   margin-bottom: 0.9rem;
 }
@@ -179,34 +200,34 @@
   font-size: 3.8rem;
   display: inline-block;
   margin-bottom: 0.85rem;
-  filter: drop-shadow(0 10px 14px rgba(14, 73, 115, 0.18));
+  filter: drop-shadow(0 10px 14px rgba(36, 50, 75, 0.15));
 }
 
 .toon-caption strong {
   display: block;
   font-family: var(--font-heading);
   font-size: 1.15rem;
-  color: var(--navy-950);
+  color: var(--liquid-navy-dark);
 }
 
 .toon-caption p {
   font-size: 0.88rem;
-  color: var(--navy-600);
+  color: var(--liquid-navy-muted);
   margin-top: 0.35rem;
   font-weight: 600;
 }
 
-@keyframes neoclay-float {
+@keyframes liquid-card-float {
   0%, 100% {
     transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: translateY(-10px) rotate(1deg);
+    transform: translateY(-8px) rotate(1deg);
   }
 }
 
 /* =========================================================
-   Architecture Grid — Neoclay Cards
+   Architecture Grid — Liquid Glass Cards
    ========================================================= */
 .architecture-grid {
   display: grid;
@@ -220,8 +241,16 @@
   flex-direction: column;
   justify-content: space-between;
   border-radius: var(--radius-lg);
-  border: var(--clay-border-card);
-  box-shadow: var(--shadow-neoclay-card);
+  background: var(--gradient-glass-card);
+  backdrop-filter: blur(14px);
+  border: var(--liquid-border-card);
+  box-shadow: var(--shadow-liquid-glass);
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.arch-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-liquid-hover);
 }
 
 .arch-header {
@@ -231,52 +260,52 @@
   margin-bottom: 1rem;
 }
 
-/* Molded 3D Clay Icon */
+/* Pastel Glass Icon */
 .arch-icon {
   font-size: 1.8rem;
-  background: linear-gradient(135deg, #ffffff 0%, var(--clay-surface) 100%);
-  border: var(--clay-border-card);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(221, 242, 255, 0.7) 100%);
+  border: var(--liquid-border-panel);
   border-radius: 16px;
   width: 52px;
   height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 5px 7px 16px rgba(12, 58, 96, 0.1), -3px -3px 8px #ffffff, var(--clay-volume-subtle);
+  box-shadow: 0 4px 14px rgba(36, 50, 75, 0.08), inset 0 1px 1px #ffffff;
   flex-shrink: 0;
 }
 
 .arch-subtitle {
-  font-size: 0.78rem;
-  color: var(--navy-500);
+  font-size: 0.8rem;
+  color: var(--liquid-navy-subtle);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
 .arch-card p {
-  font-size: 0.9rem;
-  color: var(--navy-700);
+  font-size: 0.92rem;
+  color: var(--liquid-navy-muted);
   line-height: 1.55;
   margin-bottom: 1.25rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* Neumorphic Recessed Path Pill */
+/* Translucent Recessed Path Pill */
 .arch-path {
   font-family: monospace;
   font-size: 0.82rem;
-  background: var(--clay-surface);
-  box-shadow: var(--neo-inset-sm);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-liquid-inset);
   padding: 0.4rem 0.85rem;
   border-radius: var(--radius-pill);
-  color: var(--navy-800);
+  color: var(--liquid-navy);
   font-weight: 700;
   width: fit-content;
-  border: 1px solid rgba(196, 221, 246, 0.4);
+  border: 1px solid rgba(221, 242, 255, 0.8);
 }
 
 /* =========================================================
-   Features Grid — Inflated Clay Tiles
+   Features Grid — Liquid Glass Tiles
    ========================================================= */
 .features-grid {
   display: grid;
@@ -285,11 +314,12 @@
 }
 
 .feature-item-card {
-  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface-card) 100%);
-  border: var(--clay-border-card);
+  background: var(--gradient-glass-card);
+  backdrop-filter: blur(14px);
+  border: var(--liquid-border-card);
   border-radius: var(--radius-md);
   padding: 1.35rem 1.4rem;
-  box-shadow: 6px 8px 18px rgba(12, 58, 96, 0.08), -5px -5px 14px #ffffff, var(--clay-volume-subtle);
+  box-shadow: var(--shadow-liquid-subtle);
   transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
   display: flex;
   flex-direction: column;
@@ -297,15 +327,15 @@
 }
 
 .feature-item-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 12px 18px 30px rgba(12, 58, 96, 0.13), -8px -8px 20px #ffffff, var(--clay-volume-card);
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: var(--shadow-liquid-hover);
 }
 
 .feature-id {
   font-family: var(--font-heading);
   font-size: 0.8rem;
   font-weight: 800;
-  color: var(--navy-400);
+  color: var(--liquid-navy-subtle);
 }
 
 /* Responsive adjustments */
@@ -313,7 +343,7 @@
   .hero-banner {
     grid-template-columns: 1fr;
     text-align: center;
-    padding: 2rem 1.5rem;
+    padding: 2.25rem 1.5rem;
   }
 
   .hero-tags {
