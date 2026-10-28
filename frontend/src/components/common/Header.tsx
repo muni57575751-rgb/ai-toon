@@ -1,6 +1,18 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 export const Header: React.FC = () => {
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login', { replace: true });
+  };
+
+  const displayName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student';
+
   return (
     <header style={{
       position: 'sticky',
@@ -21,8 +33,8 @@ export const Header: React.FC = () => {
         flexWrap: 'wrap',
         gap: '1rem'
       }}>
-        {/* Prominently Highlighted Brand & Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        {/* Prominently Highlighted Brand & Logo (Clickable back to Home) */}
+        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div style={{
             width: '50px',
             height: '50px',
@@ -77,16 +89,41 @@ export const Header: React.FC = () => {
               Story-Based Learning Using AI
             </div>
           </div>
-        </div>
+        </Link>
 
-        {/* Badges / Status */}
+        {/* Dynamic Auth Actions / Navigation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <span className="neoclay-badge badge-sky">
-            <span>✨</span> Phase 1: Architecture
-          </span>
-          <span className="neoclay-badge badge-green">
-            <span>🟢</span> v0.1.0 Ready
-          </span>
+          {user ? (
+            <>
+              <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+                <span className="neoclay-badge badge-sky" style={{ cursor: 'pointer' }}>
+                  <span>🧑‍🎓</span> {displayName}
+                </span>
+              </Link>
+              <Link to="/dashboard" className="btn-neoclay-secondary" style={{ textDecoration: 'none', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+                Dashboard
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="btn-neoclay-secondary"
+                style={{ padding: '0.45rem 0.9rem', fontSize: '0.85rem', color: 'var(--clay-coral-dark)' }}
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="neoclay-badge badge-green" style={{ display: 'none' }}>
+                Phase 2
+              </span>
+              <Link to="/login" className="btn-neoclay-secondary" style={{ textDecoration: 'none', padding: '0.5rem 1.15rem', fontSize: '0.88rem' }}>
+                Sign In
+              </Link>
+              <Link to="/signup" className="btn-neoclay-primary" style={{ textDecoration: 'none', padding: '0.5rem 1.25rem', fontSize: '0.88rem' }}>
+                🚀 Sign Up
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

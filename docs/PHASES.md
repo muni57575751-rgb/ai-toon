@@ -18,16 +18,19 @@ This document outlines the phased roadmap for building **AI Toon — Story-Based
 
 ---
 
-### Phase 2: Database, Authentication & Student Dashboard
+### Phase 2: Database, Authentication & Student Dashboard (Completed)
 *Addresses Features 1, 2, 11, 16*
-- Connect Supabase Free Tier (Auth + PostgreSQL).
-- Define database schema (users, stories, quizzes, results, favorites).
-- Sign-up, login, logout, and persistent session management.
-- Protected student dashboard showing:
-  - Welcome greeting with user avatar and stats.
-  - Recent stories read.
-  - Bookmarked/saved favorite stories.
-  - Learning progress summary (stories completed, quiz accuracy).
+- [x] Official Supabase client (`@supabase/supabase-js`) integration with environment variables.
+- [x] Responsive sign-up page with name, email, password, and confirm-password validation.
+- [x] Responsive login page with email, password, and show/hide password toggle.
+- [x] Form validation, loading indicators, and user-friendly alert banners.
+- [x] Protected student dashboard routing (`/dashboard`) with automatic login redirection.
+- [x] Public-only routing (`/login`, `/signup`) redirecting authenticated users to dashboard.
+- [x] Student session persistence across reloads and browser tabs.
+- [x] Personalized dashboard displaying student name, email, stats, and Phase 3 preview.
+- [x] Clean logout flow returning to login.
+- [x] Safe handling of unconfigured or expired credentials with dev demo mode.
+- [x] Comprehensive setup documentation in `docs/SUPABASE_SETUP.md`.
 
 ---
 

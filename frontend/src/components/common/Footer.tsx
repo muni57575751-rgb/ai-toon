@@ -1,6 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 export const Footer: React.FC = () => {
+  const { user } = useAuth();
+
   return (
     <footer style={{
       margin: '4rem 1rem 1.5rem',
@@ -16,26 +20,39 @@ export const Footer: React.FC = () => {
         flexWrap: 'wrap',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '1rem',
+        gap: '1.25rem',
         fontSize: '0.9rem',
         color: 'var(--navy-600)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <span style={{ fontSize: '1.25rem' }}>🎓</span>
           <div>
-            <strong style={{ color: 'var(--navy-900)' }}>AI Toon</strong> — Capstone Project: Story-Based Learning Using AI
+            <strong style={{ color: 'var(--navy-900)' }}>AI Toon</strong> — Capstone: Story-Based Learning Using AI
           </div>
         </div>
 
+        {/* Quick Links */}
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', fontSize: '0.88rem' }}>
+          <Link to="/" style={{ color: 'var(--navy-700)', fontWeight: 600 }}>Home</Link>
+          {user ? (
+            <Link to="/dashboard" style={{ color: 'var(--navy-700)', fontWeight: 600 }}>Dashboard</Link>
+          ) : (
+            <>
+              <Link to="/login" style={{ color: 'var(--navy-700)', fontWeight: 600 }}>Sign In</Link>
+              <Link to="/signup" style={{ color: 'var(--navy-700)', fontWeight: 600 }}>Sign Up</Link>
+            </>
+          )}
+        </div>
+
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="neoclay-badge badge-sky" style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem' }}>
+          <span className="neoclay-badge badge-green" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
+            Supabase Auth Active
+          </span>
+          <span className="neoclay-badge badge-sky" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
             React 19 + Vite
           </span>
-          <span className="neoclay-badge badge-purple" style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem' }}>
+          <span className="neoclay-badge badge-purple" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
             Express + TS
-          </span>
-          <span className="neoclay-badge badge-green" style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem' }}>
-            Supabase Free Tier
           </span>
         </div>
       </div>
