@@ -5,6 +5,7 @@ import { HomePage } from './pages/home/HomePage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignUpPage } from './pages/auth/SignUpPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { StoryGeneratorPage } from './pages/story/StoryGeneratorPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicOnlyRoute } from './components/auth/PublicOnlyRoute';
 
@@ -25,6 +26,7 @@ export const App: React.FC = () => {
           {/* Protected Routes (redirects to /login if unauthenticated) */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/generate" element={<StoryGeneratorPage />} />
           </Route>
 
           {/* Catch-all fallback */}

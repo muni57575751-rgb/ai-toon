@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
@@ -31,7 +31,7 @@ export const DashboardPage: React.FC = () => {
           flexWrap: 'wrap',
           gap: '1.5rem',
           marginBottom: '2.5rem',
-          padding: '2.5rem 2.25rem'
+          padding: '2.5rem 2.25rem',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
             <div style={{
@@ -45,7 +45,7 @@ export const DashboardPage: React.FC = () => {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '2rem',
-              transform: 'rotate(-4deg)'
+              transform: 'rotate(-4deg)',
             }}>
               🧑‍🎓
             </div>
@@ -64,7 +64,10 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+            <Link to="/generate" className="btn-neoclay-primary" style={{ textDecoration: 'none', padding: '0.65rem 1.35rem' }}>
+              ✨ Open Story Generator
+            </Link>
             <button
               onClick={handleLogout}
               className="btn-neoclay-secondary"
@@ -84,35 +87,35 @@ export const DashboardPage: React.FC = () => {
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '1.25rem'
+            gap: '1.25rem',
           }}>
             <div className="neoclay-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
               <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>📚</span>
               <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 800, color: 'var(--navy-950)' }}>
-                0
+                3
               </div>
               <span style={{ fontSize: '0.85rem', color: 'var(--navy-600)', fontWeight: 700 }}>
-                Stories Completed
+                Stories Available
               </span>
             </div>
 
             <div className="neoclay-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
               <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>🎯</span>
               <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 800, color: 'var(--navy-950)' }}>
-                0
+                Phase 4
               </div>
               <span style={{ fontSize: '0.85rem', color: 'var(--navy-600)', fontWeight: 700 }}>
-                Quizzes Solved
+                Interactive Quizzes
               </span>
             </div>
 
             <div className="neoclay-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
               <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>⭐</span>
               <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem', fontWeight: 800, color: 'var(--navy-950)' }}>
-                -- %
+                100%
               </div>
               <span style={{ fontSize: '0.85rem', color: 'var(--navy-600)', fontWeight: 700 }}>
-                Quiz Accuracy
+                Offline Ready
               </span>
             </div>
 
@@ -128,49 +131,57 @@ export const DashboardPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Story Generation Phase 3 Preview */}
-        <section className="neoclay-card" style={{ marginBottom: '2.5rem', padding: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+        {/* Phase 3 AI Story Generator Feature Banner */}
+        <section className="neoclay-card" style={{ marginBottom: '2.5rem', padding: '2.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                width: '46px',
+                height: '46px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #fde047 0%, #f59e0b 100%)',
                 boxShadow: 'var(--clay-volume-subtle)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.4rem'
+                fontSize: '1.6rem',
               }}>
                 🎨
               </div>
               <div>
-                <h3 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--navy-950)' }}>
-                  Story Generator Preview
+                <h3 style={{ fontSize: '1.35rem', margin: 0, color: 'var(--navy-950)' }}>
+                  AI Story Generation Engine
                 </h3>
-                <span style={{ fontSize: '0.82rem', color: 'var(--navy-600)', fontWeight: 600 }}>
-                  Coming in Phase 3 — Powered by Replaceable Free AI Provider
+                <span style={{ fontSize: '0.85rem', color: 'var(--navy-600)', fontWeight: 600 }}>
+                  Active in Phase 3 • Powered by Replaceable Free-Tier AI & Built-in Catalog
                 </span>
               </div>
             </div>
-            <span className="neoclay-badge badge-yellow">
-              Phase 3 Up Next
+            <span className="neoclay-badge badge-green">
+              ✨ Phase 3 Live
             </span>
           </div>
 
           <div className="neoclay-recessed" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
-            <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🧙‍♂️📖✨</span>
-            <h4 style={{ fontSize: '1.15rem', color: 'var(--navy-950)', marginBottom: '0.4rem' }}>
-              Ready to learn anything through cartoon stories?
+            <span style={{ fontSize: '2.8rem', display: 'block', marginBottom: '0.65rem' }}>🧙‍♂️📖✨</span>
+            <h4 style={{ fontSize: '1.25rem', color: 'var(--navy-950)', marginBottom: '0.45rem' }}>
+              Turn Any Syllabus Topic into a Fun Cartoon Story!
             </h4>
-            <p style={{ maxWidth: '540px', margin: '0 auto 1.25rem', color: 'var(--navy-600)', fontSize: '0.9rem' }}>
-              Authentication and student session persistence are now active! In Phase 3, you will be able to type any topic (e.g. &ldquo;Photosynthesis&rdquo;, &ldquo;Gravity&rdquo;, &ldquo;World War II&rdquo;) and select Funny, Adventure, or Comic style.
+            <p style={{ maxWidth: '580px', margin: '0 auto 1.5rem', color: 'var(--navy-600)', fontSize: '0.92rem', lineHeight: 1.6 }}>
+              Select any science, history, or math concept. Choose from <strong>Funny</strong>, <strong>Adventure</strong>, or <strong>Comic</strong> style, and pick your preferred language (English, Telugu, or Hindi).
             </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+              <Link to="/generate" className="btn-neoclay-primary" style={{ textDecoration: 'none', padding: '0.85rem 1.85rem' }}>
+                🚀 Launch AI Story Generator
+              </Link>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <span className="style-tag">🎭 Funny Style</span>
               <span className="style-tag">🗺️ Adventure Style</span>
               <span className="style-tag">💥 Comic Style</span>
+              <span className="style-tag">🌍 English • తెలుగు • हिंदी</span>
             </div>
           </div>
         </section>

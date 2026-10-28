@@ -100,7 +100,10 @@ export const Header: React.FC = () => {
                   <span>🧑‍🎓</span> {displayName}
                 </span>
               </Link>
-              <Link to="/dashboard" className="btn-neoclay-secondary" style={{ textDecoration: 'none', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+              <Link to="/generate" className="btn-neoclay-primary" style={{ textDecoration: 'none', padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+                ✨ Generator
+              </Link>
+              <Link to="/dashboard" className="btn-neoclay-secondary" style={{ textDecoration: 'none', padding: '0.45rem 0.95rem', fontSize: '0.85rem' }}>
                 Dashboard
               </Link>
               <button

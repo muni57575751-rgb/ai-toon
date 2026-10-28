@@ -1,19 +1,23 @@
 export type StoryTone = 'funny' | 'adventure' | 'comic';
 
+export type StoryDifficulty = 'beginner' | 'intermediate' | 'advanced';
+
 export type SupportedLanguage =
   | 'en' // English
-  | 'es' // Spanish
+  | 'te' // Telugu
   | 'hi' // Hindi
+  | 'es' // Spanish
   | 'fr' // French
   | 'de' // German
-  | 'ta' // Tamil
-  | 'te'; // Telugu
+  | 'ta'; // Tamil
 
 export interface StoryScene {
   id: string;
   order: number;
+  title: string;
   text: string;
-  promptDescription?: string;
+  educationalExplanation: string;
+  visualDescription: string;
   illustrationKeyword?: string;
   speechText?: string;
 }
@@ -24,6 +28,7 @@ export interface Story {
   topic: string;
   tone: StoryTone;
   language: SupportedLanguage;
+  difficulty?: StoryDifficulty;
   summary: string;
   scenes: StoryScene[];
   keyTakeaways: string[];
@@ -31,11 +36,14 @@ export interface Story {
   userId?: string;
   isFavorite?: boolean;
   isCached?: boolean;
+  isExample?: boolean;
+  provider?: string;
 }
 
 export interface StoryGenerationRequest {
   topic: string;
   tone: StoryTone;
   language: SupportedLanguage;
+  difficulty?: StoryDifficulty;
   targetAgeGroup?: 'kids' | 'teens' | 'general';
 }
