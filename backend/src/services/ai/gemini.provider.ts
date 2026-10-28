@@ -269,10 +269,15 @@ CRITICAL INSTRUCTIONS:
 - Illustrations: Exactly 2 to 3 educational illustration concepts that visually explain the core concepts (place them after points like point 2 and point 4).
   For each illustration, provide:
   * title: Clear title of the visual concept
-  * caption: 1 sentence explaining what this diagram visualizes for the student
-  * description: Vivid visual description of what appears in the diagram
-  * keyword: 1-2 words identifying the concept (e.g. "binary_search", "photosynthesis")
-  * searchQuery: A specific 4 to 8 word image-search query containing relevant technical terms and educational context for finding authentic scientific diagrams or educational graphics (e.g. "binary search sorted array middle element diagram", "photosynthesis leaf sunlight carbon dioxide water oxygen diagram", "tectonic plates fault seismic waves educational diagram", "labeled heart blood flow diagram"). Never use only generic words or just the title; specify the visual elements.
+  * caption: 1 sentence explaining what this visual depicts for the student
+  * description: Vivid visual description of what appears in the visual
+  * keyword: 1-2 words identifying the concept (e.g. "narendra_modi", "vignan_university", "binary_search", "photosynthesis")
+  * searchQuery: A specific 4 to 8 word image-search query tailored to the subject and category:
+    - If the topic is a PERSON (e.g. Narendra Modi, scientists, historical figures): query MUST search for an official portrait or photograph (e.g. "Narendra Modi official portrait", "Narendra Modi photograph"). NEVER search for a diagram of a person.
+    - If the topic is an INSTITUTION or UNIVERSITY (e.g. Vignan University): query MUST search for the campus or official building (e.g. "Vignan University Vadlamudi campus", "Vignan University building"). NEVER search for a diagram of an institution.
+    - If the topic is a PLACE or LANDMARK (e.g. Taj Mahal, India Gate): query MUST search for landmark architecture photographs (e.g. "Taj Mahal landmark photograph").
+    - If the topic is an EDUCATIONAL/SCIENTIFIC concept (e.g. photosynthesis, human heart): query MUST search for labeled scientific diagrams (e.g. "photosynthesis labeled scientific diagram", "human heart labeled anatomy blood flow diagram").
+    - If the topic is a TECHNICAL concept (e.g. binary search, neural networks): query MUST search for technical diagrams (e.g. "binary search sorted array middle element diagram").
   * positionIndex: After which point to display it (e.g. 2, 4)
 - Quiz: Exactly 3 quick multiple-choice quiz questions with 4 options ('a', 'b', 'c', 'd'), the correct option ID, and a brief explanation.
 
@@ -293,18 +298,18 @@ Required JSON Schema output:
   "illustrations": [
     {
       "title": "Illustration 1 Title",
-      "caption": "1 sentence explaining what this diagram visualizes for the student",
-      "description": "Vivid diagram description (e.g. Cartoon tectonic plates sliding with jagged edges and glowing stress lines beneath Earth's crust)",
-      "keyword": "earthquake_fault",
-      "searchQuery": "tectonic plates fault seismic waves educational diagram",
+      "caption": "1 sentence explaining what this visual depicts for the student",
+      "description": "Vivid visual description of the visual element",
+      "keyword": "concept_keyword",
+      "searchQuery": "specific subject-appropriate 4 to 8 word search query",
       "positionIndex": 2
     },
     {
       "title": "Illustration 2 Title",
-      "caption": "1 sentence explaining seismic wave propagation or safety",
-      "description": "Cartoon shockwaves rippling out in colorful rings from a glowing underground hypocenter focus",
-      "keyword": "seismic_waves",
-      "searchQuery": "seismic shock waves focus epicenter propagation diagram",
+      "caption": "1 sentence explaining the second visual element",
+      "description": "Vivid visual description",
+      "keyword": "concept_keyword_2",
+      "searchQuery": "specific subject-appropriate 4 to 8 word search query",
       "positionIndex": 4
     }
   ],
@@ -360,14 +365,14 @@ Return ONLY valid JSON matching this schema. Do not add markdown backticks outsi
           {
             title: `${request.topic} Overview`,
             caption: `Visual overview of ${request.topic}`,
-            description: `Cartoon diagram illustrating ${request.topic}`,
+            description: `Visual illustration explaining ${request.topic}`,
             keyword: request.topic.toLowerCase().replace(/\s+/g, '_'),
             positionIndex: 2,
           },
           {
-            title: `${request.topic} Mechanism`,
-            caption: `How ${request.topic} works in nature`,
-            description: `Detailed cartoon process of ${request.topic}`,
+            title: `${request.topic} Key Features`,
+            caption: `Key characteristics of ${request.topic}`,
+            description: `Detailed visual depicting ${request.topic}`,
             keyword: request.topic.toLowerCase().replace(/\s+/g, '_'),
             positionIndex: 4,
           },
@@ -376,10 +381,10 @@ Return ONLY valid JSON matching this schema. Do not add markdown backticks outsi
     const illustrations = rawIllustrations.slice(0, 3).map((ill, idx) => ({
       id: `${storyId}_ill_${idx + 1}`,
       title: ill.title || `Concept Illustration ${idx + 1}`,
-      caption: ill.caption || ill.description || 'Educational illustration',
-      description: ill.description || 'Cartoon illustration explaining the concept',
+      caption: ill.caption || ill.description || 'Educational visual',
+      description: ill.description || 'Educational illustration explaining the concept',
       keyword: ill.keyword || request.topic.toLowerCase().replace(/\s+/g, '_'),
-      searchQuery: ill.searchQuery || `${request.topic} ${ill.title || ''} diagram`.trim(),
+      searchQuery: ill.searchQuery || `${request.topic} ${ill.title || ''}`.trim(),
       positionIndex: typeof ill.positionIndex === 'number' ? ill.positionIndex : (idx + 1) * 2,
     }));
 

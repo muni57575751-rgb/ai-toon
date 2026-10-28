@@ -1,92 +1,108 @@
 import type { Story, TopicIllustration } from '@ai-toon/shared';
-import type { IImageSearchProvider, ImageSearchResult } from './imageSearch.types.js';
+import type { IImageSearchProvider, ImageSearchOptions, ImageSearchResult } from './imageSearch.types.js';
 import { wikimediaProvider } from './wikimedia.provider.js';
 import { imageSearchCache } from './imageSearch.cache.js';
+import { entityClassifier, type EntityClassification } from './entityClassifier.js';
 
 export class ImageSearchService {
   constructor(private readonly provider: IImageSearchProvider = wikimediaProvider) {}
 
   /**
-   * Searches for a single relevant educational image with caching and query simplification fallback
+   * Searches for a single relevant educational image using entity-aware classification and queries
    */
-  public async findEducationalImage(query: string): Promise<ImageSearchResult | null> {
+  public async findEducationalImage(
+    query: string,
+    options: ImageSearchOptions = {}
+  ): Promise<ImageSearchResult | null> {
     const cleanQuery = query.trim();
     if (!cleanQuery) return null;
 
-    return imageSearchCache.getOrFetch(cleanQuery, async (normalizedQuery) => {
-      // 1. Try primary query
-      console.log(`[ImageSearchService] Searching image for: "${normalizedQuery}"`);
-      const result = await this.provider.searchImage(normalizedQuery, 8000);
+    const cacheKey = `${cleanQuery}__${options.entityCategory || 'all'}`;
+
+    return imageSearchCache.getOrFetch(cacheKey, async () => {
+      console.log(
+        `[ImageSearchService] Searching image for: "${cleanQuery}" (Entity: ${options.entityCategory || 'auto'}, Name: "${options.entityName || ''}")`
+      );
+
+      const result = await this.provider.searchImage(cleanQuery, options);
       if (result) {
-        console.log(`[ImageSearchService] Found image for "${normalizedQuery}": "${result.title}" (${result.license})`);
+        console.log(
+          `[ImageSearchService] Found image for "${cleanQuery}": "${result.title}" (${result.license}) [MIME: ${result.mime || 'unknown'}]`
+        );
         return result;
       }
 
-      // 2. If primary query had many terms and returned nothing, try simplified concept queries
-      const tokens = normalizedQuery.split(' ').filter((w) => w.length > 2);
-      if (tokens.length > 2) {
-        const fallbacks = [
-          `${tokens.slice(0, 2).join(' ')} diagram`,
-          `${tokens[0]} diagram`,
-        ];
-
-        for (const fbQuery of fallbacks) {
-          if (fbQuery === normalizedQuery) continue;
-          console.log(`[ImageSearchService] Retrying with core query: "${fbQuery}"`);
-          const fbResult = await this.provider.searchImage(fbQuery, 6000);
-          if (fbResult) {
-            console.log(`[ImageSearchService] Found image on fallback query: "${fbResult.title}" (${fbResult.license})`);
-            return fbResult;
-          }
-        }
-      }
-
-      console.log(`[ImageSearchService] No suitable image found for "${normalizedQuery}". Will use SVG fallback.`);
       return null;
     });
   }
 
   /**
-   * Enhances all illustrations in an educational lesson with authentic public diagrams
-   * Gracefully falls back to SVG illustration if search fails or returns null.
+   * Enhances all illustrations in an educational lesson with entity-aware authentic public media
+   * Gracefully falls back to SVG illustration or unavailable state if search fails.
    */
   public async enhanceStoryIllustrations(story: Story): Promise<Story> {
     if (!Array.isArray(story.illustrations) || story.illustrations.length === 0) {
       return story;
     }
 
+    // 1. Classify the overall story topic (e.g. Narendra Modi -> person, Vignan University -> institution)
+    const classification: EntityClassification = entityClassifier.classify(story.topic);
+    console.log(
+      `[ImageSearchService] Classified topic "${story.topic}" as [${classification.category.toUpperCase()}] (confidence: ${classification.confidence}, entity: "${classification.entityName}")`
+    );
+
+    const searchOptions: ImageSearchOptions = {
+      entityCategory: classification.category,
+      entityName: classification.entityName,
+      secondaryContext: classification.secondaryContext,
+    };
+
+    // 2. Enhance each illustration sequentially or in parallel
     const enhancedIllustrations: TopicIllustration[] = await Promise.all(
-      story.illustrations.map(async (ill) => {
-        // Build specific query if not provided
-        const query = this.buildSearchQuery(story.topic, ill);
+      story.illustrations.map(async (ill, idx) => {
+        // Generate prioritized queries for this illustration
+        const queries = this.buildPrioritizedQueries(story.topic, classification, ill, idx);
 
-        try {
-          const imageResult = await this.findEducationalImage(query);
+        let chosenResult: ImageSearchResult | null = null;
+        let successfulQuery = '';
 
-          if (imageResult) {
-            return {
-              ...ill,
-              searchQuery: query,
-              imageUrl: imageResult.imageUrl,
-              thumbnailUrl: imageResult.thumbnailUrl,
-              sourcePageUrl: imageResult.sourcePageUrl,
-              author: imageResult.author,
-              license: imageResult.license,
-              licenseUrl: imageResult.licenseUrl,
-              attribution: imageResult.attribution,
-              width: imageResult.width,
-              height: imageResult.height,
-              sourceType: 'wikimedia',
-            };
+        for (const candidateQuery of queries) {
+          try {
+            const result = await this.findEducationalImage(candidateQuery, searchOptions);
+            if (result) {
+              chosenResult = result;
+              successfulQuery = candidateQuery;
+              break;
+            }
+          } catch (err) {
+            console.warn(`[ImageSearchService] Query "${candidateQuery}" failed:`, err);
           }
-        } catch (err) {
-          console.warn(`[ImageSearchService] Error searching image for "${query}":`, err);
         }
 
-        // Fallback: keep existing illustration with SVG fallback
+        if (chosenResult) {
+          return {
+            ...ill,
+            searchQuery: successfulQuery || ill.searchQuery,
+            imageUrl: chosenResult.imageUrl,
+            thumbnailUrl: chosenResult.thumbnailUrl,
+            sourcePageUrl: chosenResult.sourcePageUrl,
+            author: chosenResult.author,
+            license: chosenResult.license,
+            licenseUrl: chosenResult.licenseUrl,
+            attribution: chosenResult.attribution,
+            width: chosenResult.width,
+            height: chosenResult.height,
+            sourceType: 'wikimedia',
+          };
+        }
+
+        console.log(
+          `[ImageSearchService] No verified public image found for "${story.topic}" (figure ${idx + 1}). Preserving educational SVG fallback.`
+        );
+
         return {
           ...ill,
-          searchQuery: query,
+          searchQuery: queries[0] || ill.searchQuery,
           sourceType: 'svg_fallback',
         };
       })
@@ -98,19 +114,36 @@ export class ImageSearchService {
     };
   }
 
-  private buildSearchQuery(topic: string, ill: TopicIllustration): string {
-    if (ill.searchQuery && ill.searchQuery.trim().length >= 8) {
-      return ill.searchQuery.trim();
+  /**
+   * Generates a ranked list of search queries tailored to the entity category
+   */
+  private buildPrioritizedQueries(
+    topic: string,
+    classification: EntityClassification,
+    ill: TopicIllustration,
+    illustrationIndex: number
+  ): string[] {
+    const candidateQueries: string[] = [];
+
+    // If an explicit searchQuery was provided by AI and isn't generic, try it first
+    if (ill.searchQuery && ill.searchQuery.trim().length >= 8 && !ill.searchQuery.toLowerCase().includes('undefined')) {
+      candidateQueries.push(ill.searchQuery.trim());
     }
 
-    // Extract core words from illustration title and description
-    const titleClean = (ill.title || '').replace(/illustration|figure|\d+/gi, '').trim();
-    const descClean = (ill.description || '').slice(0, 60);
+    // Generate entity-specific queries from the classifier
+    const entityQueries = entityClassifier.generateQueries(classification, ill.title);
+    for (const eq of entityQueries) {
+      candidateQueries.push(eq);
+    }
 
-    return `${topic} ${titleClean} ${descClean} diagram`
-      .replace(/[^\w\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Add illustration-specific concept query if relevant
+    const titleClean = (ill.title || '').replace(/illustration|figure|\d+/gi, '').trim();
+    if (titleClean.length > 2 && classification.category !== 'person') {
+      candidateQueries.push(`${classification.entityName} ${titleClean}`.trim());
+    }
+
+    // Clean up and deduplicate
+    return Array.from(new Set(candidateQueries.map((q) => q.trim()))).filter((q) => q.length > 0);
   }
 }
 

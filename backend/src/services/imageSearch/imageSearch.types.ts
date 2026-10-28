@@ -1,3 +1,11 @@
+export type EntityCategory =
+  | 'person'
+  | 'institution'
+  | 'place'
+  | 'scientific'
+  | 'technical'
+  | 'other';
+
 export interface ImageSearchResult {
   id: string;
   title: string;
@@ -12,9 +20,17 @@ export interface ImageSearchResult {
   height?: number;
   mime?: string;
   sourceType: 'wikimedia' | 'openverse';
+  entityCategory?: EntityCategory;
+}
+
+export interface ImageSearchOptions {
+  entityCategory?: EntityCategory;
+  entityName?: string;
+  secondaryContext?: string;
+  timeoutMs?: number;
 }
 
 export interface IImageSearchProvider {
   readonly name: string;
-  searchImage(query: string, timeoutMs?: number): Promise<ImageSearchResult | null>;
+  searchImage(query: string, options?: ImageSearchOptions): Promise<ImageSearchResult | null>;
 }

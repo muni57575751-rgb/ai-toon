@@ -1,4 +1,4 @@
-import type { IImageSearchProvider, ImageSearchResult } from './imageSearch.types.js';
+import type { IImageSearchProvider, ImageSearchOptions, ImageSearchResult } from './imageSearch.types.js';
 
 interface WikimediaPage {
   pageid: number;
@@ -35,10 +35,14 @@ export class WikimediaImageProvider implements IImageSearchProvider {
   public readonly name = 'Wikimedia Commons API';
   private readonly userAgent = 'AIToonEducationalApp/1.0 (https://github.com/ai-toon; contact: educational-app@example.com)';
 
-  public async searchImage(query: string, timeoutMs: number = 8000): Promise<ImageSearchResult | null> {
+  public async searchImage(
+    query: string,
+    options: ImageSearchOptions = {}
+  ): Promise<ImageSearchResult | null> {
     const cleanQuery = query.trim();
     if (!cleanQuery) return null;
 
+    const timeoutMs = options.timeoutMs ?? 8000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -47,7 +51,7 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       const searchQuery = `${cleanQuery} -filetype:pdf -filetype:djvu`;
       const endpoint = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
         searchQuery
-      )}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|size|extmetadata|mime&iiurlwidth=800&format=json`;
+      )}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|size|extmetadata|mime&iiurlwidth=800&format=json`;
 
       const res = await fetch(endpoint, {
         method: 'GET',
@@ -72,12 +76,15 @@ export class WikimediaImageProvider implements IImageSearchProvider {
 
       const candidates: Array<{ result: ImageSearchResult; score: number }> = [];
       const queryTokens = this.tokenize(cleanQuery);
+      const entityCategory = options.entityCategory || 'other';
+      const entityName = options.entityName || '';
+      const entityTokens = entityName ? this.tokenize(entityName) : [];
 
       for (const page of pages) {
         const info = page.imageinfo?.[0];
         if (!info || !info.url) continue;
 
-        // 1. Verify valid image MIME type & exclude document/media containers
+        // 1. Verify valid image MIME type & exclude document/raw media containers
         const mime = (info.mime || '').toLowerCase();
         const lowerTitle = page.title.toLowerCase();
         const isSupportedImage =
@@ -89,7 +96,7 @@ export class WikimediaImageProvider implements IImageSearchProvider {
 
         if (!isSupportedImage) continue;
 
-        // 2. Reject tiny icon thumbnails when suitable diagrams are required
+        // 2. Reject tiny icon thumbnails
         if ((info.width && info.width < 180) || (info.height && info.height < 140)) {
           continue;
         }
@@ -103,10 +110,21 @@ export class WikimediaImageProvider implements IImageSearchProvider {
         const attribution = this.cleanHtml(ext.Credit?.value || ext.UsageTerms?.value) || author;
         const description = this.cleanHtml(ext.ImageDescription?.value) || '';
 
-        // 4. Score relevance based on educational diagram keywords
-        const score = this.calculateRelevance(page.title, description, queryTokens);
+        // 4. Score relevance based on entity-aware criteria
+        const score = this.calculateRelevance(
+          page.title,
+          description,
+          queryTokens,
+          entityCategory,
+          entityName,
+          entityTokens,
+          options.secondaryContext,
+          mime,
+          info.width,
+          info.height
+        );
 
-        // Discard candidates that have no semantic overlap with query
+        // Discard candidates that fail minimum relevance threshold
         if (score <= 0) continue;
 
         const cleanTitle = page.title
@@ -134,6 +152,7 @@ export class WikimediaImageProvider implements IImageSearchProvider {
             height: info.height,
             mime: info.mime,
             sourceType: 'wikimedia',
+            entityCategory,
           },
         });
       }
@@ -158,7 +177,23 @@ export class WikimediaImageProvider implements IImageSearchProvider {
   }
 
   private tokenize(text: string): string[] {
-    const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'into', 'that', 'this', 'how', 'does', 'work', 'what']);
+    const stopWords = new Set([
+      'the',
+      'and',
+      'for',
+      'with',
+      'from',
+      'into',
+      'that',
+      'this',
+      'how',
+      'does',
+      'work',
+      'what',
+      'file',
+      'image',
+      'photo',
+    ]);
     return text
       .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
@@ -166,21 +201,178 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       .filter((w) => w.length > 2 && !stopWords.has(w));
   }
 
-  private calculateRelevance(title: string, description: string, queryTokens: string[]): number {
+  private calculateRelevance(
+    title: string,
+    description: string,
+    queryTokens: string[],
+    entityCategory: string,
+    entityName: string,
+    entityTokens: string[],
+    secondaryContext?: string,
+    mime?: string,
+    width?: number,
+    height?: number
+  ): number {
     const combined = `${title} ${description}`.toLowerCase();
-    let score = 0;
+    const lowerTitle = title.toLowerCase();
+    const isPhoto = mime === 'image/jpeg' || mime === 'image/png' || mime === 'image/webp';
+    const isSvg = mime === 'image/svg+xml';
 
-    for (const token of queryTokens) {
-      if (combined.includes(token)) {
-        score += 3;
+    // 1. Mandatory Identity Check for Named Entities (People & Institutions)
+    const genericInstitutionWords = new Set([
+      'university',
+      'college',
+      'institute',
+      'institution',
+      'school',
+      'academy',
+      'foundation',
+      'corporation',
+      'company',
+      'ltd',
+      'inc',
+      'org',
+      'organization',
+      'hospital',
+      'center',
+      'centre',
+      'department',
+    ]);
+
+    const genericPersonWords = new Set([
+      'shri',
+      'mr',
+      'mrs',
+      'ms',
+      'dr',
+      'prof',
+      'professor',
+      'sir',
+      'lord',
+      'president',
+      'minister',
+      'prime',
+      'pm',
+      'king',
+      'queen',
+    ]);
+
+    if (entityCategory === 'person' || entityCategory === 'institution') {
+      const lowerEntity = entityName.toLowerCase().trim();
+      const genericSet = entityCategory === 'institution' ? genericInstitutionWords : genericPersonWords;
+      const distinctiveTokens = entityTokens.filter((t) => !genericSet.has(t));
+
+      // Check if candidate matches the distinctive entity name
+      const hasDistinctiveMatch =
+        (lowerEntity.length > 3 && combined.includes(lowerEntity)) ||
+        (distinctiveTokens.length > 0 && distinctiveTokens.some((token) => combined.includes(token)));
+
+      // If distinctive entity name does not match, reject candidate completely
+      if (distinctiveTokens.length > 0 && !hasDistinctiveMatch) {
+        return 0; // Exclude unrelated pictures that only match generic keywords like "university"
       }
     }
 
-    // Boost diagram, schematic, and educational illustrations
-    if (combined.includes('diagram')) score += 4;
-    if (combined.includes('scheme') || combined.includes('schematic')) score += 3;
-    if (combined.includes('chart') || combined.includes('illustration')) score += 2;
-    if (combined.includes('labeled') || combined.includes('anatomy') || combined.includes('cycle')) score += 2;
+    let score = 0;
+
+    // 2. Query token overlap
+    for (const token of queryTokens) {
+      if (lowerTitle.includes(token)) {
+        score += 4;
+      } else if (combined.includes(token)) {
+        score += 2;
+      }
+    }
+
+    // 3. Exact entity name match in title
+    if (entityName) {
+      const lowerEntity = entityName.toLowerCase().trim();
+      if (lowerTitle.includes(lowerEntity)) {
+        score += 20;
+      } else if (combined.includes(lowerEntity)) {
+        score += 10;
+      }
+    }
+
+    // 4. Secondary context match (e.g. "Vadlamudi" for Vignan University)
+    if (secondaryContext) {
+      const secTokens = this.tokenize(secondaryContext);
+      for (const st of secTokens) {
+        if (combined.includes(st)) {
+          score += 12;
+        }
+      }
+    }
+
+    // 5. Category-Specific Ranking Logic
+    switch (entityCategory) {
+      case 'person': {
+        // Prioritize actual photographic portraits and official photos
+        if (isPhoto) score += 10;
+        if (isSvg) score -= 8; // Avoid SVG icons for real people
+
+        if (lowerTitle.includes('portrait')) score += 12;
+        if (lowerTitle.includes('official')) score += 10;
+        if (lowerTitle.includes('photograph') || lowerTitle.includes('photo')) score += 8;
+        if (lowerTitle.includes('prime minister') || lowerTitle.includes('president')) score += 6;
+
+        // Penalize caricatures, stamps, satirical drawings when photos are expected
+        if (combined.includes('caricature') || combined.includes('satire') || combined.includes('graffiti')) {
+          score -= 15;
+        }
+        break;
+      }
+
+      case 'institution': {
+        // Prioritize campus, buildings, and official grounds
+        if (isPhoto) score += 8;
+        if (lowerTitle.includes('building') || lowerTitle.includes('campus')) score += 12;
+        if (lowerTitle.includes('university') || lowerTitle.includes('college')) score += 6;
+        if (lowerTitle.includes('logo')) score += 6;
+        if (lowerTitle.includes('entrance') || lowerTitle.includes('library')) score += 8;
+
+        // Penalize generic conceptual diagrams
+        if (isSvg && lowerTitle.includes('diagram')) score -= 10;
+        break;
+      }
+
+      case 'place': {
+        if (isPhoto) score += 8;
+        if (lowerTitle.includes('landmark') || lowerTitle.includes('monument')) score += 10;
+        if (lowerTitle.includes('view') || lowerTitle.includes('architecture')) score += 8;
+        break;
+      }
+
+      case 'scientific': {
+        // Prioritize diagrams, labeled illustrations, and anatomical models
+        if (combined.includes('diagram')) score += 14;
+        if (combined.includes('labeled') || combined.includes('anatomy')) score += 10;
+        if (combined.includes('scheme') || combined.includes('schematic')) score += 8;
+        if (combined.includes('cycle') || combined.includes('process')) score += 6;
+        if (combined.includes('blood flow')) score += 8;
+        if (isSvg) score += 6; // Crisp vector diagrams are excellent for science
+        break;
+      }
+
+      case 'technical': {
+        // Prioritize algorithmic diagrams, flowcharts, architectures
+        if (combined.includes('diagram')) score += 12;
+        if (combined.includes('tree') || combined.includes('array') || combined.includes('search')) score += 8;
+        if (combined.includes('flowchart') || combined.includes('architecture') || combined.includes('structure')) score += 8;
+        if (combined.includes('algorithm') || combined.includes('concept')) score += 6;
+        if (isSvg) score += 6;
+        break;
+      }
+
+      default: {
+        if (combined.includes('diagram') || combined.includes('illustration')) score += 4;
+        break;
+      }
+    }
+
+    // 6. Image Dimensions: Reward high-res, legible images
+    if (width && width >= 600) score += 2;
+    if (height && height >= 400) score += 2;
 
     return score;
   }
