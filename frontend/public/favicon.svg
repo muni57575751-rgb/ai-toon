@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <!-- Background Bubble -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#cloudGrad)"/>
+  <!-- Book / Story shape -->
+  <path d="M14 44 C22 41, 30 43, 32 46 C34 43, 42 41, 50 44 L50 20 C42 17, 34 19, 32 22 C30 19, 22 17, 14 20 Z" fill="#ffffff" stroke="#0f172a" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Magic Star Sparkle -->
+  <polygon points="32,8 34,14 40,16 34,18 32,24 30,18 24,16 30,14" fill="url(#starGrad)" stroke="#d97706" stroke-width="1"/>
+  <!-- Smile in book -->
+  <path d="M28 32 Q32 36 36 32" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+</svg>
