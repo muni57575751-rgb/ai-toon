@@ -4,57 +4,89 @@
   flex-direction: column;
 }
 
-/* Hero Banner */
+/* =========================================================
+   Hero Banner — Neomorphic & Claymorphic (Neoclay)
+   ========================================================= */
 .hero-banner {
-  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%);
+  border-radius: var(--radius-xl);
+  border: var(--clay-border-card);
+  box-shadow: var(--shadow-neoclay-card);
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 2rem;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 2.5rem;
   align-items: center;
-  margin-bottom: 2rem;
+  padding: 3rem;
+  margin-top: 1.5rem;
+  margin-bottom: 2.5rem;
   position: relative;
   overflow: hidden;
 }
 
+/* Subtle decorative clay bubble in hero background */
+.hero-banner::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(186, 230, 253, 0.45) 0%, rgba(224, 242, 254, 0) 70%);
+  pointer-events: none;
+}
+
 .hero-title {
-  font-size: 2.3rem;
-  margin-bottom: 1rem;
-  letter-spacing: -0.02em;
+  font-size: 2.45rem;
+  margin-bottom: 1.15rem;
+  letter-spacing: -0.025em;
+  color: var(--navy-950);
 }
 
 .highlight-text {
-  color: var(--sky-600);
-  background: linear-gradient(120deg, var(--sky-100) 0%, var(--sky-200) 100%);
-  padding: 0 0.4rem;
-  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   display: inline-block;
+  position: relative;
 }
 
 .hero-description {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   color: var(--navy-700);
-  line-height: 1.6;
-  margin-bottom: 1.5rem;
+  line-height: 1.65;
+  margin-bottom: 1.75rem;
+  font-weight: 500;
 }
 
 .hero-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
+/* Tactile Candy Clay Style Tags */
 .style-tag {
-  background: var(--white);
-  border: 1.5px solid var(--navy-900);
+  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface) 100%);
+  border: var(--clay-border-card);
   border-radius: var(--radius-pill);
-  padding: 0.35rem 0.85rem;
+  padding: 0.45rem 1rem;
   font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 700;
+  font-size: 0.88rem;
   color: var(--navy-800);
-  box-shadow: 0 2px 0 var(--navy-900);
+  box-shadow: 4px 6px 14px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff, var(--clay-volume-subtle);
+  transition: all var(--transition-fast);
+  cursor: default;
 }
 
+.style-tag:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 6px 10px 18px rgba(12, 58, 96, 0.12), -4px -4px 10px #ffffff, var(--clay-volume-subtle);
+  color: var(--sky-700);
+}
+
+/* Hero 3D Tactile Floating Clay Totem */
 .hero-illustration {
   display: flex;
   justify-content: center;
@@ -62,127 +94,148 @@
 }
 
 .floating-toon-card {
-  background: var(--sky-100);
-  border: 2.5px solid var(--navy-900);
+  background: linear-gradient(145deg, #ffffff 0%, #e0f2fe 100%);
+  border: var(--clay-border-card);
   border-radius: var(--radius-xl);
-  padding: 2rem;
-  box-shadow: var(--shadow-cartoon-lg);
+  padding: 2.25rem 2rem;
+  box-shadow: 16px 24px 44px rgba(14, 73, 115, 0.16), -12px -12px 28px #ffffff, inset 4px 4px 8px rgba(255, 255, 255, 0.95), inset -5px -5px 12px rgba(14, 165, 233, 0.18);
   text-align: center;
-  animation: float 4s ease-in-out infinite;
+  animation: neoclay-float 4.5s ease-in-out infinite;
+  max-width: 320px;
+  width: 100%;
 }
 
 .toon-emoji {
-  font-size: 3.5rem;
-  display: block;
-  margin-bottom: 0.75rem;
+  font-size: 3.8rem;
+  display: inline-block;
+  margin-bottom: 0.85rem;
+  filter: drop-shadow(0 10px 14px rgba(14, 73, 115, 0.18));
 }
 
 .toon-caption strong {
   display: block;
   font-family: var(--font-heading);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   color: var(--navy-950);
 }
 
 .toon-caption p {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: var(--navy-600);
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
+  font-weight: 600;
 }
 
-@keyframes float {
+@keyframes neoclay-float {
   0%, 100% {
-    transform: translateY(0px);
+    transform: translateY(0px) rotate(0deg);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-10px) rotate(1deg);
   }
 }
 
-/* Architecture Grid */
+/* =========================================================
+   Architecture Grid — Neoclay Cards
+   ========================================================= */
 .architecture-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  gap: 1.5rem;
 }
 
 .arch-card {
-  padding: 1.4rem;
+  padding: 1.75rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  border-radius: var(--radius-lg);
+  border: var(--clay-border-card);
+  box-shadow: var(--shadow-neoclay-card);
 }
 
 .arch-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
 }
 
+/* Molded 3D Clay Icon */
 .arch-icon {
   font-size: 1.8rem;
-  background: var(--sky-100);
-  border: 2px solid var(--navy-900);
-  border-radius: 10px;
-  width: 44px;
-  height: 44px;
+  background: linear-gradient(135deg, #ffffff 0%, var(--clay-surface) 100%);
+  border: var(--clay-border-card);
+  border-radius: 16px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 0 var(--navy-900);
+  box-shadow: 5px 7px 16px rgba(12, 58, 96, 0.1), -3px -3px 8px #ffffff, var(--clay-volume-subtle);
+  flex-shrink: 0;
 }
 
 .arch-subtitle {
   font-size: 0.78rem;
   color: var(--navy-500);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .arch-card p {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--navy-700);
-  line-height: 1.5;
-  margin-bottom: 1rem;
+  line-height: 1.55;
+  margin-bottom: 1.25rem;
+  font-weight: 500;
 }
 
+/* Neumorphic Recessed Path Pill */
 .arch-path {
   font-family: monospace;
   font-size: 0.82rem;
-  background: var(--navy-100);
-  padding: 0.3rem 0.6rem;
-  border-radius: var(--radius-sm);
-  color: var(--navy-900);
-  font-weight: 600;
+  background: var(--clay-surface);
+  box-shadow: var(--neo-inset-sm);
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-pill);
+  color: var(--navy-800);
+  font-weight: 700;
   width: fit-content;
+  border: 1px solid rgba(196, 221, 246, 0.4);
 }
 
-/* Features Grid */
+/* =========================================================
+   Features Grid — Inflated Clay Tiles
+   ========================================================= */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  gap: 1.25rem;
 }
 
 .feature-item-card {
-  background: var(--white);
-  border: 2px solid var(--navy-900);
+  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface-card) 100%);
+  border: var(--clay-border-card);
   border-radius: var(--radius-md);
-  padding: 1.2rem;
-  box-shadow: 0 3px 0 var(--navy-900);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  padding: 1.35rem 1.4rem;
+  box-shadow: 6px 8px 18px rgba(12, 58, 96, 0.08), -5px -5px 14px #ffffff, var(--clay-volume-subtle);
+  transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .feature-item-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 0 var(--navy-900);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 12px 18px 30px rgba(12, 58, 96, 0.13), -8px -8px 20px #ffffff, var(--clay-volume-card);
 }
 
 .feature-id {
   font-family: var(--font-heading);
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--navy-500);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--navy-400);
 }
 
 /* Responsive adjustments */
@@ -190,6 +243,7 @@
   .hero-banner {
     grid-template-columns: 1fr;
     text-align: center;
+    padding: 2rem 1.5rem;
   }
 
   .hero-tags {

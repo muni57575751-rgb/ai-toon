@@ -33,69 +33,114 @@ export const SystemStatus: React.FC = () => {
   }, []);
 
   return (
-    <div className="cartoon-card" style={{ marginBottom: '2rem' }}>
+    <div className="neoclay-card" style={{ marginBottom: '2.5rem' }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '1rem',
-        marginBottom: '1rem'
+        marginBottom: '1.25rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '1.4rem' }}>🔌</span>
-          <h2 style={{ fontSize: '1.25rem', margin: 0 }}>
-            Backend API Connection
-          </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
+            boxShadow: 'var(--clay-volume-subtle), 4px 6px 12px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.4rem'
+          }}>
+            🔌
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.3rem', margin: 0, color: 'var(--navy-950)' }}>
+              Backend API Connection
+            </h2>
+            <span style={{ fontSize: '0.82rem', color: 'var(--navy-600)', fontWeight: 600 }}>
+              Live connection status between React client & Express server
+            </span>
+          </div>
         </div>
+
         <button
           onClick={checkBackend}
           disabled={loading}
-          className="btn-cartoon-primary"
-          style={{ padding: '0.45rem 1rem', fontSize: '0.88rem' }}
+          className="btn-neoclay-primary"
+          style={{ padding: '0.55rem 1.25rem', fontSize: '0.9rem' }}
         >
-          {loading ? 'Checking...' : '🔄 Test Connection'}
+          {loading ? 'Pinging...' : '🔄 Test Connection'}
         </button>
       </div>
 
-      <div style={{
-        padding: '1rem',
-        background: 'var(--sky-50)',
-        borderRadius: 'var(--radius-md)',
-        border: '1.5px dashed var(--navy-700)',
+      {/* Recessed Neumorphic Clay Well */}
+      <div className="neoclay-recessed" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '0.75rem'
+        gap: '1rem'
       }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--navy-900)' }}>
-            Status:{' '}
+          <div style={{ fontWeight: 800, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            Status:
             {loading ? (
-              <span style={{ color: 'var(--navy-500)' }}>Pinging /api/health...</span>
+              <span style={{ color: 'var(--navy-500)', fontWeight: 600 }}>Pinging /api/health...</span>
             ) : health ? (
-              <span style={{ color: 'var(--mint-green)', fontWeight: 800 }}>
-                ● Connected ({health.service} v{health.version})
+              <span style={{
+                color: 'var(--clay-mint-dark)',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}>
+                <span style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  background: 'var(--clay-mint)',
+                  boxShadow: '0 0 10px rgba(52, 211, 153, 0.8)'
+                }} />
+                Connected ({health.service} v{health.version})
               </span>
             ) : (
-              <span style={{ color: 'var(--coral-pink)', fontWeight: 800 }}>
-                ○ Offline ({error})
+              <span style={{
+                color: 'var(--clay-coral-dark)',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}>
+                <span style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  background: 'var(--clay-coral)',
+                  boxShadow: '0 0 10px rgba(251, 113, 133, 0.8)'
+                }} />
+                Offline ({error})
               </span>
             )}
           </div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--navy-600)', margin: '0.25rem 0 0' }}>
+          <p style={{ fontSize: '0.82rem', color: 'var(--navy-600)', margin: '0.35rem 0 0', fontWeight: 600 }}>
             {health
-              ? `Backend uptime: ${health.uptime}s • Endpoint: /api/health • Timestamp: ${new Date(health.timestamp).toLocaleTimeString()}`
-              : 'Run "npm run dev:backend" or "npm run dev" to start the Express server.'}
+              ? `Uptime: ${health.uptime}s • Endpoint: /api/health • Verified: ${new Date(health.timestamp).toLocaleTimeString()}`
+              : 'Express server running on http://localhost:5000'}
           </p>
         </div>
 
         <div>
           {health ? (
-            <span className="cartoon-badge badge-green">Healthy</span>
+            <span className="neoclay-badge badge-green">
+              <span>●</span> Healthy
+            </span>
           ) : (
-            <span className="cartoon-badge badge-yellow">Standby / Offline</span>
+            <span className="neoclay-badge badge-yellow">
+              <span>○</span> Standby
+            </span>
           )}
         </div>
       </div>

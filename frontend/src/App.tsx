@@ -8,7 +8,7 @@ interface FeatureItem {
   id: number;
   title: string;
   category: string;
-  badge: 'green' | 'yellow' | 'purple' | 'pink' | 'sky';
+  badge: 'green' | 'yellow' | 'purple' | 'coral' | 'sky';
   status: 'Ready (Phase 1)' | 'Planned';
 }
 
@@ -17,14 +17,14 @@ const plannedFeatures: FeatureItem[] = [
   { id: 2, title: 'Recent Stories, Saved Stories & Progress', category: 'Dashboard', badge: 'sky', status: 'Planned' },
   { id: 3, title: 'Topic-Based AI Educational Story Generation', category: 'AI Engine', badge: 'green', status: 'Planned' },
   { id: 4, title: 'Multi-Language Story Selection', category: 'Localization', badge: 'yellow', status: 'Planned' },
-  { id: 5, title: 'Funny, Adventure & Comic Storytelling Tones', category: 'AI Engine', badge: 'pink', status: 'Planned' },
+  { id: 5, title: 'Funny, Adventure & Comic Storytelling Tones', category: 'AI Engine', badge: 'coral', status: 'Planned' },
   { id: 6, title: 'Cartoon-Style Educational Scenes & Panels', category: 'Creative UI', badge: 'sky', status: 'Planned' },
   { id: 7, title: 'Interactive Multiple-Choice Quizzes', category: 'Learning Assessment', badge: 'green', status: 'Planned' },
   { id: 8, title: 'Instant Feedback & Detailed Explanations', category: 'Learning Assessment', badge: 'yellow', status: 'Planned' },
   { id: 9, title: 'Score Calculation & Performance Summary', category: 'Analytics', badge: 'purple', status: 'Planned' },
   { id: 10, title: 'Story Library, Search, Favorites & History', category: 'Library', badge: 'sky', status: 'Planned' },
   { id: 11, title: 'Student Learning Progress Tracking', category: 'Analytics', badge: 'green', status: 'Planned' },
-  { id: 12, title: 'Responsive Cartoon Desktop & Mobile Interface', category: 'UI / UX', badge: 'pink', status: 'Ready (Phase 1)' },
+  { id: 12, title: 'Responsive Cartoon Desktop & Mobile Interface', category: 'UI / UX', badge: 'coral', status: 'Ready (Phase 1)' },
   { id: 13, title: 'Smart Caching & AI Free-Quota Rate Limiting', category: 'Optimization', badge: 'yellow', status: 'Planned' },
   { id: 14, title: 'Curated Fallback Stories & Offline Quizzes', category: 'Reliability', badge: 'purple', status: 'Planned' },
   { id: 15, title: 'Browser Text-to-Speech (TTS) & Offline Access', category: 'Accessibility', badge: 'green', status: 'Planned' },
@@ -36,14 +36,14 @@ export const App: React.FC = () => {
     <div className="app-shell">
       <Header />
 
-      <main className="container" style={{ padding: '2.5rem 1.5rem' }}>
+      <main className="container" style={{ padding: '2.5rem 1.75rem' }}>
         {/* Hero Section */}
-        <section className="hero-banner cartoon-card">
+        <section className="hero-banner">
           <div className="hero-content">
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-              <span className="cartoon-badge badge-yellow">✨ AI Educational Platform</span>
-              <span className="cartoon-badge badge-sky">🎨 Comic & Adventure Stories</span>
-              <span className="cartoon-badge badge-green">🚀 Free-Tier Ready</span>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+              <span className="neoclay-badge badge-yellow">✨ AI Educational Platform</span>
+              <span className="neoclay-badge badge-sky">🎨 Comic & Adventure Stories</span>
+              <span className="neoclay-badge badge-green">🚀 Free-Tier Ready</span>
             </div>
 
             <h1 className="hero-title">
@@ -68,7 +68,7 @@ export const App: React.FC = () => {
               <span className="toon-emoji">🤖🎨</span>
               <div className="toon-caption">
                 <strong>Phase 1: Foundation Ready</strong>
-                <p>Clean Monorepo & Type-Safe Architecture</p>
+                <p>Neomorphic & Claymorphic Architecture</p>
               </div>
             </div>
           </div>
@@ -78,29 +78,29 @@ export const App: React.FC = () => {
         <SystemStatus />
 
         {/* Architecture & Stack Section */}
-        <section style={{ marginBottom: '3rem' }}>
-          <h2 style={{ fontSize: '1.6rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <section style={{ marginBottom: '3.5rem' }}>
+          <h2 style={{ fontSize: '1.65rem', marginBottom: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <span>🏗️</span> Clean Project Architecture
           </h2>
 
           <div className="architecture-grid">
-            <div className="cartoon-card arch-card">
+            <div className="arch-card">
               <div className="arch-header">
                 <span className="arch-icon">💻</span>
                 <div>
-                  <h3>Frontend App</h3>
+                  <h3 style={{ fontSize: '1.15rem', color: 'var(--navy-950)' }}>Frontend App</h3>
                   <span className="arch-subtitle">React + Vite + TypeScript</span>
                 </div>
               </div>
-              <p>Polished cartoon design system with CSS custom properties, responsive layout, and accessible components.</p>
+              <p>Tactile Neoclay design system with smooth dual-light highlights, responsive layouts, and accessible components.</p>
               <div className="arch-path">frontend/</div>
             </div>
 
-            <div className="cartoon-card arch-card">
+            <div className="arch-card">
               <div className="arch-header">
                 <span className="arch-icon">⚙️</span>
                 <div>
-                  <h3>Backend API</h3>
+                  <h3 style={{ fontSize: '1.15rem', color: 'var(--navy-950)' }}>Backend API</h3>
                   <span className="arch-subtitle">Node.js + Express + TypeScript</span>
                 </div>
               </div>
@@ -108,11 +108,11 @@ export const App: React.FC = () => {
               <div className="arch-path">backend/</div>
             </div>
 
-            <div className="cartoon-card arch-card">
+            <div className="arch-card">
               <div className="arch-header">
                 <span className="arch-icon">📦</span>
                 <div>
-                  <h3>Shared Types</h3>
+                  <h3 style={{ fontSize: '1.15rem', color: 'var(--navy-950)' }}>Shared Types</h3>
                   <span className="arch-subtitle">@ai-toon/shared</span>
                 </div>
               </div>
@@ -120,11 +120,11 @@ export const App: React.FC = () => {
               <div className="arch-path">packages/shared/</div>
             </div>
 
-            <div className="cartoon-card arch-card">
+            <div className="arch-card">
               <div className="arch-header">
                 <span className="arch-icon">📚</span>
                 <div>
-                  <h3>Documentation</h3>
+                  <h3 style={{ fontSize: '1.15rem', color: 'var(--navy-950)' }}>Documentation</h3>
                   <span className="arch-subtitle">Architecture & Phases</span>
                 </div>
               </div>
@@ -136,11 +136,11 @@ export const App: React.FC = () => {
 
         {/* 16 Planned Features Roadmap */}
         <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-            <h2 style={{ fontSize: '1.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', marginBottom: '1.4rem' }}>
+            <h2 style={{ fontSize: '1.65rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <span>🗺️</span> Implementation Roadmap (16 Features)
             </h2>
-            <span style={{ fontSize: '0.88rem', color: 'var(--navy-600)', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--navy-600)', fontWeight: 700 }}>
               All 16 capstone features mapped out
             </span>
           </div>
@@ -148,21 +148,24 @@ export const App: React.FC = () => {
           <div className="features-grid">
             {plannedFeatures.map((feat) => (
               <div key={feat.id} className="feature-item-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <span className="feature-id">#{feat.id}</span>
-                  <span className={`cartoon-badge badge-${feat.badge}`}>
-                    {feat.category}
-                  </span>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span className="feature-id">#{feat.id}</span>
+                    <span className={`neoclay-badge badge-${feat.badge}`} style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
+                      {feat.category}
+                    </span>
+                  </div>
+                  <h4 style={{ fontSize: '1.02rem', marginBottom: '0.75rem', color: 'var(--navy-950)', lineHeight: 1.35 }}>
+                    {feat.title}
+                  </h4>
                 </div>
-                <h4 style={{ fontSize: '1.02rem', marginBottom: '0.5rem', color: 'var(--navy-950)' }}>
-                  {feat.title}
-                </h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--navy-600)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', color: 'var(--navy-600)', fontWeight: 700 }}>
                   <span style={{
-                    width: '8px',
-                    height: '8px',
+                    width: '9px',
+                    height: '9px',
                     borderRadius: '50%',
-                    background: feat.status.includes('Ready') ? 'var(--mint-green)' : 'var(--navy-400)'
+                    background: feat.status.includes('Ready') ? 'var(--clay-mint)' : 'var(--navy-300)',
+                    boxShadow: feat.status.includes('Ready') ? '0 0 8px rgba(52, 211, 153, 0.7)' : 'none'
                   }} />
                   {feat.status}
                 </div>
