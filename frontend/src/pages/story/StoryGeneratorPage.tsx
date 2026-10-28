@@ -4,6 +4,7 @@ import type { Story, StoryTone, SupportedLanguage, StoryDifficulty, ApiResponse 
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { StoryViewer } from '../../components/story/StoryViewer';
+import { API_BASE_URL } from '../../config/api';
 
 interface ProviderStatus {
   providerName: string;
@@ -33,8 +34,8 @@ export const StoryGeneratorPage: React.FC = () => {
     const fetchMeta = async () => {
       try {
         const [statusRes, examplesRes] = await Promise.all([
-          fetch('/api/stories/status'),
-          fetch('/api/stories/examples'),
+          fetch(`${API_BASE_URL}/stories/status`),
+          fetch(`${API_BASE_URL}/stories/examples`),
         ]);
 
         if (statusRes.ok) {
@@ -73,7 +74,7 @@ export const StoryGeneratorPage: React.FC = () => {
     setGeneratedStory(null);
 
     try {
-      const res = await fetch('/api/stories/generate', {
+      const res = await fetch(`${API_BASE_URL}/stories/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { ApiResponse, HealthCheckData } from '@ai-toon/shared';
+import { API_BASE_URL } from '../../config/api';
 
 export const SystemStatus: React.FC = () => {
   const [health, setHealth] = useState<HealthCheckData | null>(null);
@@ -10,7 +11,7 @@ export const SystemStatus: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(`${API_BASE_URL}/health`);
       if (!res.ok) {
         throw new Error(`Server returned HTTP ${res.status}`);
       }
