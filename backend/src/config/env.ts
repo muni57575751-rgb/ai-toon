@@ -1,5 +1,24 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Look for .env in backend directory, current working directory, and project root
+const candidateEnvPaths = [
+  path.resolve(process.cwd(), 'backend', '.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../../../backend/.env'),
+  path.resolve(__dirname, '../../../../.env'),
+];
+
+for (const envPath of candidateEnvPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+}
 dotenv.config();
 
 export interface ServerConfig {
@@ -25,7 +44,7 @@ export const config: ServerConfig = {
   aiModel: process.env.AI_MODEL || 'gemini-3.5-flash-lite',
   storyCacheEnabled: process.env.STORY_CACHE_ENABLED !== 'false',
   storyCacheTtlMs: parseInt(process.env.STORY_CACHE_TTL_MS || '86400000', 10), // 24 hours
-  aiRequestTimeoutMs: parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '15000', 10), // 15 seconds
+  aiRequestTimeoutMs: parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '45000', 10), // 45 seconds
   rateLimitMaxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '15', 10), // 15 req/min
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
 };

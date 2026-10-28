@@ -19,17 +19,22 @@ export class GeminiProvider implements IAiProvider {
     );
   }
 
-  public async generateStory(request: StoryGenerationRequest, timeoutMs: number = 15000): Promise<Story> {
+  public async generateStory(request: StoryGenerationRequest, timeoutMs: number = 45000): Promise<Story> {
     if (!this.isConfigured()) {
       throw new Error(
         'Gemini API key is not configured on the server. Set GEMINI_API_KEY in backend/.env or explore our built-in example stories.'
       );
     }
 
+    const startTime = Date.now();
     const prompt = this.buildPrompt(request);
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       this.model
     )}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+
+    console.log(
+      `[GeminiProvider] Starting story generation. Model: "${this.model}", Topic: "${request.topic}", Tone: "${request.tone}", Lang: "${request.language}", Timeout: ${Math.round(timeoutMs / 1000)}s`
+    );
 
     const controller = new AbortController();
     const timeoutTimer = setTimeout(() => controller.abort(), timeoutMs);
@@ -57,6 +62,8 @@ export class GeminiProvider implements IAiProvider {
       });
 
       clearTimeout(timeoutTimer);
+      const elapsedMs = Date.now() - startTime;
+      console.log(`[GeminiProvider] Received response in ${elapsedMs}ms with HTTP status ${response.status}`);
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -66,7 +73,9 @@ export class GeminiProvider implements IAiProvider {
           throw new Error('Invalid or unauthorized Gemini API key. Please verify your GEMINI_API_KEY in backend/.env.');
         }
         const errorText = await response.text();
-        throw new Error(`AI Provider error (HTTP ${response.status}): ${errorText.slice(0, 200)}`);
+        const sanitizedError = errorText.replace(/key=[^&\s]+/gi, 'key=[REDACTED]').slice(0, 300);
+        console.error(`[GeminiProvider] HTTP ${response.status} provider error after ${elapsedMs}ms: ${sanitizedError}`);
+        throw new Error(`AI Provider error (HTTP ${response.status}): ${sanitizedError}`);
       }
 
       const jsonResult = await response.json() as {
@@ -82,13 +91,18 @@ export class GeminiProvider implements IAiProvider {
         throw new Error('AI Provider returned an empty generation response.');
       }
 
-      return this.parseAndValidate(rawText, request);
+      const parsedStory = this.parseAndValidate(rawText, request);
+      console.log(`[GeminiProvider] Story generated successfully in ${elapsedMs}ms. Scenes: ${parsedStory.scenes.length}`);
+      return parsedStory;
     } catch (err: unknown) {
       clearTimeout(timeoutTimer);
+      const elapsedMs = Date.now() - startTime;
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
+          console.warn(`[GeminiProvider] Request aborted after ${elapsedMs}ms (timeout limit was ${Math.round(timeoutMs / 1000)}s).`);
           throw new Error(`AI generation timed out after ${Math.round(timeoutMs / 1000)} seconds. Please try a simpler topic or check network connection.`);
         }
+        console.error(`[GeminiProvider] Story generation failed after ${elapsedMs}ms:`, err.message);
         throw err;
       }
       throw new Error('An unexpected error occurred during AI story generation.');
