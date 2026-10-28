@@ -64,17 +64,57 @@ export const generateStoryController = async (req: Request, res: Response): Prom
 
     res.status(200).json(response);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Story generation failed.';
-    const isConfigError = message.includes('No AI API key is configured');
-    const isQuotaError = message.includes('quota') || message.includes('429');
+    const rawMessage = err instanceof Error ? err.message : 'Story generation failed.';
 
-    const statusCode = isConfigError ? 400 : isQuotaError ? 429 : 500;
+    const isBusy =
+      rawMessage.includes('temporarily busy') ||
+      rawMessage.includes('503') ||
+      rawMessage.includes('502') ||
+      rawMessage.includes('504') ||
+      rawMessage.includes('UNAVAILABLE') ||
+      rawMessage.includes('high demand') ||
+      rawMessage.includes('timed out');
+
+    const isAuth =
+      rawMessage.includes('Invalid or unauthorized') ||
+      rawMessage.includes('API key') ||
+      rawMessage.includes('HTTP 401') ||
+      rawMessage.includes('HTTP 403');
+
+    const isQuota =
+      rawMessage.includes('quota') ||
+      rawMessage.includes('429') ||
+      rawMessage.includes('RESOURCE_EXHAUSTED');
+
+    const isConfig = rawMessage.includes('No AI API key is configured');
+
+    let statusCode = 500;
+    let errorCode = 'GENERATION_ERROR';
+    let friendlyMessage = 'Story generation could not be completed right now. Please try again in a moment.';
+
+    if (isBusy) {
+      statusCode = 503;
+      errorCode = 'AI_TEMPORARILY_BUSY';
+      friendlyMessage = 'AI Toon is temporarily busy. Your lesson could not be generated right now. Please try again in a moment.';
+    } else if (isAuth) {
+      statusCode = 401;
+      errorCode = 'AI_UNAUTHORIZED';
+      friendlyMessage = 'AI service authorization failed. Please verify the Gemini API configuration on the server.';
+    } else if (isQuota) {
+      statusCode = 429;
+      errorCode = 'AI_QUOTA_EXCEEDED';
+      friendlyMessage = 'AI Toon free-tier quota is currently reached. Please try one of our built-in lessons or try again shortly.';
+    } else if (isConfig) {
+      statusCode = 400;
+      errorCode = 'AI_NOT_CONFIGURED';
+      friendlyMessage = 'No AI API key is configured on the server. Please set GEMINI_API_KEY in backend/.env, or choose one of our built-in example stories.';
+    }
 
     res.status(statusCode).json({
       success: false,
       error: {
-        code: isConfigError ? 'AI_NOT_CONFIGURED' : isQuotaError ? 'AI_QUOTA_EXCEEDED' : 'GENERATION_ERROR',
-        message,
+        code: errorCode,
+        message: friendlyMessage,
       },
       meta: { timestamp: new Date().toISOString() },
     });

@@ -4,7 +4,11 @@ import { storyCache } from './cache.service.js';
 import { BUILT_IN_EXAMPLE_STORIES } from './exampleStories.data.js';
 import { config } from '../config/env.js';
 
+import type { IAiProvider } from './ai/ai.types.js';
+
 export class StoryService {
+  constructor(private readonly getProvider: () => IAiProvider = getAiProvider) {}
+
   /**
    * Generates or retrieves a story for the student
    */
@@ -26,7 +30,7 @@ export class StoryService {
     const matchingExample = this.findMatchingExample(topic);
 
     // 3. Check AI Provider
-    const provider = getAiProvider();
+    const provider = this.getProvider();
     if (!provider.isConfigured()) {
       if (matchingExample) {
         return { story: matchingExample, cached: false };
@@ -77,7 +81,7 @@ export class StoryService {
     isConfigured: boolean;
     cacheStats: { size: number; hits: number; misses: number; hitRate: string };
   } {
-    const provider = getAiProvider();
+    const provider = this.getProvider();
     return {
       providerName: provider.name,
       model: provider.model,
@@ -87,13 +91,45 @@ export class StoryService {
   }
 
   private findMatchingExample(topic: string): Story | null {
-    const normalized = topic.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (const example of BUILT_IN_EXAMPLE_STORIES) {
-      const exampleNorm = example.topic.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (normalized.includes(exampleNorm) || exampleNorm.includes(normalized)) {
-        return example;
+    const clean = topic.trim().toLowerCase();
+    if (!clean) return null;
+
+    // Define genuine matching keywords for the 3 built-in examples
+    const examplePatterns: Array<{ id: string; patterns: RegExp[] }> = [
+      {
+        id: 'example_photosynthesis',
+        patterns: [
+          /\bphotosynthesis\b/i,
+          /\bhow plants make food\b/i,
+          /\bchloroplast(s)?\b/i,
+          /\bchlorophyll\b/i,
+        ],
+      },
+      {
+        id: 'example_solar_system',
+        patterns: [
+          /\bsolar system\b/i,
+          /\bplanets of (the|our) sun\b/i,
+          /\bplanets in (the|our) solar system\b/i,
+          /\beight planets\b/i,
+        ],
+      },
+      {
+        id: 'example_water_cycle',
+        patterns: [
+          /\bwater cycle\b/i,
+          /\bhydrologic(al)? cycle\b/i,
+        ],
+      },
+    ];
+
+    for (const item of examplePatterns) {
+      const isMatch = item.patterns.some((pattern) => pattern.test(clean));
+      if (isMatch) {
+        return BUILT_IN_EXAMPLE_STORIES.find((s) => s.id === item.id) || null;
       }
     }
+
     return null;
   }
 }

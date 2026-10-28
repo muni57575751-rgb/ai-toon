@@ -19,6 +19,13 @@ export class GeminiProvider implements IAiProvider {
     );
   }
 
+  // Testing simulation hook
+  private simulation: { failStatus: number; failCount: number } | null = null;
+
+  public setSimulation(sim: { failStatus: number; failCount: number } | null): void {
+    this.simulation = sim;
+  }
+
   public async generateStory(request: StoryGenerationRequest, timeoutMs: number = 45000): Promise<Story> {
     if (!this.isConfigured()) {
       throw new Error(
@@ -27,88 +34,211 @@ export class GeminiProvider implements IAiProvider {
     }
 
     const startTime = Date.now();
+    const deadline = startTime + timeoutMs;
     const prompt = this.buildPrompt(request);
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       this.model
     )}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
 
+    const maxRetries = 2; // Up to 2 additional retries (3 attempts total)
+    let attempt = 0;
+    let lastError: Error | null = null;
+
     console.log(
       `[GeminiProvider] Starting story generation. Model: "${this.model}", Topic: "${request.topic}", Tone: "${request.tone}", Lang: "${request.language}", Timeout: ${Math.round(timeoutMs / 1000)}s`
     );
 
-    const controller = new AbortController();
-    const timeoutTimer = setTimeout(() => controller.abort(), timeoutMs);
+    while (attempt <= maxRetries) {
+      attempt++;
+      const now = Date.now();
+      const remainingTimeMs = deadline - now;
 
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }],
+      if (remainingTimeMs <= 1000) {
+        throw new Error(
+          `AI generation timed out after ${Math.round(timeoutMs / 1000)} seconds. Please try again in a moment.`
+        );
+      }
+
+      const attemptController = new AbortController();
+      const attemptTimer = setTimeout(() => attemptController.abort(), remainingTimeMs);
+
+      try {
+        console.log(
+          `[GeminiProvider] Attempt ${attempt}/${maxRetries + 1}. Topic: "${request.topic}", Remaining: ${Math.round(remainingTimeMs / 1000)}s`
+        );
+
+        let response: Response;
+
+        // Check if simulation is active for verification tests
+        if (this.simulation && this.simulation.failCount > 0) {
+          const simStatus = this.simulation.failStatus;
+          this.simulation.failCount--;
+          console.warn(`[GeminiProvider] [SIMULATION] Injecting HTTP ${simStatus} failure (Remaining sim fails: ${this.simulation.failCount})`);
+          response = new Response(
+            JSON.stringify({ error: { code: simStatus, message: `Simulated HTTP ${simStatus} error` } }),
+            { status: simStatus, statusText: simStatus === 503 ? 'Service Unavailable' : 'Error' }
+          );
+        } else {
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
-
-      clearTimeout(timeoutTimer);
-      const elapsedMs = Date.now() - startTime;
-      console.log(`[GeminiProvider] Received response in ${elapsedMs}ms with HTTP status ${response.status}`);
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('AI Provider quota limit reached (HTTP 429). Please try again shortly or view our built-in example stories.');
+            signal: attemptController.signal,
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: prompt }],
+                },
+              ],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2048,
+                responseMimeType: 'application/json',
+              },
+            }),
+          });
         }
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('Invalid or unauthorized Gemini API key. Please verify your GEMINI_API_KEY in backend/.env.');
+
+        clearTimeout(attemptTimer);
+        const elapsedMs = Date.now() - startTime;
+        console.log(`[GeminiProvider] Attempt ${attempt} returned HTTP ${response.status} in ${elapsedMs}ms`);
+
+        if (response.ok) {
+          const jsonResult = (await response.json()) as {
+            candidates?: Array<{
+              content?: {
+                parts?: Array<{ text?: string }>;
+              };
+            }>;
+          };
+
+          const rawText = jsonResult.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) {
+            throw new Error('AI Provider returned an empty generation response.');
+          }
+
+          const parsedStory = this.parseAndValidate(rawText, request);
+          console.log(
+            `[GeminiProvider] Story generated successfully on attempt ${attempt} in ${elapsedMs}ms. Points: ${parsedStory.keyPoints.length}, Illustrations: ${parsedStory.illustrations.length}, Quiz: ${parsedStory.quizQuestions?.length || 0}`
+          );
+          return parsedStory;
         }
+
+        // Non-OK HTTP status handling
+        const status = response.status;
+        const retryAfterHeader = response.headers.get('Retry-After');
         const errorText = await response.text();
         const sanitizedError = errorText.replace(/key=[^&\s]+/gi, 'key=[REDACTED]').slice(0, 300);
-        console.error(`[GeminiProvider] HTTP ${response.status} provider error after ${elapsedMs}ms: ${sanitizedError}`);
-        throw new Error(`AI Provider error (HTTP ${response.status}): ${sanitizedError}`);
-      }
 
-      const jsonResult = await response.json() as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-      };
+        console.warn(
+          `[GeminiProvider] Attempt ${attempt} failed with HTTP ${status}: ${sanitizedError}`
+        );
 
-      const rawText = jsonResult.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) {
-        throw new Error('AI Provider returned an empty generation response.');
-      }
-
-      const parsedStory = this.parseAndValidate(rawText, request);
-      console.log(
-        `[GeminiProvider] Story generated successfully in ${elapsedMs}ms. Points: ${parsedStory.keyPoints.length}, Illustrations: ${parsedStory.illustrations.length}, Quiz: ${parsedStory.quizQuestions?.length || 0}`
-      );
-      return parsedStory;
-    } catch (err: unknown) {
-      clearTimeout(timeoutTimer);
-      const elapsedMs = Date.now() - startTime;
-      if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          console.warn(`[GeminiProvider] Request aborted after ${elapsedMs}ms (timeout limit was ${Math.round(timeoutMs / 1000)}s).`);
-          throw new Error(`AI generation timed out after ${Math.round(timeoutMs / 1000)} seconds. Please try a simpler topic or check network connection.`);
+        // Permanent/non-transient errors (DO NOT RETRY)
+        if (status === 400) {
+          throw new Error('Invalid request parameters sent to AI Provider (HTTP 400).');
         }
-        console.error(`[GeminiProvider] Story generation failed after ${elapsedMs}ms:`, err.message);
-        throw err;
+        if (status === 401 || status === 403) {
+          throw new Error('Invalid or unauthorized Gemini API key. Please verify your GEMINI_API_KEY in backend/.env.');
+        }
+        if (status === 404) {
+          throw new Error(`Configured AI model "${this.model}" was not found (HTTP 404).`);
+        }
+
+        // Detect transient errors: HTTP 503, 502, 504, 429
+        const isTransient = status === 503 || status === 502 || status === 504 || status === 429;
+        if (!isTransient) {
+          throw new Error(`AI Provider error (HTTP ${status}): ${sanitizedError}`);
+        }
+
+        // Handle transient errors with exponential backoff and jitter
+        if (attempt <= maxRetries) {
+          let delayMs = 1500 * Math.pow(2, attempt - 1); // 1.5s, 3.0s
+          const jitter = Math.floor(Math.random() * 500); // 0-500ms jitter
+          delayMs += jitter;
+
+          if (retryAfterHeader) {
+            const parsedSeconds = parseInt(retryAfterHeader, 10);
+            if (!isNaN(parsedSeconds) && parsedSeconds > 0) {
+              delayMs = Math.max(delayMs, parsedSeconds * 1000);
+            }
+          }
+
+          const timeLeft = deadline - Date.now();
+          if (delayMs + 1500 > timeLeft) {
+            console.warn(`[GeminiProvider] Insufficient time remaining for retry backoff (${delayMs}ms needed, ${timeLeft}ms left).`);
+            break;
+          }
+
+          console.log(`[GeminiProvider] Transient HTTP ${status} error. Retrying attempt ${attempt + 1} in ${Math.round(delayMs)}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        } else {
+          lastError = new Error(
+            'AI Toon is temporarily busy. Your lesson could not be generated right now. Please try again in a moment.'
+          );
+        }
+      } catch (err: unknown) {
+        clearTimeout(attemptTimer);
+        const elapsedMs = Date.now() - startTime;
+
+        if (err instanceof Error) {
+          if (err.name === 'AbortError') {
+            console.warn(`[GeminiProvider] Request aborted after ${elapsedMs}ms.`);
+            throw new Error(
+              `AI generation timed out after ${Math.round(timeoutMs / 1000)} seconds. Please try again in a moment.`
+            );
+          }
+
+          // Do not retry authorization or invalid request errors
+          if (
+            err.message.includes('Invalid or unauthorized') ||
+            err.message.includes('Invalid request') ||
+            err.message.includes('not found (HTTP 404)')
+          ) {
+            throw err;
+          }
+
+          // Transient network errors (fetch failed, connection reset, socket hang up)
+          if (attempt <= maxRetries) {
+            const delayMs = 1500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 500);
+            const timeLeft = deadline - Date.now();
+            if (delayMs + 1500 <= timeLeft) {
+              console.warn(`[GeminiProvider] Network failure on attempt ${attempt} (${err.message}). Retrying in ${delayMs}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+              continue;
+            }
+          }
+
+          lastError = err;
+        } else {
+          lastError = new Error('An unexpected error occurred during AI story generation.');
+        }
       }
-      throw new Error('An unexpected error occurred during AI story generation.');
     }
+
+    if (lastError) {
+      if (
+        lastError.message.includes('503') ||
+        lastError.message.includes('502') ||
+        lastError.message.includes('504') ||
+        lastError.message.includes('429') ||
+        lastError.message.includes('UNAVAILABLE') ||
+        lastError.message.includes('high demand') ||
+        lastError.message.includes('temporarily busy')
+      ) {
+        throw new Error(
+          'AI Toon is temporarily busy. Your lesson could not be generated right now. Please try again in a moment.'
+        );
+      }
+      throw lastError;
+    }
+
+    throw new Error(
+      'AI Toon is temporarily busy. Your lesson could not be generated right now. Please try again in a moment.'
+    );
   }
 
   private buildPrompt(request: StoryGenerationRequest): string {

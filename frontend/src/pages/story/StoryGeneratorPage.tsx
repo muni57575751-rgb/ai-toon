@@ -54,8 +54,8 @@ export const StoryGeneratorPage: React.FC = () => {
     fetchMeta();
   }, []);
 
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGenerate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg(null);
 
     const trimmed = topic.trim();
@@ -165,11 +165,45 @@ export const StoryGeneratorPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Error Notice */}
+              {/* Error Notice with Retry Action */}
               {errorMsg && (
-                <div className="auth-alert-error" style={{ margin: '1.25rem 0' }}>
-                  <span>⚠️</span>
-                  <span>{errorMsg}</span>
+                <div
+                  className="auth-alert-error"
+                  style={{
+                    margin: '1.25rem 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem',
+                    padding: '1rem 1.25rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: '1 1 240px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                    <span style={{ fontSize: '0.92rem', lineHeight: 1.45 }}>{errorMsg}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleGenerate()}
+                    disabled={isGenerating}
+                    className="btn-neoclay-secondary"
+                    style={{
+                      padding: '0.45rem 1rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      color: 'var(--navy-900)',
+                      cursor: isGenerating ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      whiteSpace: 'nowrap',
+                      boxShadow: 'var(--shadow-neoclay-flat)',
+                    }}
+                  >
+                    <span>🔄</span>
+                    <span>Try Again</span>
+                  </button>
                 </div>
               )}
 
@@ -308,10 +342,10 @@ export const StoryGeneratorPage: React.FC = () => {
                         borderTopColor: 'transparent',
                         animation: 'spin 0.8s linear infinite',
                       }} />
-                      Crafting Cartoon Scenes...
+                      Generating Educational Lesson...
                     </span>
                   ) : (
-                    '🚀 Generate Educational Cartoon Story'
+                    '🚀 Generate Educational Lesson'
                   )}
                 </button>
               </form>
