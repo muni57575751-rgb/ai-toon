@@ -36,11 +36,65 @@
   pointer-events: none;
 }
 
+/* Prominent Hero Brand Callout Badge */
+.hero-app-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(145deg, #ffffff 0%, var(--clay-surface) 100%);
+  border: var(--clay-border-card);
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1.25rem 0.45rem 0.5rem;
+  box-shadow: var(--neo-shadow-sm), var(--clay-volume-subtle);
+  margin-bottom: 1.25rem;
+  width: fit-content;
+  transition: transform var(--transition-fast);
+}
+
+.hero-app-brand-badge:hover {
+  transform: translateY(-2px);
+}
+
+.brand-pill-text {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: #ffffff;
+  padding: 0.3rem 0.9rem;
+  border-radius: var(--radius-pill);
+  box-shadow: 2px 4px 10px rgba(14, 165, 233, 0.4), inset 2px 2px 4px rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 2px rgba(2, 44, 77, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.brand-pill-desc {
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--navy-800);
+}
+
 .hero-title {
   font-size: 2.45rem;
   margin-bottom: 1.15rem;
   letter-spacing: -0.025em;
   color: var(--navy-950);
+}
+
+/* Glowing, Tactile Brand Name In Hero Heading */
+.hero-brand-name {
+  display: inline-block;
+  font-weight: 800;
+  color: var(--sky-600);
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  padding: 0.15rem 0.85rem;
+  border-radius: 16px;
+  box-shadow: 4px 6px 14px rgba(14, 165, 233, 0.25), inset 2px 2px 5px #ffffff, inset -2px -2px 6px rgba(2, 132, 199, 0.25);
+  margin: 0 0.25rem;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .highlight-text {
@@ -103,6 +157,22 @@
   animation: neoclay-float 4.5s ease-in-out infinite;
   max-width: 320px;
   width: 100%;
+}
+
+.totem-logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.35rem 0.95rem;
+  border-radius: var(--radius-pill);
+  box-shadow: 2px 4px 10px rgba(14, 165, 233, 0.35), inset 2px 2px 4px rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.9rem;
 }
 
 .toon-emoji {

@@ -40,18 +40,24 @@ export const App: React.FC = () => {
         {/* Hero Section */}
         <section className="hero-banner">
           <div className="hero-content">
+            {/* Prominent App Name Badge */}
+            <div className="hero-app-brand-badge">
+              <span className="brand-pill-text">AI TOON</span>
+              <span className="brand-pill-desc">Interactive Story-Based Learning</span>
+            </div>
+
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-              <span className="neoclay-badge badge-yellow">✨ AI Educational Platform</span>
-              <span className="neoclay-badge badge-sky">🎨 Comic & Adventure Stories</span>
-              <span className="neoclay-badge badge-green">🚀 Free-Tier Ready</span>
+              <span className="neoclay-badge badge-yellow">✨ AI Educational Engine</span>
+              <span className="neoclay-badge badge-sky">🎨 Comic, Funny & Adventure</span>
+              <span className="neoclay-badge badge-green">🚀 Free-Tier Capstone</span>
             </div>
 
             <h1 className="hero-title">
-              Turn Complex Concepts into <span className="highlight-text">Fun Cartoon Stories</span>!
+              Master Any Concept with <span className="hero-brand-name">AI Toon</span>: Fun Cartoon Stories & Quizzes!
             </h1>
             <p className="hero-description">
-              AI Toon transforms syllabus topics and curious questions into engaging educational stories
-              with cartoon scenes, adaptable tones (Funny, Adventure, Comic), and instant interactive quizzes.
+              <strong style={{ color: 'var(--navy-950)' }}>AI Toon</strong> transforms textbook concepts and curious questions into memorable educational cartoon stories
+              with vibrant scenes, customizable storytelling styles, and instant interactive quizzes.
             </p>
 
             <div className="hero-tags">
@@ -65,10 +71,13 @@ export const App: React.FC = () => {
 
           <div className="hero-illustration">
             <div className="floating-toon-card">
+              <div className="totem-logo-badge">
+                <span>✨</span> AI TOON
+              </div>
               <span className="toon-emoji">🤖🎨</span>
               <div className="toon-caption">
-                <strong>Phase 1: Foundation Ready</strong>
-                <p>Neomorphic & Claymorphic Architecture</p>
+                <strong>Story-Based AI Learning</strong>
+                <p>Neomorphic & Claymorphic Interface</p>
               </div>
             </div>
           </div>
