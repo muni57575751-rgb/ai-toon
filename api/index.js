@@ -27975,7 +27975,10 @@ var createApp = () => {
   app2.use(import_express8.default.json());
   app2.use(import_express8.default.urlencoded({ extended: true }));
   app2.use((req, _res, next) => {
-    if (req.query && typeof req.query.__url === "string") {
+    const headerPath = req.headers["x-matched-path"] || req.headers["x-forwarded-uri"] || req.headers["x-original-url"] || req.headers["x-invoke-path"] || req.headers["x-rewrite-url"];
+    if (headerPath && headerPath.startsWith("/api") && headerPath !== "/api" && headerPath !== "/api/") {
+      req.url = headerPath;
+    } else if (req.query && typeof req.query.__url === "string") {
       const original = req.query.__url;
       delete req.query.__url;
       req.url = original;
@@ -27984,11 +27987,17 @@ var createApp = () => {
   });
   app2.use("/api", api_routes_default);
   app2.use("/", api_routes_default);
-  const welcomeHandler = (_req, res) => {
+  const welcomeHandler = (req, res) => {
     res.json({
       message: "Welcome to AI Toon API \u2014 Story-Based Learning Using Artificial Intelligence",
       version: "0.1.0",
       status: "active",
+      requestInfo: {
+        url: req.url,
+        originalUrl: req.originalUrl,
+        matchedPath: req.headers["x-matched-path"],
+        invokePath: req.headers["x-invoke-path"]
+      },
       endpoints: {
         health: "/api/health"
       }

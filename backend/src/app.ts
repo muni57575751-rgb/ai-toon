@@ -31,7 +31,16 @@ export const createApp = (): Express => {
 
   // Restore original request URL when rewritten by serverless catch-all routing
   app.use((req, _res, next) => {
-    if (req.query && typeof req.query.__url === 'string') {
+    const headerPath =
+      (req.headers['x-matched-path'] as string) ||
+      (req.headers['x-forwarded-uri'] as string) ||
+      (req.headers['x-original-url'] as string) ||
+      (req.headers['x-invoke-path'] as string) ||
+      (req.headers['x-rewrite-url'] as string);
+
+    if (headerPath && headerPath.startsWith('/api') && headerPath !== '/api' && headerPath !== '/api/') {
+      req.url = headerPath;
+    } else if (req.query && typeof req.query.__url === 'string') {
       const original = req.query.__url;
       delete req.query.__url;
       req.url = original;
@@ -44,11 +53,17 @@ export const createApp = (): Express => {
   app.use('/', apiRouter);
 
   // Root and /api welcome routes
-  const welcomeHandler = (_req: express.Request, res: express.Response) => {
+  const welcomeHandler = (req: express.Request, res: express.Response) => {
     res.json({
       message: 'Welcome to AI Toon API — Story-Based Learning Using Artificial Intelligence',
       version: '0.1.0',
       status: 'active',
+      requestInfo: {
+        url: req.url,
+        originalUrl: req.originalUrl,
+        matchedPath: req.headers['x-matched-path'],
+        invokePath: req.headers['x-invoke-path'],
+      },
       endpoints: {
         health: '/api/health',
       },

@@ -23,29 +23,14 @@ if (fs.existsSync(frontendDist)) {
   process.exit(1);
 }
 
-// 3. Copy bundled api backend to all function targets
+// 3. Copy bundled api backend
 const apiBundle = path.resolve(root, 'api', 'index.js');
 if (!fs.existsSync(apiBundle)) {
   console.error('[build-vercel] ERROR: api/index.js not found!');
   process.exit(1);
 }
 
-const targetFuncDirs = [
-  path.resolve(functionsDir, 'api.func'),
-  path.resolve(functionsDir, 'api', 'health.func'),
-  path.resolve(functionsDir, 'api', '[...path].func'),
-  path.resolve(functionsDir, 'api', 'auth.func'),
-  path.resolve(functionsDir, 'api', 'auth', '[...path].func'),
-  path.resolve(functionsDir, 'api', 'stories.func'),
-  path.resolve(functionsDir, 'api', 'stories', '[...path].func'),
-  path.resolve(functionsDir, 'api', 'admin.func'),
-  path.resolve(functionsDir, 'api', 'admin', '[...path].func'),
-  path.resolve(functionsDir, 'api', 'members.func'),
-  path.resolve(functionsDir, 'api', 'members', '[...path].func'),
-  path.resolve(functionsDir, 'api', 'search.func'),
-  path.resolve(functionsDir, 'api', 'index.func'),
-];
-
+const funcApiDir = path.resolve(functionsDir, 'api.func');
 const vcConfig = {
   runtime: 'nodejs20.x',
   handler: 'index.js',
@@ -54,18 +39,16 @@ const vcConfig = {
   shouldAddHelpers: true,
 };
 
-for (const dir of targetFuncDirs) {
-  fs.mkdirSync(dir, { recursive: true });
-  fs.copyFileSync(apiBundle, path.resolve(dir, 'index.js'));
-  fs.writeFileSync(
-    path.resolve(dir, '.vc-config.json'),
-    JSON.stringify(vcConfig, null, 2),
-    'utf8'
-  );
-}
-console.log(`[build-vercel] Deployed standalone bundle across ${targetFuncDirs.length} function endpoints`);
+fs.mkdirSync(funcApiDir, { recursive: true });
+fs.copyFileSync(apiBundle, path.resolve(funcApiDir, 'index.js'));
+fs.writeFileSync(
+  path.resolve(funcApiDir, '.vc-config.json'),
+  JSON.stringify(vcConfig, null, 2),
+  'utf8'
+);
+console.log('[build-vercel] Deployed standalone bundle to .vercel/output/functions/api.func');
 
-// 4. Write config.json with routing rules
+// 4. Write config.json with clean routing rules
 const config = {
   version: 3,
   routes: [
@@ -73,12 +56,8 @@ const config = {
       handle: 'filesystem',
     },
     {
-      src: '^/api/?$',
+      src: '^/api(?:/.*)?$',
       dest: '/api',
-    },
-    {
-      src: '^/api/(.*)$',
-      dest: '/api?__url=/api/$1',
     },
     {
       src: '^/(.*)$',
