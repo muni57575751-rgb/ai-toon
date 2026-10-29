@@ -15,10 +15,24 @@ export const login = (req: Request, res: Response): void => {
     return;
   }
 
-  const result = memberService.authenticate(email, password);
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || '127.0.0.1';
+  const userAgent = (req.headers['user-agent'] as string) || 'Browser Client';
+  let browser = 'Desktop Browser';
+  if (/mobile/i.test(userAgent)) browser = 'Mobile Browser';
+  else if (/tablet/i.test(userAgent)) browser = 'Tablet Browser';
+  else if (/chrome/i.test(userAgent)) browser = 'Chrome';
+  else if (/firefox/i.test(userAgent)) browser = 'Firefox';
+  else if (/safari/i.test(userAgent)) browser = 'Safari';
+
+  const result = memberService.authenticate(email, password, { ip, browser, userAgent });
 
   if (!result.success) {
-    const statusCode = result.code === 'PENDING_APPROVAL' ? 403 : 401;
+    const statusCode =
+      result.code === 'PENDING_APPROVAL' ||
+      result.code === 'ACCOUNT_SUSPENDED' ||
+      result.code === 'ACCOUNT_REJECTED'
+        ? 403
+        : 401;
     res.status(statusCode).json({
       success: false,
       error: {
@@ -71,18 +85,7 @@ export const register = (req: Request, res: Response): void => {
       success: false,
       error: {
         code: 'MISSING_FIELDS',
-        message: 'Name, email, and password are required.',
-      },
-    });
-    return;
-  }
-
-  if (password.length < 6) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: 'WEAK_PASSWORD',
-        message: 'Password must be at least 6 characters.',
+        message: 'Name, email, and password are required for registration.',
       },
     });
     return;
@@ -101,31 +104,45 @@ export const register = (req: Request, res: Response): void => {
     return;
   }
 
+  const member = result.member!;
+  const userPayload = {
+    id: member.id,
+    email: member.email,
+    fullName: member.fullName,
+    role: member.role,
+    verificationStatus: member.verificationStatus,
+    sessionStatus: member.sessionStatus,
+  };
+
   res.status(201).json({
     success: true,
     data: {
-      pendingApproval: true,
-      member: {
-        id: result.member?.id,
-        email: result.member?.email,
-        fullName: result.member?.fullName,
-        role: result.member?.role,
-        verificationStatus: result.member?.verificationStatus,
-      },
-      message:
-        'Account created successfully! Your account is awaiting approval from the Administrator (muni57575751@gmail.com). A notification has been dispatched to the admin portal.',
+      user: userPayload,
+      member: userPayload,
+      pendingApproval: result.pendingApproval,
+      notification: result.notification,
     },
     meta: {
+      message: result.pendingApproval
+        ? 'Account registered successfully. Notification dispatched to Administrator for approval.'
+        : 'Account created and verified.',
       timestamp: new Date().toISOString(),
     },
   });
 };
 
 export const logout = (req: Request, res: Response): void => {
-  const { userId, email } = req.body;
+  const userId = (req.headers['x-user-id'] as string) || req.body?.userId;
+  const userEmail = (req.headers['x-user-email'] as string) || req.body?.email;
 
-  if (userId || email) {
-    memberService.updateSessionStatus(userId || '', email || '', undefined, 'logged_out');
+  if (userId || userEmail) {
+    const member =
+      (userId ? memberService.getMemberById(userId) : undefined) ||
+      (userEmail ? memberService.getMemberByEmail(userEmail) : undefined);
+    if (member) {
+      member.sessionStatus = 'logged_out';
+      member.lastActiveAt = new Date().toISOString();
+    }
   }
 
   res.json({

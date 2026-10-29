@@ -1,0 +1,19 @@
+{
+  "userApprovalRequired": true,
+  "storyGenerationEnabled": true,
+  "aiModel": "gemini-3.5-flash-lite",
+  "maxStoryLength": 5,
+  "searchProvider": "wikipedia-wikimedia",
+  "imageProvider": "wikimedia",
+  "supportedLanguages": [
+    "en",
+    "te",
+    "hi",
+    "es",
+    "fr",
+    "de",
+    "ta"
+  ],
+  "contentSafetyStrict": true,
+  "dataRetentionDays": 90
+}

@@ -157,3 +157,4 @@ export function registerUsedImage(image: ImageSearchResult, usedSet: Set<string>
   if (image.imageUrl) usedSet.add(normalizeImageUrl(image.imageUrl));
   if (image.thumbnailUrl) usedSet.add(normalizeImageUrl(image.thumbnailUrl));
 }
+

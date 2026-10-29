@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { Story, StoryTone, SupportedLanguage, StoryDifficulty, ApiResponse } from '@ai-toon/shared';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { StoryViewer } from '../../components/story/StoryViewer';
+import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
 
 interface ProviderStatus {
@@ -14,8 +15,12 @@ interface ProviderStatus {
 }
 
 export const StoryGeneratorPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+
   // Form State
-  const [topic, setTopic] = useState('');
+  const initialTopic = searchParams.get('topic') || '';
+  const [topic, setTopic] = useState(initialTopic);
   const [tone, setTone] = useState<StoryTone>('funny');
   const [language, setLanguage] = useState<SupportedLanguage>('en');
   const [difficulty, setDifficulty] = useState<StoryDifficulty>('intermediate');
@@ -28,6 +33,12 @@ export const StoryGeneratorPage: React.FC = () => {
   // Examples & AI Provider Status
   const [examples, setExamples] = useState<Story[]>([]);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
+
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
 
   // Fetch AI provider status and built-in examples on mount
   useEffect(() => {
@@ -74,11 +85,17 @@ export const StoryGeneratorPage: React.FC = () => {
     setGeneratedStory(null);
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (user) {
+        headers['x-user-id'] = user.id;
+        headers['x-user-email'] = user.email || '';
+      }
+
       const res = await fetch(`${API_BASE_URL}/stories/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           topic: trimmed,
           tone,

@@ -24,7 +24,7 @@ const plannedFeatures: FeatureItem[] = [
   { id: 7, title: 'Interactive Multiple-Choice Quizzes', category: 'Learning Assessment', badge: 'green', status: 'Ready' },
   { id: 8, title: 'Instant Feedback & Detailed Explanations', category: 'Learning Assessment', badge: 'green', status: 'Ready' },
   { id: 9, title: 'Score Calculation & Performance Summary', category: 'Analytics', badge: 'green', status: 'Ready' },
-  { id: 10, title: 'Liquid Glass UI Redesign with Pastel Gradients', category: 'Design System', badge: 'sky', status: 'Ready' },
+  { id: 10, title: 'Interactive Educational UI with Pastel Gradients', category: 'Design System', badge: 'sky', status: 'Ready' },
   { id: 11, title: 'Student Learning Progress Tracking', category: 'Analytics', badge: 'green', status: 'Ready' },
   { id: 12, title: 'Responsive Cartoon Desktop & Mobile Interface', category: 'UI / UX', badge: 'coral', status: 'Ready' },
   { id: 13, title: 'Wikimedia Caching & In-flight Deduplication', category: 'Optimization', badge: 'yellow', status: 'Ready' },
@@ -47,12 +47,12 @@ export const HomePage: React.FC = () => {
             {/* Prominent App Name Badge */}
             <div className="hero-app-brand-badge">
               <span className="brand-pill-text">AI TOON</span>
-              <span className="brand-pill-desc">Liquid Glass Visual Learning</span>
+              <span className="brand-pill-desc">Interactive Visual Learning</span>
             </div>
 
             <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
               <span className="liquid-badge badge-mint">🔐 Supabase Auth Active</span>
-              <span className="liquid-badge badge-blue">🎨 Liquid Glass Redesign</span>
+              <span className="liquid-badge badge-blue">🎨 Modern Visual Learning</span>
               <span className="liquid-badge badge-lavender">🖼️ Entity-Aware Public Media</span>
             </div>
 
@@ -96,7 +96,7 @@ export const HomePage: React.FC = () => {
               </div>
               <span className="toon-emoji">🎨🤖💡</span>
               <div className="toon-caption">
-                <strong>Liquid Glass UI</strong>
+                <strong>Interactive Modern UI</strong>
                 <p>Pastel Gradients & Entity Search</p>
               </div>
             </div>
@@ -130,7 +130,7 @@ export const HomePage: React.FC = () => {
                   <span className="arch-subtitle">React 19 + Vite + TypeScript</span>
                 </div>
               </div>
-              <p>Liquid Glass design system with soft pastel mesh gradients, responsive cards, and Supabase auth.</p>
+              <p>Modern design system with soft pastel mesh gradients, responsive cards, and secure auth.</p>
               <div className="arch-path">frontend/</div>
             </div>
 

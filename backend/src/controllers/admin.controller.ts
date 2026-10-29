@@ -320,3 +320,89 @@ export const resetAllAccounts = (_req: AuthenticatedAdminRequest, res: Response)
     },
   });
 };
+
+export const suspendMember = (req: AuthenticatedAdminRequest, res: Response): void => {
+  const id = getParamId(req.params.id);
+  const { reason } = req.body;
+  const result = memberService.suspendMember(id, reason, req.adminMember?.email);
+
+  if (!result.success) {
+    res.status(400).json({ success: false, error: { code: 'SUSPEND_ERROR', message: result.error } });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: { member: result.member, stats: memberService.getStats() },
+    meta: { message: 'Member account suspended.', timestamp: new Date().toISOString() },
+  });
+};
+
+export const reactivateMember = (req: AuthenticatedAdminRequest, res: Response): void => {
+  const id = getParamId(req.params.id);
+  const result = memberService.reactivateMember(id, req.adminMember?.email);
+
+  if (!result.success) {
+    res.status(400).json({ success: false, error: { code: 'REACTIVATE_ERROR', message: result.error } });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: { member: result.member, stats: memberService.getStats() },
+    meta: { message: 'Member account reactivated.', timestamp: new Date().toISOString() },
+  });
+};
+
+export const getLoginAudit = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const logs = memberService.getLoginAuditLogs(100);
+  res.json({
+    success: true,
+    data: logs,
+    meta: { total: logs.length, timestamp: new Date().toISOString() },
+  });
+};
+
+export const getAdminAudit = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const logs = memberService.getAdminAuditLogs(100);
+  res.json({
+    success: true,
+    data: logs,
+    meta: { total: logs.length, timestamp: new Date().toISOString() },
+  });
+};
+
+export const getSettings = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const settings = memberService.getSettings();
+  res.json({
+    success: true,
+    data: settings,
+    meta: { timestamp: new Date().toISOString() },
+  });
+};
+
+export const updateSettings = (req: AuthenticatedAdminRequest, res: Response): void => {
+  const updated = memberService.updateSettings(req.body, req.adminMember?.email);
+  res.json({
+    success: true,
+    data: updated,
+    meta: { message: 'System settings updated successfully.', timestamp: new Date().toISOString() },
+  });
+};
+
+export const exportReport = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const report = {
+    generatedAt: new Date().toISOString(),
+    stats: memberService.getStats(),
+    members: memberService.getAllMembers(),
+    recentLoginAudit: memberService.getLoginAuditLogs(50),
+    recentAdminAudit: memberService.getAdminAuditLogs(50),
+    settings: memberService.getSettings(),
+  };
+
+  res.json({
+    success: true,
+    data: report,
+    meta: { timestamp: new Date().toISOString() },
+  });
+};

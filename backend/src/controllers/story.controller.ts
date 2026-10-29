@@ -1,9 +1,26 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import type { ApiResponse, Story, StoryGenerationRequest, StoryTone, SupportedLanguage, StoryDifficulty } from '@ai-toon/shared';
 import { storyService } from '../services/story.service.js';
+import { memberService } from '../services/member.service.js';
+import { qaService } from '../services/qa/qa.service.js';
+import type { AuthenticatedUserRequest } from '../middleware/auth.middleware.js';
 
-export const generateStoryController = async (req: Request, res: Response): Promise<void> => {
+export const generateStoryController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
   try {
+    // 1. Check if Story Generation is enabled in System Settings
+    const settings = memberService.getSettings();
+    if (!settings.storyGenerationEnabled || settings.aiGenerationEnabled === false) {
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'GENERATION_PAUSED',
+          message: 'AI Story generation is currently paused by the system administrator.',
+        },
+        meta: { timestamp: new Date().toISOString() },
+      });
+      return;
+    }
+
     const { topic, tone, language, difficulty } = req.body as Partial<StoryGenerationRequest>;
 
     if (!topic || typeof topic !== 'string' || topic.trim().length < 2) {
@@ -52,6 +69,11 @@ export const generateStoryController = async (req: Request, res: Response): Prom
 
     const { story, cached } = await storyService.getOrGenerateStory(requestPayload);
 
+    // Save story under authenticated user's private library
+    if (req.user?.id) {
+      memberService.saveUserStory(req.user.id, story);
+    }
+
     const response: ApiResponse<Story> = {
       success: true,
       data: story,
@@ -98,16 +120,16 @@ export const generateStoryController = async (req: Request, res: Response): Prom
       friendlyMessage = 'AI Toon is temporarily busy. Your lesson could not be generated right now. Please try again in a moment.';
     } else if (isAuth) {
       statusCode = 401;
-      errorCode = 'AI_UNAUTHORIZED';
-      friendlyMessage = 'AI service authorization failed. Please verify the Gemini API configuration on the server.';
+      errorCode = 'AI_PROVIDER_AUTH_ERROR';
+      friendlyMessage = 'The AI provider rejected the request due to invalid credentials. Please check your API key.';
     } else if (isQuota) {
       statusCode = 429;
-      errorCode = 'AI_QUOTA_EXCEEDED';
-      friendlyMessage = 'AI Toon free-tier quota is currently reached. Please try one of our built-in lessons or try again shortly.';
+      errorCode = 'AI_QUOTA_EXHAUSTED';
+      friendlyMessage = 'The free-tier AI generation quota has been reached for this minute. Please wait 60 seconds and try again.';
     } else if (isConfig) {
-      statusCode = 400;
+      statusCode = 503;
       errorCode = 'AI_NOT_CONFIGURED';
-      friendlyMessage = 'No AI API key is configured on the server. Please set GEMINI_API_KEY in backend/.env, or choose one of our built-in example stories.';
+      friendlyMessage = rawMessage;
     }
 
     res.status(statusCode).json({
@@ -115,13 +137,16 @@ export const generateStoryController = async (req: Request, res: Response): Prom
       error: {
         code: errorCode,
         message: friendlyMessage,
+        details: process.env.NODE_ENV !== 'production' ? rawMessage : undefined,
       },
-      meta: { timestamp: new Date().toISOString() },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 };
 
-export const getExamplesController = (_req: Request, res: Response): void => {
+export const getExamplesController = (_req: AuthenticatedUserRequest, res: Response): void => {
   const examples = storyService.getBuiltInExamples();
   const response: ApiResponse<Story[]> = {
     success: true,
@@ -133,18 +158,20 @@ export const getExamplesController = (_req: Request, res: Response): void => {
   res.status(200).json(response);
 };
 
-export const getExampleByIdController = (req: Request, res: Response): void => {
-  const id = typeof req.params.id === 'string' ? req.params.id : Array.isArray(req.params.id) ? req.params.id[0] : '';
+export const getExampleByIdController = (req: AuthenticatedUserRequest, res: Response): void => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const example = storyService.getBuiltInExampleById(id);
 
   if (!example) {
     res.status(404).json({
       success: false,
       error: {
-        code: 'NOT_FOUND',
-        message: `Built-in example story "${id}" not found.`,
+        code: 'EXAMPLE_NOT_FOUND',
+        message: `No example story found with ID "${id}".`,
       },
-      meta: { timestamp: new Date().toISOString() },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
     });
     return;
   }
@@ -159,11 +186,110 @@ export const getExampleByIdController = (req: Request, res: Response): void => {
   res.status(200).json(response);
 };
 
-export const getStatusController = (_req: Request, res: Response): void => {
+export const getStatusController = (_req: AuthenticatedUserRequest, res: Response): void => {
   const status = storyService.getStatus();
   res.status(200).json({
     success: true,
     data: status,
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+export const askQuestionController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
+  try {
+    const response = await qaService.answerQuestion(req.body);
+    res.status(200).json({
+      success: true,
+      data: response,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'QA_ERROR',
+        message: err.message || 'Failed to process educational question.',
+      },
+      meta: { timestamp: new Date().toISOString() },
+    });
+  }
+};
+
+export const saveQuizAttemptController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
+  try {
+    const { storyId, topic, score, total, totalQuestions } = req.body;
+    const userId = req.user?.id || 'anonymous';
+    const totalCount = Number(total || totalQuestions || 0);
+    const scoreCount = Number(score || 0);
+    const percentage = totalCount > 0 ? Math.round((scoreCount / totalCount) * 100) : 0;
+
+    const attempt = memberService.recordQuizAttempt({
+      userId,
+      storyId: storyId || 'general',
+      topic: topic || 'Educational Quiz',
+      score: scoreCount,
+      total: totalCount,
+      percentage,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: attempt,
+      meta: { timestamp: new Date().toISOString() },
+    });
+  } catch (err: any) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'QUIZ_ATTEMPT_ERROR',
+        message: err.message || 'Failed to record quiz score.',
+      },
+      meta: { timestamp: new Date().toISOString() },
+    });
+  }
+};
+
+export const getUserStoriesController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required.' },
+      meta: { timestamp: new Date().toISOString() },
+    });
+    return;
+  }
+
+  const stories = memberService.getUserStories(userId);
+  res.status(200).json({
+    success: true,
+    data: stories,
+    meta: { total: stories.length, timestamp: new Date().toISOString() },
+  });
+};
+
+export const getUserProgressController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required.' },
+      meta: { timestamp: new Date().toISOString() },
+    });
+    return;
+  }
+
+  const progress = memberService.getUserProgress(userId);
+  res.status(200).json({
+    success: true,
+    data: {
+      ...progress,
+      storiesCompleted: progress.totalStoriesRead,
+      quizzesCompleted: progress.totalQuizzesTaken,
+      averageScorePercentage: progress.averageQuizScore,
+    },
     meta: { timestamp: new Date().toISOString() },
   });
 };

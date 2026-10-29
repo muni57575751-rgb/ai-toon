@@ -1,7 +1,7 @@
 @import './tokens.css';
 
 /* =========================================================
-   Base Layout & Liquid Glass Canvas
+   Base Layout & Modern Visual Canvas
    ========================================================= */
 
 *, *::before, *::after {
@@ -22,7 +22,7 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Ambient Floating Pastel Spheres for Liquid Glass Refraction */
+/* Ambient Floating Pastel Spheres for Modern Visual Refraction */
 body::before, body::after {
   content: '';
   position: fixed;
@@ -96,7 +96,7 @@ button {
   transition: all var(--transition-fast);
 }
 
-/* Liquid Glass Custom Scrollbar */
+/* Modern Visual Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 11px;
 }
@@ -123,10 +123,10 @@ button {
 }
 
 /* =========================================================
-   Liquid Glass Core Surfaces & Panels
+   Modern Visual Core Surfaces & Panels
    ========================================================= */
 
-/* Primary Translucent Liquid Glass Card */
+/* Primary Translucent Modern Visual Card */
 .liquid-glass-card,
 .neoclay-card {
   background: var(--gradient-glass-card);
@@ -252,7 +252,7 @@ button {
 }
 
 /* =========================================================
-   Liquid Glass Buttons
+   Modern Visual Buttons
    ========================================================= */
 
 /* Primary Glossy Button */
@@ -340,7 +340,7 @@ button {
 }
 
 /* =========================================================
-   Liquid Glass Inputs & Form Controls
+   Modern Visual Inputs & Form Controls
    ========================================================= */
 
 .liquid-glass-input,

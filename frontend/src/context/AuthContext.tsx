@@ -21,6 +21,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   loginDemoAdmin: () => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (fullName: string) => Promise<{ success: boolean; error?: string }>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -234,6 +236,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(null);
   };
 
+  const updateProfile = async (fullName: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not logged in.' };
+    try {
+      const res = await fetch(`${API_BASE_URL}/members/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+        },
+        body: JSON.stringify({ fullName }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error?.message || 'Failed to update profile.' };
+      }
+      setProfile((prev) => (prev ? { ...prev, fullName } : null));
+      const savedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (savedAuth) {
+        try {
+          const parsed = JSON.parse(savedAuth);
+          parsed.profile.fullName = fullName;
+          parsed.user.user_metadata = { ...parsed.user.user_metadata, full_name: fullName };
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
+        } catch {}
+      }
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error updating profile.' };
+    }
+  };
+
+  const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not logged in.' };
+    try {
+      const res = await fetch(`${API_BASE_URL}/members/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error?.message || 'Failed to delete account.' };
+      }
+      await signOut();
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Network error deleting account.' };
+    }
+  };
+
   // Quick Master Admin Login Helper (muni57575751@gmail.com / Poola@1234)
   const loginDemoAdmin = async (): Promise<{ error: Error | null }> => {
     return signIn(MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD);
@@ -252,6 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         loginDemoAdmin,
         refreshProfile,
+        updateProfile,
+        deleteAccount,
       }}
     >
       {children}

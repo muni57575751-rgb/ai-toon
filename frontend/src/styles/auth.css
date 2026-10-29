@@ -1,5 +1,5 @@
 /* =========================================================
-   Liquid Glass Authentication Pages (Login & Sign-Up)
+   Modern Visual Authentication Pages (Login & Sign-Up)
    ========================================================= */
 
 .auth-page-container {
@@ -11,7 +11,7 @@
   position: relative;
 }
 
-/* Translucent Liquid Glass Authentication Card */
+/* Translucent Modern Visual Authentication Card */
 .auth-card {
   max-width: 480px;
   width: 100%;

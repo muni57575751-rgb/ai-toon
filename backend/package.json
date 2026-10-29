@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test:retry": "tsx src/test-ai-retry.ts",
     "test:images": "tsx src/test-image-search.ts",
-    "test:admin": "tsx src/test-admin-auth.ts"
+    "test:admin": "tsx src/test-admin-auth.ts",
+    "test:comprehensive": "tsx src/test-comprehensive-suite.ts"
   },
   "dependencies": {
     "@ai-toon/shared": "*",

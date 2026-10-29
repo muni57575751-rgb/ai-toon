@@ -4,17 +4,21 @@ import storyRouter from './story.routes.js';
 import adminRouter from './admin.routes.js';
 import memberRouter from './member.routes.js';
 import authRouter from './auth.routes.js';
+import searchRouter from './search.routes.js';
 
 const apiRouter = Router();
 
 // Health check endpoint: /api/health
 apiRouter.use('/health', healthRouter);
 
-// Story generation and examples endpoint: /api/stories
+// Story generation, Q&A, and examples endpoint: /api/stories
 apiRouter.use('/stories', storyRouter);
 
 // Dedicated authentication & registration endpoints: /api/auth
 apiRouter.use('/auth', authRouter);
+
+// Live Web Search & Educational Research endpoint: /api/search
+apiRouter.use('/search', searchRouter);
 
 // Admin-only management endpoints: /api/admin
 apiRouter.use('/admin', adminRouter);

@@ -10,6 +10,9 @@ import type {
   AdminNotification,
   UserRole,
   MemberVerificationStatus,
+  LoginAuditEvent,
+  AdminAuditEvent,
+  SystemSettings,
 } from '@ai-toon/shared';
 
 export const AdminPage: React.FC = () => {
@@ -34,9 +37,15 @@ export const AdminPage: React.FC = () => {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeTab, setActiveTab] = useState<
-    'all' | 'notifications' | 'logged_in' | 'logged_out' | 'admins' | 'pending'
+    'all' | 'notifications' | 'logged_in' | 'logged_out' | 'admins' | 'pending' | 'audit' | 'settings'
   >('all');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+
+  // Audit & Settings State
+  const [loginAudits, setLoginAudits] = useState<LoginAuditEvent[]>([]);
+  const [adminAudits, setAdminAudits] = useState<AdminAuditEvent[]>([]);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   // Fetch members, notifications, and stats from backend
   const fetchData = useCallback(async () => {
@@ -77,9 +86,60 @@ export const AdminPage: React.FC = () => {
     }
   }, [user, profile]);
 
+  const fetchAudit = useCallback(async () => {
+    if (!user) return;
+    try {
+      const headers = {
+        'x-user-id': user.id,
+        'x-user-email': user.email || '',
+        'x-user-role': profile?.role || 'admin',
+      };
+      const [loginRes, adminRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/admin/audit/logins`, { headers }),
+        fetch(`${API_BASE_URL}/admin/audit/actions`, { headers }),
+      ]);
+      if (loginRes.ok) {
+        const body = await loginRes.json();
+        if (body.data) setLoginAudits(body.data);
+      }
+      if (adminRes.ok) {
+        const body = await adminRes.json();
+        if (body.data) setAdminAudits(body.data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch audit logs:', err);
+    }
+  }, [user, profile]);
+
+  const fetchSettings = useCallback(async () => {
+    if (!user) return;
+    try {
+      const headers = {
+        'x-user-id': user.id,
+        'x-user-email': user.email || '',
+        'x-user-role': profile?.role || 'admin',
+      };
+      const res = await fetch(`${API_BASE_URL}/admin/settings`, { headers });
+      if (res.ok) {
+        const body = await res.json();
+        if (body.data) setSettings(body.data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch settings:', err);
+    }
+  }, [user, profile]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (activeTab === 'audit') {
+      fetchAudit();
+    } else if (activeTab === 'settings') {
+      fetchSettings();
+    }
+  }, [activeTab, fetchAudit, fetchSettings]);
 
   // Auto-refresh interval (every 5 seconds)
   useEffect(() => {
@@ -261,6 +321,109 @@ export const AdminPage: React.FC = () => {
       await fetchData();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Reset failed.');
+    }
+  };
+
+  const handleSuspendMember = async (targetId: string) => {
+    if (!user) return;
+    setActionLoadingId(targetId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/members/${targetId}/suspend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+          'x-user-role': profile?.role || 'admin',
+        },
+        body: JSON.stringify({ reason: 'Suspended by admin' }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error?.message || 'Suspension failed.');
+      setSuccessMsg('Account suspended successfully.');
+      await fetchData();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Suspension failed.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleReactivateMember = async (targetId: string) => {
+    if (!user) return;
+    setActionLoadingId(targetId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/members/${targetId}/reactivate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+          'x-user-role': profile?.role || 'admin',
+        },
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error?.message || 'Reactivation failed.');
+      setSuccessMsg('Account reactivated successfully.');
+      await fetchData();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Reactivation failed.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUpdateSettings = async (newSettings: Partial<SystemSettings>) => {
+    if (!user) return;
+    setSettingsSaving(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+          'x-user-role': profile?.role || 'admin',
+        },
+        body: JSON.stringify(newSettings),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.success) throw new Error(body.error?.message || 'Settings update failed.');
+      setSettings(body.data);
+      setSuccessMsg('System settings updated successfully.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to update settings.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleExportReport = async () => {
+    if (!user) return;
+    try {
+      const headers = {
+        'x-user-id': user.id,
+        'x-user-email': user.email || '',
+        'x-user-role': profile?.role || 'admin',
+      };
+      const res = await fetch(`${API_BASE_URL}/admin/export`, { headers });
+      if (res.ok) {
+        const body = await res.json();
+        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(body.data, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute('href', dataStr);
+        downloadAnchor.setAttribute('download', `ai-toon-audit-report-${new Date().toISOString().slice(0, 10)}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+      }
+    } catch {
+      setErrorMsg('Failed to export system report.');
     }
   };
 
@@ -948,6 +1111,20 @@ export const AdminPage: React.FC = () => {
             >
               🛡️ Admins ({stats.adminCount}/5)
             </button>
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={activeTab === 'audit' ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
+              style={{ fontSize: '0.85rem', padding: '0.45rem 1rem' }}
+            >
+              📋 Audit Trail
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={activeTab === 'settings' ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
+              style={{ fontSize: '0.85rem', padding: '0.45rem 1rem' }}
+            >
+              ⚙️ Controls & Export
+            </button>
           </div>
 
           {/* Search Box */}
@@ -1063,6 +1240,333 @@ export const AdminPage: React.FC = () => {
               </div>
             )}
           </section>
+        ) : activeTab === 'audit' ? (
+          /* Tab: Audit Trail */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* Login Activity Logs */}
+            <section
+              className="liquid-glass-card"
+              style={{
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                padding: '1.5rem',
+                background: 'rgba(255, 255, 255, 0.95)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 0.25rem 0', color: 'var(--liquid-navy-dark)', fontSize: '1.25rem' }}>
+                    🔐 Login & Authentication Activity
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--liquid-navy-muted)' }}>
+                    Real-time login successes, failures, and device metadata recorded for security audit.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchAudit}
+                  className="btn-neoclay-secondary"
+                  style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem' }}
+                >
+                  🔄 Refresh Logs
+                </button>
+              </div>
+
+              {loginAudits.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--navy-500)' }}>
+                  No login events recorded yet.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                        <th style={{ padding: '0.75rem 1rem' }}>Time</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>User / Email</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>Reason / Note</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>IP Address</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>Device</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loginAudits.map((log) => (
+                        <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', color: 'var(--navy-600)' }}>
+                            {new Date(log.timestamp).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: 'var(--navy-900)' }}>
+                            {log.email}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '999px',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                background: log.success ? '#dcfce7' : '#fee2e2',
+                                color: log.success ? '#15803d' : '#b91c1c',
+                              }}
+                            >
+                              {log.success ? '✓ SUCCESS' : '✕ FAILED'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: log.success ? '#15803d' : '#b91c1c', fontSize: '0.82rem' }}>
+                            {log.reason || (log.success ? 'Authenticated successfully' : 'Failed')}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', color: 'var(--navy-700)' }}>
+                            {log.ip || '127.0.0.1'}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: 'var(--navy-600)' }}>
+                            {log.browser || 'Browser'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* Admin Actions Audit Log */}
+            <section
+              className="liquid-glass-card"
+              style={{
+                borderRadius: 'var(--radius-xl)',
+                overflow: 'hidden',
+                padding: '1.5rem',
+                background: 'rgba(255, 255, 255, 0.95)',
+              }}
+            >
+              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--liquid-navy-dark)', fontSize: '1.25rem' }}>
+                🛡️ Administrative Action Audit Trail
+              </h3>
+              {adminAudits.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--navy-500)' }}>
+                  No admin actions recorded yet.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                        <th style={{ padding: '0.75rem 1rem' }}>Time</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>Admin</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>Action</th>
+                        <th style={{ padding: '0.75rem 1rem' }}>Target Account</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminAudits.map((act) => (
+                        <tr key={act.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', color: 'var(--navy-600)' }}>
+                            {new Date(act.timestamp).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#6b21a8' }}>
+                            {act.adminEmail}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '6px',
+                                background: '#f3e8ff',
+                                color: '#581c87',
+                                fontWeight: 800,
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              {act.action}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: 'var(--navy-800)' }}>
+                            {act.targetEmail || act.targetId || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        ) : activeTab === 'settings' ? (
+          /* Tab: Settings & System Controls */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            <section
+              className="liquid-glass-card"
+              style={{
+                borderRadius: 'var(--radius-xl)',
+                padding: '2rem',
+                background: 'rgba(255, 255, 255, 0.95)',
+              }}
+            >
+              <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--liquid-navy-dark)', fontSize: '1.3rem' }}>
+                ⚙️ Platform Configuration & Safety Controls
+              </h3>
+              <p style={{ margin: '0 0 2rem 0', color: 'var(--navy-600)', fontSize: '0.9rem' }}>
+                Control platform availability, registration approval requirements, and safety guidelines.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* AI Generation Toggle */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '1.25rem',
+                    background: '#f8fafc',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1.5px solid #e2e8f0',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--navy-900)' }}>
+                      AI Story & Lesson Generation
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--navy-600)', marginTop: '0.2rem' }}>
+                      When paused, users cannot generate new stories. Public sample lessons remain readable.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={settingsSaving}
+                    onClick={() =>
+                      handleUpdateSettings({
+                        aiGenerationEnabled: !(settings?.aiGenerationEnabled ?? true),
+                      })
+                    }
+                    style={{
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.88rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: (settings?.aiGenerationEnabled ?? true) ? '#10b981' : '#f59e0b',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {(settings?.aiGenerationEnabled ?? true) ? 'Active (Enabled)' : 'Paused (Disabled)'}
+                  </button>
+                </div>
+
+                {/* Registration Approval Toggle */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '1.25rem',
+                    background: '#f8fafc',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1.5px solid #e2e8f0',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--navy-900)' }}>
+                      Mandatory Admin Approval for Registrations
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--navy-600)', marginTop: '0.2rem' }}>
+                      Newly registered accounts must be approved by Muni before gaining access.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={settingsSaving}
+                    onClick={() =>
+                      handleUpdateSettings({
+                        registrationApprovalRequired: !(settings?.registrationApprovalRequired ?? true),
+                      })
+                    }
+                    style={{
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.88rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: (settings?.registrationApprovalRequired ?? true) ? '#3b82f6' : '#64748b',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {(settings?.registrationApprovalRequired ?? true) ? 'Required (Strict)' : 'Open (Instant)'}
+                  </button>
+                </div>
+
+                {/* Safety Moderation Level */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '1.25rem',
+                    background: '#f8fafc',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1.5px solid #e2e8f0',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--navy-900)' }}>
+                      Content Safety & Academic Moderation
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--navy-600)', marginTop: '0.2rem' }}>
+                      Filters inappropriate queries and enforces academic educational themes.
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      padding: '0.45rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      background: '#ecfdf5',
+                      color: '#065f46',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      border: '1px solid #a7f3d0',
+                    }}
+                  >
+                    🛡️ Strict (K-12 Safe)
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Export & Compliance Card */}
+            <section
+              className="liquid-glass-card"
+              style={{
+                borderRadius: 'var(--radius-xl)',
+                padding: '2rem',
+                background: 'rgba(255, 255, 255, 0.95)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1.5rem',
+              }}
+            >
+              <div>
+                <h4 style={{ margin: '0 0 0.35rem 0', color: 'var(--liquid-navy-dark)', fontSize: '1.15rem' }}>
+                  📥 Export Authorized System & Audit Reports
+                </h4>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--navy-600)', maxWidth: '580px' }}>
+                  Download a structured JSON archive containing active member registries, system settings, login security audits, and administrative change logs.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportReport}
+                className="btn-neoclay-primary"
+                style={{ padding: '0.75rem 1.6rem', fontSize: '0.95rem' }}
+              >
+                Download Audit Report (JSON) 📥
+              </button>
+            </section>
+          </div>
         ) : (
           /* Tab 2: Members Directory Table */
           <section
@@ -1316,6 +1820,20 @@ export const AdminPage: React.FC = () => {
                               >
                                 ⏳ Pending Approval
                               </span>
+                            ) : m.verificationStatus === 'suspended' ? (
+                              <span
+                                style={{
+                                  background: '#fef2f2',
+                                  color: '#dc2626',
+                                  padding: '0.25rem 0.65rem',
+                                  borderRadius: '8px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 800,
+                                  border: '1.5px solid #f87171',
+                                }}
+                              >
+                                🚫 Suspended
+                              </span>
                             ) : (
                               <span
                                 style={{
@@ -1404,6 +1922,37 @@ export const AdminPage: React.FC = () => {
                                           }}
                                         >
                                           ⬇️ Demote User
+                                        </button>
+                                      )}
+
+                                      {m.verificationStatus === 'suspended' ? (
+                                        <button
+                                          onClick={() => handleReactivateMember(m.id)}
+                                          disabled={isTargetLoading}
+                                          className="btn-liquid-secondary"
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            padding: '0.35rem 0.75rem',
+                                            color: '#047857',
+                                            borderColor: '#34d399',
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          ✓ Reactivate
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleSuspendMember(m.id)}
+                                          disabled={isTargetLoading}
+                                          className="btn-liquid-secondary"
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            padding: '0.35rem 0.75rem',
+                                            color: '#dc2626',
+                                            borderColor: '#fca5a5',
+                                          }}
+                                        >
+                                          🚫 Suspend
                                         </button>
                                       )}
                                     </>

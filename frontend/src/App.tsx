@@ -6,6 +6,7 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { SignUpPage } from './pages/auth/SignUpPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { StoryGeneratorPage } from './pages/story/StoryGeneratorPage';
+import { SearchPage } from './pages/search/SearchPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicOnlyRoute } from './components/auth/PublicOnlyRoute';
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/generate" element={<StoryGeneratorPage />} />
+            <Route path="/search" element={<SearchPage />} />
           </Route>
 
           {/* Admin-Only Routes (redirects to /login if unauthenticated, strictly blocks normal users with 403 Forbidden) */}

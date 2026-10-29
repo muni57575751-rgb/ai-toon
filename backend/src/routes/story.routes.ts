@@ -4,21 +4,28 @@ import {
   getExamplesController,
   getExampleByIdController,
   getStatusController,
+  askQuestionController,
+  saveQuizAttemptController,
+  getUserStoriesController,
+  getUserProgressController,
 } from '../controllers/story.controller.js';
 import { storyRateLimiter } from '../middleware/rateLimit.middleware.js';
+import { requireAuth, requireApprovedUser } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// GET /api/stories/examples -> list of built-in offline educational stories
+// Public sample content (Requirements: "Visitors can view only explicitly public landing pages and sample content")
 router.get('/examples', getExamplesController);
-
-// GET /api/stories/examples/:id -> get specific example story
 router.get('/examples/:id', getExampleByIdController);
-
-// GET /api/stories/status -> check AI provider & cache health
 router.get('/status', getStatusController);
 
-// POST /api/stories/generate -> generate story with rate limiting & caching
-router.post('/generate', storyRateLimiter, generateStoryController);
+// Protected learning features (Requires authentication and approved account status)
+router.post('/generate', requireApprovedUser, storyRateLimiter, generateStoryController);
+router.post('/qa', requireApprovedUser, askQuestionController);
+router.post('/quiz/attempt', requireApprovedUser, saveQuizAttemptController);
+
+// Private authenticated user content (Requirement: "Users must sign in to access their private dashboard, personal stories, saved quizzes")
+router.get('/my-stories', requireAuth, getUserStoriesController);
+router.get('/my-progress', requireAuth, getUserProgressController);
 
 export default router;

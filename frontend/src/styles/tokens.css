@@ -1,6 +1,6 @@
 :root {
   /* =========================================================
-     AI Toon Liquid Glass Design System Tokens
+     AI Toon Modern Visual Design System Tokens
      Palette: White, Light Pink, Sky Blue, Soft Lavender, Warm Cream, Deep Navy
      ========================================================= */
 
@@ -87,7 +87,7 @@
   --radius-pill: 9999px;
 
   /* =========================================================
-     Liquid Glass Shader & Translucent Shadow System
+     Modern Visual Shader & Translucent Shadow System
      ========================================================= */
 
   /* Multi-color Pastel Mesh Gradients */
@@ -129,7 +129,7 @@
   --gradient-liquid-button-hover:
     linear-gradient(135deg, #60a5fa 0%, #0ea5e9 50%, #ec4899 100%);
 
-  /* Translucent Liquid Glass Shadows with Subsurface Glow */
+  /* Translucent Modern Visual Shadows with Subsurface Glow */
   --shadow-liquid-subtle:
     0 4px 16px -2px rgba(36, 50, 75, 0.05),
     0 2px 6px -1px rgba(36, 50, 75, 0.03),
@@ -164,7 +164,7 @@
   --liquid-border-panel: 1px solid rgba(234, 228, 255, 0.7);
   --liquid-border-input: 1.5px solid rgba(221, 242, 255, 0.9);
 
-  /* Legacy Clay Aliases mapped to Liquid Glass */
+  /* Legacy Clay Aliases mapped to Modern Visual */
   --clay-border-card: var(--liquid-border-card);
   --clay-border-subtle: var(--liquid-border-panel);
   --clay-border-recessed: var(--liquid-border-input);

@@ -134,6 +134,13 @@ export const Header: React.FC = () => {
                 </Link>
               )}
               <Link
+                to="/search"
+                className="btn-liquid-secondary"
+                style={{ textDecoration: 'none', padding: '0.5rem 1.05rem', fontSize: '0.88rem' }}
+              >
+                🔍 Search
+              </Link>
+              <Link
                 to="/generate"
                 className="btn-liquid-primary"
                 style={{ textDecoration: 'none', padding: '0.5rem 1.15rem', fontSize: '0.88rem' }}

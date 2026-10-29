@@ -5,7 +5,7 @@
 }
 
 /* =========================================================
-   Hero Banner — Liquid Glass Redesign
+   Hero Banner — Modern Visual Redesign
    ========================================================= */
 .hero-banner {
   background: var(--gradient-glass-card);
@@ -227,7 +227,7 @@
 }
 
 /* =========================================================
-   Architecture Grid — Liquid Glass Cards
+   Architecture Grid — Modern Visual Cards
    ========================================================= */
 .architecture-grid {
   display: grid;
@@ -305,7 +305,7 @@
 }
 
 /* =========================================================
-   Features Grid — Liquid Glass Tiles
+   Features Grid — Modern Visual Tiles
    ========================================================= */
 .features-grid {
   display: grid;
