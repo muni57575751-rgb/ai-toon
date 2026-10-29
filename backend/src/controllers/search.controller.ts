@@ -40,3 +40,4 @@ export const webSearchController = async (req: Request, res: Response): Promise<
     });
   }
 };
+

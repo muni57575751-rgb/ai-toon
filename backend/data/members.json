@@ -6,9 +6,9 @@
     "password": "Poola@1234",
     "role": "admin",
     "verificationStatus": "verified",
-    "sessionStatus": "logged_in",
-    "lastActiveAt": "2026-10-29T18:02:59.934Z",
-    "lastLoginAt": "2026-10-29T18:02:59.934Z",
+    "sessionStatus": "logged_out",
+    "lastActiveAt": "2026-10-29T15:30:00.000Z",
+    "lastLoginAt": "2026-10-29T15:30:00.000Z",
     "createdAt": "2026-10-29T15:30:00.000Z",
     "verifiedAt": "2026-10-29T15:30:00.000Z",
     "verifiedBy": "System Master Root"

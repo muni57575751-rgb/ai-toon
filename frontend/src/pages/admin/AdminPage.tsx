@@ -39,13 +39,13 @@ export const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     'all' | 'notifications' | 'logged_in' | 'logged_out' | 'admins' | 'pending' | 'audit' | 'settings'
   >('all');
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
   // Audit & Settings State
   const [loginAudits, setLoginAudits] = useState<LoginAuditEvent[]>([]);
   const [adminAudits, setAdminAudits] = useState<AdminAuditEvent[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
   // Fetch members, notifications, and stats from backend
   const fetchData = useCallback(async () => {
@@ -1437,7 +1437,7 @@ export const AdminPage: React.FC = () => {
                     disabled={settingsSaving}
                     onClick={() =>
                       handleUpdateSettings({
-                        aiGenerationEnabled: !(settings?.aiGenerationEnabled ?? true),
+                        storyGenerationEnabled: !(settings?.storyGenerationEnabled ?? true),
                       })
                     }
                     style={{
@@ -1447,11 +1447,11 @@ export const AdminPage: React.FC = () => {
                       fontWeight: 800,
                       cursor: 'pointer',
                       border: 'none',
-                      background: (settings?.aiGenerationEnabled ?? true) ? '#10b981' : '#f59e0b',
+                      background: (settings?.storyGenerationEnabled ?? true) ? '#10b981' : '#f59e0b',
                       color: '#ffffff',
                     }}
                   >
-                    {(settings?.aiGenerationEnabled ?? true) ? 'Active (Enabled)' : 'Paused (Disabled)'}
+                    {(settings?.storyGenerationEnabled ?? true) ? 'Active (Enabled)' : 'Paused (Disabled)'}
                   </button>
                 </div>
 
@@ -1480,7 +1480,7 @@ export const AdminPage: React.FC = () => {
                     disabled={settingsSaving}
                     onClick={() =>
                       handleUpdateSettings({
-                        registrationApprovalRequired: !(settings?.registrationApprovalRequired ?? true),
+                        userApprovalRequired: !(settings?.userApprovalRequired ?? true),
                       })
                     }
                     style={{
@@ -1490,11 +1490,11 @@ export const AdminPage: React.FC = () => {
                       fontWeight: 800,
                       cursor: 'pointer',
                       border: 'none',
-                      background: (settings?.registrationApprovalRequired ?? true) ? '#3b82f6' : '#64748b',
+                      background: (settings?.userApprovalRequired ?? true) ? '#3b82f6' : '#64748b',
                       color: '#ffffff',
                     }}
                   >
-                    {(settings?.registrationApprovalRequired ?? true) ? 'Required (Strict)' : 'Open (Instant)'}
+                    {(settings?.userApprovalRequired ?? true) ? 'Required (Strict)' : 'Open (Instant)'}
                   </button>
                 </div>
 
@@ -1806,20 +1806,6 @@ export const AdminPage: React.FC = () => {
                               >
                                 ✓ Approved
                               </span>
-                            ) : m.verificationStatus === 'pending' ? (
-                              <span
-                                style={{
-                                  background: '#fffbeb',
-                                  color: '#b45309',
-                                  padding: '0.25rem 0.65rem',
-                                  borderRadius: '8px',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 800,
-                                  border: '1.5px solid #f59e0b',
-                                }}
-                              >
-                                ⏳ Pending Approval
-                              </span>
                             ) : m.verificationStatus === 'suspended' ? (
                               <span
                                 style={{
@@ -1833,6 +1819,20 @@ export const AdminPage: React.FC = () => {
                                 }}
                               >
                                 🚫 Suspended
+                              </span>
+                            ) : m.verificationStatus === 'pending' ? (
+                              <span
+                                style={{
+                                  background: '#fffbeb',
+                                  color: '#b45309',
+                                  padding: '0.25rem 0.65rem',
+                                  borderRadius: '8px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 800,
+                                  border: '1.5px solid #f59e0b',
+                                }}
+                              >
+                                ⏳ Pending Approval
                               </span>
                             ) : (
                               <span

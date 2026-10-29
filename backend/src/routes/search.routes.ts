@@ -7,3 +7,4 @@ const searchRouter = Router();
 searchRouter.get('/', webSearchController);
 
 export default searchRouter;
+
