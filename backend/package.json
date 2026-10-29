@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "test:retry": "tsx src/test-ai-retry.ts",
-    "test:images": "tsx src/test-image-search.ts"
+    "test:images": "tsx src/test-image-search.ts",
+    "test:admin": "tsx src/test-admin-auth.ts"
   },
   "dependencies": {
     "@ai-toon/shared": "*",

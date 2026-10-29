@@ -10,7 +10,7 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { signIn, isConfigured, loginDemoUser } = useAuth();
+  const { signIn, loginDemoUser, loginDemoAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,9 +47,15 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleDemoLogin = () => {
+  const handleDemoStudentLogin = () => {
     loginDemoUser();
     navigate(from, { replace: true });
+  };
+
+  const handleDemoAdminLogin = () => {
+    loginDemoAdmin();
+    // If user was trying to go to /admin or /dashboard, respect that
+    navigate(from === '/login' ? '/admin' : from, { replace: true });
   };
 
   return (
@@ -66,25 +72,41 @@ export const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Supabase Notice if not configured */}
-        {!isConfigured && (
-          <div className="auth-alert-info" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
-              <span>ℹ️</span> Supabase Setup Required for Production Auth
-            </div>
-            <p style={{ margin: '0.2rem 0 0.5rem', fontSize: '0.82rem', lineHeight: 1.4 }}>
-              Set <code style={{ background: '#e0e7ff', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>VITE_SUPABASE_URL</code> and <code style={{ background: '#e0e7ff', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>VITE_SUPABASE_ANON_KEY</code> in <code style={{ background: '#e0e7ff', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>frontend/.env.local</code>.
-            </p>
+        {/* Quick Testing Accounts */}
+        <div className="auth-alert-info" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+            <span>⚡</span> Quick Role Testing
+          </div>
+          <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', lineHeight: 1.4 }}>
+            Instantly test role restrictions, dashboard access, and admin governance:
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={handleDemoLogin}
+              onClick={handleDemoStudentLogin}
               className="btn-neoclay-secondary"
-              style={{ width: '100%', fontSize: '0.85rem', padding: '0.5rem' }}
+              style={{ flex: 1, fontSize: '0.82rem', padding: '0.45rem', minWidth: '130px' }}
             >
-              🚀 Quick Test: Explore Dashboard via Demo Account
+              🧑‍🎓 Student Login
+            </button>
+            <button
+              type="button"
+              onClick={handleDemoAdminLogin}
+              className="btn-neoclay-secondary"
+              style={{
+                flex: 1,
+                fontSize: '0.82rem',
+                padding: '0.45rem',
+                minWidth: '130px',
+                borderColor: '#a855f7',
+                color: '#6b21a8',
+                fontWeight: 800,
+              }}
+            >
+              🛡️ Admin Login
             </button>
           </div>
-        )}
+        </div>
 
         {/* Error Banner */}
         {errorMsg && (

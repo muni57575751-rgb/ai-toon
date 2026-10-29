@@ -12,6 +12,7 @@ export const Header: React.FC = () => {
   };
 
   const displayName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student';
+  const isAdmin = profile?.role === 'admin' || user?.user_metadata?.role === 'admin';
 
   return (
     <header
@@ -108,10 +109,30 @@ export const Header: React.FC = () => {
           {user ? (
             <>
               <Link to="/dashboard" style={{ textDecoration: 'none' }}>
-                <span className="liquid-badge badge-blue" style={{ cursor: 'pointer' }}>
-                  <span>🧑‍🎓</span> {displayName}
+                <span
+                  className={isAdmin ? 'liquid-badge badge-lavender' : 'liquid-badge badge-blue'}
+                  style={{ cursor: 'pointer', fontWeight: 700 }}
+                >
+                  <span>{isAdmin ? '🛡️ Admin:' : '🧑‍🎓'}</span> {displayName}
                 </span>
               </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="btn-liquid-secondary"
+                  style={{
+                    textDecoration: 'none',
+                    padding: '0.5rem 1.15rem',
+                    fontSize: '0.88rem',
+                    borderColor: '#a855f7',
+                    color: '#6b21a8',
+                    background: 'rgba(243, 232, 255, 0.7)',
+                    fontWeight: 800,
+                  }}
+                >
+                  🛡️ Admin Panel
+                </Link>
+              )}
               <Link
                 to="/generate"
                 className="btn-liquid-primary"

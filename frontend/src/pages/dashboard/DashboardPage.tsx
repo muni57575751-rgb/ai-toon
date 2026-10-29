@@ -16,6 +16,7 @@ export const DashboardPage: React.FC = () => {
 
   const displayName = profile?.fullName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Curious Student';
   const displayEmail = user?.email || profile?.email || 'student@example.com';
+  const isAdmin = profile?.role === 'admin' || user?.user_metadata?.role === 'admin';
 
   return (
     <div className="app-shell">
@@ -53,15 +54,18 @@ export const DashboardPage: React.FC = () => {
                 transform: 'rotate(-4deg)',
               }}
             >
-              🧑‍🎓
+              {isAdmin ? '🛡️' : '🧑‍🎓'}
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: '2rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
                   Welcome back, {displayName}!
                 </h1>
-                <span className="liquid-badge badge-mint" style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}>
-                  ✓ Active Student
+                <span
+                  className={isAdmin ? 'liquid-badge badge-lavender' : 'liquid-badge badge-mint'}
+                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}
+                >
+                  {isAdmin ? '🛡️ Administrator' : '✓ Active Student'}
                 </span>
               </div>
               <p style={{ margin: '0.35rem 0 0', color: 'var(--liquid-navy-muted)', fontSize: '0.94rem', fontWeight: 600 }}>
@@ -71,6 +75,22 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="btn-liquid-secondary"
+                style={{
+                  textDecoration: 'none',
+                  padding: '0.75rem 1.45rem',
+                  borderColor: '#a855f7',
+                  color: '#6b21a8',
+                  background: 'rgba(243, 232, 255, 0.75)',
+                  fontWeight: 800,
+                }}
+              >
+                🛡️ Admin Console
+              </Link>
+            )}
             <Link
               to="/generate"
               className="btn-liquid-primary"
@@ -87,6 +107,49 @@ export const DashboardPage: React.FC = () => {
             </button>
           </div>
         </section>
+
+        {/* Administrator Fast-Access Callout */}
+        {isAdmin && (
+          <section
+            className="liquid-glass-card"
+            style={{
+              background: 'linear-gradient(135deg, rgba(243, 232, 255, 0.9) 0%, rgba(224, 242, 254, 0.8) 100%)',
+              border: '2px solid rgba(168, 85, 247, 0.35)',
+              padding: '1.35rem 1.75rem',
+              borderRadius: 'var(--radius-lg)',
+              marginBottom: '2.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+              <span style={{ fontSize: '2rem' }}>🛡️</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#581c87' }}>
+                  Administrator Privileges Active
+                </h3>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.88rem', color: '#6b21a8' }}>
+                  Access the Admin Console to view real-time member sessions (logged in / logged out), verify accounts, and manage member roles within the 5-admin cap.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/admin"
+              className="btn-liquid-primary"
+              style={{
+                textDecoration: 'none',
+                fontSize: '0.88rem',
+                padding: '0.65rem 1.45rem',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+              }}
+            >
+              Launch Admin Console →
+            </Link>
+          </section>
+        )}
 
         {/* Learning Overview Grid with Liquid Glass Pastel Tiles */}
         <section style={{ marginBottom: '2.5rem' }}>
