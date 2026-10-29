@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { useAuth } from '../../context/AuthContext';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 import type { SearchResultItem, SearchResponse } from '@ai-toon/shared';
 
 const POPULAR_SEARCHES = [
@@ -48,12 +48,12 @@ export const SearchPage: React.FC = () => {
         headers,
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        setErrorMsg(body.error?.message || 'Failed to complete web search.');
+      const parsed = await safeJsonParse(res, 'Failed to complete web search.');
+      if (!parsed.ok || !parsed.data?.success) {
+        setErrorMsg(parsed.error || parsed.data?.error?.message || 'Failed to complete web search.');
         setResults([]);
       } else {
-        const responseData = body.data as SearchResponse;
+        const responseData = parsed.data.data as SearchResponse;
         setResults(responseData.results || []);
       }
     } catch {

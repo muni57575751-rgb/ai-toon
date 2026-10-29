@@ -3,15 +3,21 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let currentDir = process.cwd();
+try {
+  if (typeof import.meta !== 'undefined' && import.meta?.url) {
+    currentDir = path.dirname(fileURLToPath(import.meta.url));
+  }
+} catch {
+  // fallback to cwd
+}
 
 // Look for .env in backend directory, current working directory, and project root
 const candidateEnvPaths = [
   path.resolve(process.cwd(), 'backend', '.env'),
   path.resolve(process.cwd(), '.env'),
-  path.resolve(__dirname, '../../../backend/.env'),
-  path.resolve(__dirname, '../../../../.env'),
+  path.resolve(currentDir, '../../backend/.env'),
+  path.resolve(currentDir, '../../../.env'),
 ];
 
 for (const envPath of candidateEnvPaths) {

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth, MASTER_ADMIN_EMAIL } from '../../context/AuthContext';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 import type {
   MemberRecord,
   AdminStats,
@@ -63,19 +63,19 @@ export const AdminPage: React.FC = () => {
       ]);
 
       if (membersRes.ok) {
-        const body = await membersRes.json();
-        if (body.success && body.data) {
-          setMembers(body.data.members || []);
-          if (body.data.stats) {
-            setStats(body.data.stats);
+        const parsedMembers = await safeJsonParse(membersRes);
+        if (parsedMembers.ok && parsedMembers.data?.success && parsedMembers.data.data) {
+          setMembers(parsedMembers.data.data.members || []);
+          if (parsedMembers.data.data.stats) {
+            setStats(parsedMembers.data.data.stats);
           }
         }
       }
 
       if (notifsRes.ok) {
-        const body = await notifsRes.json();
-        if (body.success && body.data) {
-          setNotifications(body.data.notifications || []);
+        const parsedNotifs = await safeJsonParse(notifsRes);
+        if (parsedNotifs.ok && parsedNotifs.data?.success && parsedNotifs.data.data) {
+          setNotifications(parsedNotifs.data.data.notifications || []);
         }
       }
     } catch (err) {
@@ -99,12 +99,12 @@ export const AdminPage: React.FC = () => {
         fetch(`${API_BASE_URL}/admin/audit/actions`, { headers }),
       ]);
       if (loginRes.ok) {
-        const body = await loginRes.json();
-        if (body.data) setLoginAudits(body.data);
+        const parsedLogin = await safeJsonParse(loginRes);
+        if (parsedLogin.ok && parsedLogin.data?.data) setLoginAudits(parsedLogin.data.data);
       }
       if (adminRes.ok) {
-        const body = await adminRes.json();
-        if (body.data) setAdminAudits(body.data);
+        const parsedAdmin = await safeJsonParse(adminRes);
+        if (parsedAdmin.ok && parsedAdmin.data?.data) setAdminAudits(parsedAdmin.data.data);
       }
     } catch (err) {
       console.warn('Failed to fetch audit logs:', err);
@@ -121,8 +121,8 @@ export const AdminPage: React.FC = () => {
       };
       const res = await fetch(`${API_BASE_URL}/admin/settings`, { headers });
       if (res.ok) {
-        const body = await res.json();
-        if (body.data) setSettings(body.data);
+        const parsedSettings = await safeJsonParse(res);
+        if (parsedSettings.ok && parsedSettings.data?.data) setSettings(parsedSettings.data.data);
       }
     } catch (err) {
       console.warn('Failed to fetch settings:', err);
@@ -169,9 +169,9 @@ export const AdminPage: React.FC = () => {
         body: JSON.stringify({ role: targetRole }),
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        throw new Error(body.error?.message || 'Approval failed.');
+      const parsed = await safeJsonParse(res, 'Approval failed.');
+      if (!parsed.ok || !parsed.data?.success) {
+        throw new Error(parsed.error || parsed.data?.error?.message || 'Approval failed.');
       }
 
       setSuccessMsg(
@@ -203,9 +203,9 @@ export const AdminPage: React.FC = () => {
         },
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        throw new Error(body.error?.message || 'Rejection failed.');
+      const parsed = await safeJsonParse(res, 'Rejection failed.');
+      if (!parsed.ok || !parsed.data?.success) {
+        throw new Error(parsed.error || parsed.data?.error?.message || 'Rejection failed.');
       }
 
       setSuccessMsg('Account registration rejected.');
@@ -243,9 +243,9 @@ export const AdminPage: React.FC = () => {
         }),
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        throw new Error(body.error?.message || 'Verification update failed.');
+      const parsed = await safeJsonParse(res, 'Verification update failed.');
+      if (!parsed.ok || !parsed.data?.success) {
+        throw new Error(parsed.error || parsed.data?.error?.message || 'Verification update failed.');
       }
 
       setSuccessMsg(
@@ -278,9 +278,9 @@ export const AdminPage: React.FC = () => {
         body: JSON.stringify({ role: newRole }),
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        throw new Error(body.error?.message || 'Role change failed.');
+      const parsed = await safeJsonParse(res, 'Role change failed.');
+      if (!parsed.ok || !parsed.data?.success) {
+        throw new Error(parsed.error || parsed.data?.error?.message || 'Role change failed.');
       }
 
       setSuccessMsg(`Member successfully updated to role "${newRole}".`);
@@ -312,9 +312,9 @@ export const AdminPage: React.FC = () => {
         },
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        throw new Error(body.error?.message || 'Reset failed.');
+      const parsed = await safeJsonParse(res, 'Reset failed.');
+      if (!parsed.ok || !parsed.data?.success) {
+        throw new Error(parsed.error || parsed.data?.error?.message || 'Reset failed.');
       }
 
       setSuccessMsg('All accounts except Master Admin Muni have been wiped cleanly.');
@@ -340,8 +340,8 @@ export const AdminPage: React.FC = () => {
         },
         body: JSON.stringify({ reason: 'Suspended by admin' }),
       });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.error?.message || 'Suspension failed.');
+      const parsed = await safeJsonParse(res, 'Suspension failed.');
+      if (!parsed.ok || !parsed.data?.success) throw new Error(parsed.error || parsed.data?.error?.message || 'Suspension failed.');
       setSuccessMsg('Account suspended successfully.');
       await fetchData();
     } catch (err) {
@@ -366,8 +366,8 @@ export const AdminPage: React.FC = () => {
           'x-user-role': profile?.role || 'admin',
         },
       });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.error?.message || 'Reactivation failed.');
+      const parsed = await safeJsonParse(res, 'Reactivation failed.');
+      if (!parsed.ok || !parsed.data?.success) throw new Error(parsed.error || parsed.data?.error?.message || 'Reactivation failed.');
       setSuccessMsg('Account reactivated successfully.');
       await fetchData();
     } catch (err) {
@@ -392,9 +392,9 @@ export const AdminPage: React.FC = () => {
         },
         body: JSON.stringify(newSettings),
       });
-      const body = await res.json();
-      if (!res.ok || !body.success) throw new Error(body.error?.message || 'Settings update failed.');
-      setSettings(body.data);
+      const parsed = await safeJsonParse(res, 'Failed to update settings.');
+      if (!parsed.ok || !parsed.data?.success) throw new Error(parsed.error || parsed.data?.error?.message || 'Settings update failed.');
+      setSettings(parsed.data.data);
       setSuccessMsg('System settings updated successfully.');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to update settings.');
@@ -413,14 +413,16 @@ export const AdminPage: React.FC = () => {
       };
       const res = await fetch(`${API_BASE_URL}/admin/export`, { headers });
       if (res.ok) {
-        const body = await res.json();
-        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(body.data, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute('href', dataStr);
-        downloadAnchor.setAttribute('download', `ai-toon-audit-report-${new Date().toISOString().slice(0, 10)}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        const parsed = await safeJsonParse(res);
+        if (parsed.ok && parsed.data?.data) {
+          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(parsed.data.data, null, 2));
+          const downloadAnchor = document.createElement('a');
+          downloadAnchor.setAttribute('href', dataStr);
+          downloadAnchor.setAttribute('download', `ai-toon-audit-report-${new Date().toISOString().slice(0, 10)}.json`);
+          document.body.appendChild(downloadAnchor);
+          downloadAnchor.click();
+          downloadAnchor.remove();
+        }
       }
     } catch {
       setErrorMsg('Failed to export system report.');

@@ -23,3 +23,54 @@ function resolveApiBaseUrl(): string {
 }
 
 export const API_BASE_URL: string = resolveApiBaseUrl();
+
+/**
+ * Safely parses a fetch Response as JSON without throwing `Unexpected end of JSON input`.
+ * Handles empty bodies, HTML error pages, and non-JSON payloads gracefully.
+ */
+export async function safeJsonParse<T = any>(
+  res: Response,
+  fallbackMessage: string = 'Server response was empty or malformed.'
+): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  try {
+    const text = await res.text();
+    if (!text || text.trim().length === 0) {
+      return {
+        ok: false,
+        status: res.status,
+        error: res.ok ? fallbackMessage : `Server returned status ${res.status} with empty response.`,
+      };
+    }
+
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // Body is not JSON (e.g. HTML 404/500/405 page or plain text)
+      const cleanSnippet = text.startsWith('<')
+        ? `Server returned HTTP ${res.status}`
+        : text.slice(0, 150);
+      return {
+        ok: false,
+        status: res.status,
+        error: cleanSnippet || `Server returned invalid JSON (HTTP ${res.status}).`,
+      };
+    }
+
+    if (!res.ok) {
+      const errMsg =
+        json?.error?.message ||
+        json?.message ||
+        `Request failed with status ${res.status}.`;
+      return { ok: false, status: res.status, data: json, error: errMsg };
+    }
+
+    return { ok: true, status: res.status, data: json };
+  } catch (err) {
+    return {
+      ok: false,
+      status: res.status,
+      error: err instanceof Error ? err.message : fallbackMessage,
+    };
+  }
+}

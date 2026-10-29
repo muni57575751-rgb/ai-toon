@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { ApiResponse, HealthCheckData } from '@ai-toon/shared';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 
 export const SystemStatus: React.FC = () => {
   const [health, setHealth] = useState<HealthCheckData | null>(null);
@@ -12,14 +12,11 @@ export const SystemStatus: React.FC = () => {
     setError(null);
     try {
       const res = await fetch(`${API_BASE_URL}/health`);
-      if (!res.ok) {
-        throw new Error(`Server returned HTTP ${res.status}`);
-      }
-      const data: ApiResponse<HealthCheckData> = await res.json();
-      if (data.success && data.data) {
-        setHealth(data.data);
+      const parsed = await safeJsonParse<ApiResponse<HealthCheckData>>(res, 'Backend currently offline');
+      if (parsed.ok && parsed.data?.success && parsed.data.data) {
+        setHealth(parsed.data.data);
       } else {
-        throw new Error(data.error?.message || 'Failed to retrieve health status');
+        throw new Error(parsed.error || parsed.data?.error?.message || `Server returned HTTP ${res.status}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backend currently offline');

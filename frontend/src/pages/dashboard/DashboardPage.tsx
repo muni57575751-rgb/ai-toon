@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { SystemStatus } from '../../components/common/SystemStatus';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 import type { Story, QuizAttemptRecord } from '@ai-toon/shared';
 
 interface UserProgressData {
@@ -48,13 +48,13 @@ export const DashboardPage: React.FC = () => {
         ]);
 
         if (storiesRes.ok) {
-          const sJson = await storiesRes.json();
-          if (sJson.data) setSavedStories(sJson.data);
+          const sParsed = await safeJsonParse(storiesRes);
+          if (sParsed.ok && sParsed.data?.data) setSavedStories(sParsed.data.data);
         }
 
         if (progressRes.ok) {
-          const pJson = await progressRes.json();
-          if (pJson.data) setProgress(pJson.data);
+          const pParsed = await safeJsonParse(progressRes);
+          if (pParsed.ok && pParsed.data?.data) setProgress(pParsed.data.data);
         }
       } catch (err) {
         console.warn('Dashboard data fetch error:', err);

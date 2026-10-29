@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import type { UserProfile, UserRole } from '@ai-toon/shared';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL, safeJsonParse } from '../config/api';
 
 export const MASTER_ADMIN_EMAIL = 'muni57575751@gmail.com';
 export const MASTER_ADMIN_PASSWORD = 'Poola@1234';
@@ -73,21 +73,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'x-user-email': user.email || '',
         },
       });
-      if (res.ok) {
-        const body = await res.json();
-        if (body.success && body.data) {
-          setProfile((prev) => {
-            if (!prev) return buildProfile(user, body.data);
-            return {
-              ...prev,
-              role: body.data.role,
-              verificationStatus: body.data.verificationStatus,
-              sessionStatus: body.data.sessionStatus,
-              lastActiveAt: body.data.lastActiveAt,
-              lastLoginAt: body.data.lastLoginAt,
-            };
-          });
-        }
+      const parsed = await safeJsonParse(res);
+      if (parsed.ok && parsed.data?.success && parsed.data.data) {
+        const d = parsed.data.data;
+        setProfile((prev) => {
+          if (!prev) return buildProfile(user, d);
+          return {
+            ...prev,
+            role: d.role,
+            verificationStatus: d.verificationStatus,
+            sessionStatus: d.sessionStatus,
+            lastActiveAt: d.lastActiveAt,
+            lastLoginAt: d.lastLoginAt,
+          };
+        });
       }
     } catch (err) {
       console.warn('[AuthContext] refreshProfile error:', err);
@@ -105,26 +104,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(parsed.user);
         setProfile(parsed.profile);
 
-        // Verify session status with backend
+        // Verify session status with backend safely
         fetch(`${API_BASE_URL}/members/me`, {
           headers: {
             'x-user-id': parsed.user.id,
             'x-user-email': parsed.user.email,
           },
         })
-          .then((res) => res.json())
-          .then((body) => {
-            if (body.success && body.data) {
+          .then((res) => safeJsonParse(res))
+          .then((parsedRes) => {
+            if (parsedRes.ok && parsedRes.data?.success && parsedRes.data.data) {
+              const d = parsedRes.data.data;
               if (
-                body.data.verificationStatus === 'pending' ||
-                body.data.verificationStatus === 'rejected'
+                d.verificationStatus === 'pending' ||
+                d.verificationStatus === 'rejected'
               ) {
                 // If account has been revoked or pending, clear session
                 localStorage.removeItem(AUTH_STORAGE_KEY);
                 setUser(null);
                 setProfile(null);
               } else {
-                setProfile(buildProfile(parsed.user, body.data));
+                setProfile(buildProfile(parsed.user, d));
               }
             }
           })
@@ -148,10 +148,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ name, email, password }),
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
+      const parsed = await safeJsonParse(res, 'Registration failed.');
+      if (!parsed.ok || !parsed.data?.success) {
         return {
-          error: new Error(body.error?.message || 'Registration failed.'),
+          error: new Error(parsed.error || parsed.data?.error?.message || 'Registration failed.'),
         };
       }
 
@@ -174,15 +174,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email, password }),
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
+      const parsed = await safeJsonParse(res, 'Invalid email or password.');
+      if (!parsed.ok || !parsed.data?.success) {
         return {
-          error: new Error(body.error?.message || 'Invalid email or password.'),
+          error: new Error(parsed.error || parsed.data?.error?.message || 'Invalid email or password.'),
         };
       }
 
-      const userData = body.data.user;
-      const profileData = body.data.profile;
+      const userData = parsed.data.data.user;
+      const profileData = parsed.data.data.profile || {};
 
       const userObj = {
         id: userData.id,
@@ -248,18 +248,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         body: JSON.stringify({ fullName }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error?.message || 'Failed to update profile.' };
+      const parsed = await safeJsonParse(res, 'Failed to update profile.');
+      if (!parsed.ok || !parsed.data?.success) {
+        return { success: false, error: parsed.error || parsed.data?.error?.message || 'Failed to update profile.' };
       }
       setProfile((prev) => (prev ? { ...prev, fullName } : null));
       const savedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
       if (savedAuth) {
         try {
-          const parsed = JSON.parse(savedAuth);
-          parsed.profile.fullName = fullName;
-          parsed.user.user_metadata = { ...parsed.user.user_metadata, full_name: fullName };
-          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
+          const parsedLocal = JSON.parse(savedAuth);
+          parsedLocal.profile.fullName = fullName;
+          parsedLocal.user.user_metadata = { ...parsedLocal.user.user_metadata, full_name: fullName };
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsedLocal));
         } catch {}
       }
       return { success: true };
@@ -279,9 +279,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'x-user-email': user.email || '',
         },
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error?.message || 'Failed to delete account.' };
+      const parsed = await safeJsonParse(res, 'Failed to delete account.');
+      if (!parsed.ok || !parsed.data?.success) {
+        return { success: false, error: parsed.error || parsed.data?.error?.message || 'Failed to delete account.' };
       }
       await signOut();
       return { success: true };

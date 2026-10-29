@@ -29,8 +29,9 @@ export const createApp = (): Express => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // API Routes
+  // API Routes (mount at /api and / so direct paths and stripped serverless paths both resolve)
   app.use('/api', apiRouter);
+  app.use('/', apiRouter);
 
   // Root welcome route
   app.get('/', (_req, res) => {

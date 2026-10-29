@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Story, QuizQuestion, KeyPoint, TopicIllustration, QuizOption, QaResponse } from '@ai-toon/shared';
 import { CartoonIllustration } from './CartoonIllustration';
 import { useAuth } from '../../context/AuthContext';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 
 interface StoryViewerProps {
   story: Story;
@@ -86,11 +86,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
         }),
       });
 
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        setQaError(body.error?.message || 'Failed to get answer from tutor.');
+      const parsed = await safeJsonParse(res, 'Failed to get answer from tutor.');
+      if (!parsed.ok || !parsed.data?.success) {
+        setQaError(parsed.error || parsed.data?.error?.message || 'Failed to get answer from tutor.');
       } else {
-        setQaResult(body.data as QaResponse);
+        setQaResult(parsed.data.data as QaResponse);
       }
     } catch {
       setQaError('Network error asking tutor.');

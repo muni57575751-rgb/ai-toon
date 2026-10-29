@@ -17,9 +17,55 @@ import {
   LearningProgress,
 } from '@ai-toon/shared';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
+import os from 'os';
+
+let serviceDir = process.cwd();
+try {
+  if (typeof import.meta !== 'undefined' && import.meta?.url) {
+    serviceDir = path.dirname(fileURLToPath(import.meta.url));
+  }
+} catch {
+  // fallback to cwd
+}
+
+function resolveDataDir(): string {
+  const candidates = [
+    path.resolve(process.cwd(), 'backend/data'),
+    path.resolve(process.cwd(), 'data'),
+    path.resolve(serviceDir, '../../data'),
+    path.resolve(serviceDir, '../data'),
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      try {
+        fs.accessSync(c, fs.constants.W_OK);
+        return c;
+      } catch {
+        // Not writable
+      }
+    }
+  }
+
+  try {
+    const defaultDir = candidates[0];
+    fs.mkdirSync(defaultDir, { recursive: true });
+    fs.accessSync(defaultDir, fs.constants.W_OK);
+    return defaultDir;
+  } catch {
+    const tmpDir = path.resolve(os.tmpdir(), 'ai-toon-data');
+    if (!fs.existsSync(tmpDir)) {
+      try {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      } catch {
+        // ignore
+      }
+    }
+    return tmpDir;
+  }
+}
+
+const DATA_DIR = resolveDataDir();
 const DATA_FILE = path.resolve(DATA_DIR, 'members.json');
 const NOTIFICATIONS_FILE = path.resolve(DATA_DIR, 'notifications.json');
 const LOGIN_AUDIT_FILE = path.resolve(DATA_DIR, 'login-audit.json');

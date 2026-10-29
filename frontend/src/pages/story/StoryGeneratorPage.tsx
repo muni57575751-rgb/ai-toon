@@ -5,7 +5,7 @@ import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { StoryViewer } from '../../components/story/StoryViewer';
 import { useAuth } from '../../context/AuthContext';
-import { API_BASE_URL } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 
 interface ProviderStatus {
   providerName: string;
@@ -50,13 +50,17 @@ export const StoryGeneratorPage: React.FC = () => {
         ]);
 
         if (statusRes.ok) {
-          const statusJson: ApiResponse<ProviderStatus> = await statusRes.json();
-          if (statusJson.data) setProviderStatus(statusJson.data);
+          const parsedStatus = await safeJsonParse<ApiResponse<ProviderStatus>>(statusRes);
+          if (parsedStatus.ok && parsedStatus.data?.data) {
+            setProviderStatus(parsedStatus.data.data);
+          }
         }
 
         if (examplesRes.ok) {
-          const examplesJson: ApiResponse<Story[]> = await examplesRes.json();
-          if (examplesJson.data) setExamples(examplesJson.data);
+          const parsedExamples = await safeJsonParse<ApiResponse<Story[]>>(examplesRes);
+          if (parsedExamples.ok && parsedExamples.data?.data) {
+            setExamples(parsedExamples.data.data);
+          }
         }
       } catch (err) {
         console.warn('Could not fetch stories metadata:', err);
@@ -104,13 +108,13 @@ export const StoryGeneratorPage: React.FC = () => {
         }),
       });
 
-      const data: ApiResponse<Story> = await res.json();
+      const parsed = await safeJsonParse<ApiResponse<Story>>(res, 'Failed to generate visual lesson.');
 
-      if (!res.ok || !data.success || !data.data) {
-        throw new Error(data.error?.message || 'Failed to generate visual lesson.');
+      if (!parsed.ok || !parsed.data?.success || !parsed.data?.data) {
+        throw new Error(parsed.error || parsed.data?.error?.message || 'Failed to generate visual lesson.');
       }
 
-      setGeneratedStory(data.data);
+      setGeneratedStory(parsed.data.data);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Visual lesson generation failed.');
     } finally {
