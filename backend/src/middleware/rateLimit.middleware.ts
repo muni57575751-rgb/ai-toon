@@ -8,7 +8,7 @@ interface ClientHistory {
 const requestMap = new Map<string, ClientHistory>();
 
 // Clean up stale client entries periodically (every 5 minutes)
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, history] of requestMap.entries()) {
     history.timestamps = history.timestamps.filter((t) => now - t < config.rateLimitWindowMs);
@@ -17,6 +17,9 @@ setInterval(() => {
     }
   }
 }, 300000);
+if (typeof cleanupTimer.unref === 'function') {
+  cleanupTimer.unref();
+}
 
 export const storyRateLimiter = (req: Request, res: Response, next: NextFunction): void => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown-client';
