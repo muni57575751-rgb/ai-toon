@@ -294,6 +294,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                       width={ill.width}
                       height={ill.height}
                       sourceType={ill.sourceType}
+                      alternativeUrls={ill.alternativeUrls}
                       figureNumber={globalIllIdx > 0 ? globalIllIdx : illIdx + 1}
                     />
                   );
@@ -327,6 +328,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                   width={ill.width}
                   height={ill.height}
                   sourceType={ill.sourceType}
+                  alternativeUrls={ill.alternativeUrls}
                   figureNumber={globalIllIdx > 0 ? globalIllIdx : illIdx + 1}
                 />
               );

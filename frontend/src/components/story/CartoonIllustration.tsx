@@ -16,6 +16,7 @@ interface CartoonIllustrationProps {
   width?: number;
   height?: number;
   sourceType?: 'wikimedia' | 'openverse' | 'svg_fallback';
+  alternativeUrls?: string[];
 }
 
 export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
@@ -32,12 +33,451 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
   licenseUrl,
   attribution,
   sourceType,
+  alternativeUrls = [],
 }) => {
-  const [imageError, setImageError] = useState(false);
-  const normKey = (keyword + ' ' + (description || '') + ' ' + (title || '')).toLowerCase();
+  // Candidate fallback list: primary image first, followed by alternative candidate URLs
+  const candidateUrls: string[] = [];
+  const primaryUrl = thumbnailUrl || imageUrl;
+  if (primaryUrl) {
+    candidateUrls.push(primaryUrl);
+  }
+  if (Array.isArray(alternativeUrls)) {
+    for (const alt of alternativeUrls) {
+      if (alt && !candidateUrls.includes(alt)) {
+        candidateUrls.push(alt);
+      }
+    }
+  }
+
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const [allImagesFailed, setAllImagesFailed] = useState(candidateUrls.length === 0);
+
+  const currentUrl = !allImagesFailed && candidateIndex < candidateUrls.length ? candidateUrls[candidateIndex] : null;
+
+  const handleImageError = () => {
+    const nextIndex = candidateIndex + 1;
+    if (nextIndex < candidateUrls.length) {
+      console.warn(`[CartoonIllustration] Image failed to load, attempting candidate ${nextIndex + 1}/${candidateUrls.length}`);
+      setCandidateIndex(nextIndex);
+    } else {
+      console.warn('[CartoonIllustration] All candidate image URLs failed to load. Switching to educational SVG diagram.');
+      setAllImagesFailed(true);
+    }
+  };
+
+  const normKey = (keyword + ' ' + (description || '') + ' ' + (title || '') + ' ' + (caption || '')).toLowerCase();
 
   const renderSvgArtwork = () => {
-    // 1. Earthquakes / Tectonic Plates / Seismic Waves
+    // 1. Binary Search / Search Algorithms / Sorted Arrays
+    if (
+      normKey.includes('binary search') ||
+      normKey.includes('binary') ||
+      (normKey.includes('search') && normKey.includes('array'))
+    ) {
+      return (
+        <svg viewBox="0 0 760 320" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Binary search algorithm sorted array diagram">
+          <defs>
+            <linearGradient id="binBg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f0f9ff" />
+              <stop offset="100%" stopColor="#e0f2fe" />
+            </linearGradient>
+            <linearGradient id="matchGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#22c55e" />
+              <stop offset="100%" stopColor="#15803d" />
+            </linearGradient>
+            <linearGradient id="midGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#0284c7" />
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width="760" height="320" fill="url(#binBg)" rx="12" />
+
+          {/* Title Header inside SVG */}
+          <text x="380" y="38" textAnchor="middle" fill="#0f172a" fontSize="16" fontWeight="bold">
+            Binary Search: Halving the Search Space in a Sorted Array
+          </text>
+          <text x="380" y="60" textAnchor="middle" fill="#0369a1" fontSize="13" fontWeight="600">
+            Target Value = 23 (Search range cut in half each step: O(log n))
+          </text>
+
+          {/* Sorted Array Elements */}
+          {/* Index 0: 2 */}
+          <g transform="translate(60, 100)">
+            <rect width="80" height="65" rx="8" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="2" opacity="0.6" />
+            <text x="40" y="42" textAnchor="middle" fill="#64748b" fontSize="22" fontWeight="bold">2</text>
+            <text x="40" y="85" textAnchor="middle" fill="#94a3b8" fontSize="12">[0] low</text>
+            <path d="M 40,88 L 40,70" stroke="#0284c7" strokeWidth="2.5" markerEnd="url(#arrow)" />
+          </g>
+
+          {/* Index 1: 5 */}
+          <g transform="translate(150, 100)">
+            <rect width="80" height="65" rx="8" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="2" opacity="0.6" />
+            <text x="40" y="42" textAnchor="middle" fill="#64748b" fontSize="22" fontWeight="bold">5</text>
+            <text x="40" y="85" textAnchor="middle" fill="#94a3b8" fontSize="12">[1]</text>
+          </g>
+
+          {/* Index 2: 8 */}
+          <g transform="translate(240, 100)">
+            <rect width="80" height="65" rx="8" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="2" opacity="0.6" />
+            <text x="40" y="42" textAnchor="middle" fill="#64748b" fontSize="22" fontWeight="bold">8</text>
+            <text x="40" y="85" textAnchor="middle" fill="#94a3b8" fontSize="12">[2]</text>
+          </g>
+
+          {/* Index 3: 12 (Middle Element in Step 1) */}
+          <g transform="translate(330, 100)">
+            <rect width="80" height="65" rx="8" fill="url(#midGrad)" stroke="#0369a1" strokeWidth="2.5" />
+            <text x="40" y="42" textAnchor="middle" fill="#ffffff" fontSize="22" fontWeight="bold">12</text>
+            <text x="40" y="85" textAnchor="middle" fill="#0369a1" fontSize="13" fontWeight="bold">[3] mid</text>
+            <path d="M 40,88 L 40,70" stroke="#0284c7" strokeWidth="3" />
+          </g>
+
+          {/* Index 4: 16 */}
+          <g transform="translate(420, 100)">
+            <rect width="80" height="65" rx="8" fill="#ffffff" stroke="#38bdf8" strokeWidth="2" />
+            <text x="40" y="42" textAnchor="middle" fill="#0f172a" fontSize="22" fontWeight="bold">16</text>
+            <text x="40" y="85" textAnchor="middle" fill="#64748b" fontSize="12">[4]</text>
+          </g>
+
+          {/* Index 5: 23 (TARGET MATCH!) */}
+          <g transform="translate(510, 100)">
+            <rect width="80" height="65" rx="8" fill="url(#matchGrad)" stroke="#166534" strokeWidth="3" />
+            <text x="40" y="42" textAnchor="middle" fill="#ffffff" fontSize="24" fontWeight="bold">23</text>
+            <text x="40" y="85" textAnchor="middle" fill="#15803d" fontSize="13" fontWeight="bold">🎯 Found!</text>
+          </g>
+
+          {/* Index 6: 38 */}
+          <g transform="translate(600, 100)">
+            <rect width="80" height="65" rx="8" fill="#ffffff" stroke="#94a3b8" strokeWidth="2" />
+            <text x="40" y="42" textAnchor="middle" fill="#0f172a" fontSize="22" fontWeight="bold">38</text>
+            <text x="40" y="85" textAnchor="middle" fill="#0284c7" fontSize="12">[6] high</text>
+            <path d="M 40,88 L 40,70" stroke="#0284c7" strokeWidth="2.5" />
+          </g>
+
+          {/* Eliminated Left Half Banner */}
+          <rect x="60" y="200" width="350" height="40" rx="8" fill="#fee2e2" stroke="#fca5a5" strokeWidth="1.5" />
+          <text x="235" y="225" textAnchor="middle" fill="#b91c1c" fontSize="12.5" fontWeight="bold">
+            ✖ Left Half (≤ 12) Discarded: 23 &gt; 12
+          </text>
+
+          {/* Selected Right Half Search Space */}
+          <rect x="420" y="200" width="260" height="40" rx="8" fill="#dcfce7" stroke="#86efac" strokeWidth="1.5" />
+          <text x="550" y="225" textAnchor="middle" fill="#166534" fontSize="12.5" fontWeight="bold">
+            ✓ Search Right Subarray: [16, 23, 38]
+          </text>
+
+          {/* Educational Step Callout */}
+          <rect x="60" y="260" width="620" height="42" rx="8" fill="rgba(15, 23, 42, 0.85)" />
+          <text x="370" y="286" textAnchor="middle" fill="#f8fafc" fontSize="13">
+            💡 <strong>Key Principle:</strong> Compare target to middle element. If target &gt; mid, search right. If target &lt; mid, search left.
+          </text>
+        </svg>
+      );
+    }
+
+    // 2. Human Heart / Cardiac Blood Flow / Anatomy
+    if (
+      normKey.includes('heart') ||
+      normKey.includes('cardiac') ||
+      normKey.includes('blood flow') ||
+      normKey.includes('ventricle') ||
+      normKey.includes('atrium') ||
+      normKey.includes('aorta')
+    ) {
+      return (
+        <svg viewBox="0 0 760 320" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Human heart 4-chambers and blood flow circulation diagram">
+          <defs>
+            <linearGradient id="heartBg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fff1f2" />
+              <stop offset="100%" stopColor="#ffe4e6" />
+            </linearGradient>
+            <linearGradient id="oxygenated" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="100%" stopColor="#b91c1c" />
+            </linearGradient>
+            <linearGradient id="deoxygenated" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0284c7" />
+              <stop offset="100%" stopColor="#1e40af" />
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width="760" height="320" fill="url(#heartBg)" rx="12" />
+
+          {/* Header */}
+          <text x="380" y="32" textAnchor="middle" fill="#881337" fontSize="16" fontWeight="bold">
+            Human Heart Anatomy &amp; Double Circulation
+          </text>
+
+          {/* Blue Side: Right Atrium and Right Ventricle (Deoxygenated from Body) */}
+          <g transform="translate(180, 50)">
+            {/* Vena Cava input */}
+            <path d="M 60,10 L 60,60" stroke="#0284c7" strokeWidth="18" strokeLinecap="round" />
+            <text x="10" y="38" fill="#1e3a8a" fontSize="11" fontWeight="bold">Superior Vena Cava ⬇</text>
+
+            {/* Right Atrium */}
+            <rect x="30" y="60" width="90" height="75" rx="14" fill="url(#deoxygenated)" />
+            <text x="75" y="95" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Right</text>
+            <text x="75" y="112" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Atrium</text>
+
+            {/* Tricuspid Valve */}
+            <line x1="50" y1="135" x2="100" y2="135" stroke="#fef08a" strokeWidth="4" strokeDasharray="4,2" />
+
+            {/* Right Ventricle */}
+            <rect x="20" y="140" width="105" height="95" rx="16" fill="url(#deoxygenated)" />
+            <text x="72" y="180" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Right</text>
+            <text x="72" y="198" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Ventricle</text>
+
+            {/* Pulmonary Artery to Lungs */}
+            <path d="M 72,140 Q 60,90 20,70" stroke="#0284c7" strokeWidth="12" fill="none" strokeLinecap="round" />
+            <text x="5" y="248" fill="#1e40af" fontSize="11" fontWeight="bold">➔ To Lungs for Oxygen</text>
+          </g>
+
+          {/* Septum Wall */}
+          <rect x="375" y="90" width="14" height="170" rx="4" fill="#fda4af" stroke="#f43f5e" strokeWidth="2" />
+
+          {/* Red Side: Left Atrium and Left Ventricle (Oxygenated to Body) */}
+          <g transform="translate(410, 50)">
+            {/* Pulmonary Veins from Lungs */}
+            <path d="M 110,65 L 75,75" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" />
+            <text x="115" y="70" fill="#991b1b" fontSize="11" fontWeight="bold">⬅ From Lungs (O₂)</text>
+
+            {/* Left Atrium */}
+            <rect x="25" y="60" width="90" height="75" rx="14" fill="url(#oxygenated)" />
+            <text x="70" y="95" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Left</text>
+            <text x="70" y="112" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Atrium</text>
+
+            {/* Bicuspid / Mitral Valve */}
+            <line x1="45" y1="135" x2="95" y2="135" stroke="#fef08a" strokeWidth="4" strokeDasharray="4,2" />
+
+            {/* Left Ventricle (Thick Muscular Wall) */}
+            <rect x="15" y="140" width="115" height="100" rx="18" fill="url(#oxygenated)" />
+            <text x="72" y="182" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Left</text>
+            <text x="72" y="200" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="bold">Ventricle</text>
+
+            {/* Aorta Arch to Rest of Body */}
+            <path d="M 72,140 Q 90,60 140,25" stroke="#dc2626" strokeWidth="16" fill="none" strokeLinecap="round" />
+            <text x="110" y="25" fill="#991b1b" fontSize="12" fontWeight="bold">Aorta ➔ Body</text>
+          </g>
+
+          {/* Legend Banner */}
+          <g transform="translate(140, 275)">
+            <rect width="220" height="32" rx="8" fill="#dbeafe" stroke="#bfdbfe" strokeWidth="1" />
+            <circle cx="20" cy="16" r="7" fill="#0284c7" />
+            <text x="36" y="21" fill="#1e3a8a" fontSize="12" fontWeight="bold">Deoxygenated Blood (Blue)</text>
+
+            <g transform="translate(260, 0)">
+              <rect width="220" height="32" rx="8" fill="#fee2e2" stroke="#fecaca" strokeWidth="1" />
+              <circle cx="20" cy="16" r="7" fill="#ef4444" />
+              <text x="36" y="21" fill="#991b1b" fontSize="12" fontWeight="bold">Oxygenated Blood (Red)</text>
+            </g>
+          </g>
+        </svg>
+      );
+    }
+
+    // 3. Artificial Intelligence / Neural Networks / Machine Learning
+    if (
+      normKey.includes('artificial intelligence') ||
+      normKey.includes('neural') ||
+      normKey.includes('machine learning') ||
+      normKey.includes('deep learning') ||
+      normKey.includes('ai')
+    ) {
+      return (
+        <svg viewBox="0 0 760 300" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Artificial intelligence neural network architecture diagram">
+          <defs>
+            <linearGradient id="aiBg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0f172a" />
+              <stop offset="100%" stopColor="#1e1b4b" />
+            </linearGradient>
+            <linearGradient id="nodeInput" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#0284c7" />
+            </linearGradient>
+            <linearGradient id="nodeHidden" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#c084fc" />
+              <stop offset="100%" stopColor="#9333ea" />
+            </linearGradient>
+            <linearGradient id="nodeOutput" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#4ade80" />
+              <stop offset="100%" stopColor="#16a34a" />
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width="760" height="300" fill="url(#aiBg)" rx="12" />
+
+          {/* Title */}
+          <text x="380" y="34" textAnchor="middle" fill="#f8fafc" fontSize="16" fontWeight="bold">
+            Artificial Neural Network: Input ➔ Hidden Layers ➔ Output Prediction
+          </text>
+
+          {/* Synapses (Connecting Lines) */}
+          <g stroke="rgba(147, 197, 253, 0.28)" strokeWidth="1.5">
+            {/* Input to Hidden 1 */}
+            <line x1="160" y1="80" x2="330" y2="70" />
+            <line x1="160" y1="80" x2="330" y2="130" />
+            <line x1="160" y1="80" x2="330" y2="190" />
+            <line x1="160" y1="80" x2="330" y2="250" />
+
+            <line x1="160" y1="160" x2="330" y2="70" />
+            <line x1="160" y1="160" x2="330" y2="130" />
+            <line x1="160" y1="160" x2="330" y2="190" />
+            <line x1="160" y1="160" x2="330" y2="250" />
+
+            <line x1="160" y1="240" x2="330" y2="70" />
+            <line x1="160" y1="240" x2="330" y2="130" />
+            <line x1="160" y1="240" x2="330" y2="190" />
+            <line x1="160" y1="240" x2="330" y2="250" />
+
+            {/* Hidden 1 to Hidden 2 */}
+            <line x1="330" y1="70" x2="480" y2="100" />
+            <line x1="330" y1="70" x2="480" y2="160" />
+            <line x1="330" y1="70" x2="480" y2="220" />
+
+            <line x1="330" y1="130" x2="480" y2="100" />
+            <line x1="330" y1="130" x2="480" y2="160" />
+            <line x1="330" y1="130" x2="480" y2="220" />
+
+            <line x1="330" y1="190" x2="480" y2="100" />
+            <line x1="330" y1="190" x2="480" y2="160" />
+            <line x1="330" y1="190" x2="480" y2="220" />
+
+            <line x1="330" y1="250" x2="480" y2="100" />
+            <line x1="330" y1="250" x2="480" y2="160" />
+            <line x1="330" y1="250" x2="480" y2="220" />
+
+            {/* Hidden 2 to Output */}
+            <line x1="480" y1="100" x2="620" y2="120" stroke="#4ade80" strokeWidth="2.5" />
+            <line x1="480" y1="100" x2="620" y2="200" />
+            <line x1="480" y1="160" x2="620" y2="120" stroke="#4ade80" strokeWidth="2.5" />
+            <line x1="480" y1="160" x2="620" y2="200" />
+            <line x1="480" y1="220" x2="620" y2="120" stroke="#4ade80" strokeWidth="2.5" />
+            <line x1="480" y1="220" x2="620" y2="200" />
+          </g>
+
+          {/* Input Layer Nodes */}
+          <g>
+            <circle cx="160" cy="80" r="18" fill="url(#nodeInput)" stroke="#bae6fd" strokeWidth="2" />
+            <circle cx="160" cy="160" r="18" fill="url(#nodeInput)" stroke="#bae6fd" strokeWidth="2" />
+            <circle cx="160" cy="240" r="18" fill="url(#nodeInput)" stroke="#bae6fd" strokeWidth="2" />
+            <text x="160" y="280" textAnchor="middle" fill="#38bdf8" fontSize="13" fontWeight="bold">Input Features</text>
+          </g>
+
+          {/* Hidden Layers */}
+          <g>
+            <circle cx="330" cy="70" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+            <circle cx="330" cy="130" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+            <circle cx="330" cy="190" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+            <circle cx="330" cy="250" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+
+            <circle cx="480" cy="100" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+            <circle cx="480" cy="160" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+            <circle cx="480" cy="220" r="18" fill="url(#nodeHidden)" stroke="#e9d5ff" strokeWidth="2" />
+            <text x="405" y="280" textAnchor="middle" fill="#c084fc" fontSize="13" fontWeight="bold">Deep Hidden Layers</text>
+          </g>
+
+          {/* Output Layer Nodes */}
+          <g>
+            <circle cx="620" cy="120" r="22" fill="url(#nodeOutput)" stroke="#bbf7d0" strokeWidth="3" />
+            <circle cx="620" cy="200" r="18" fill="#334155" stroke="#94a3b8" strokeWidth="1.5" />
+            <text x="620" y="280" textAnchor="middle" fill="#4ade80" fontSize="13" fontWeight="bold">Prediction</text>
+          </g>
+        </svg>
+      );
+    }
+
+    // 4. Institutions / Universities / Academic Campuses (e.g. Vignan University fallback)
+    if (
+      normKey.includes('vignan') ||
+      normKey.includes('university') ||
+      normKey.includes('college') ||
+      normKey.includes('institute') ||
+      normKey.includes('academy')
+    ) {
+      return (
+        <svg viewBox="0 0 760 300" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Academic university campus architectural diagram">
+          <defs>
+            <linearGradient id="univSky" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#e0f2fe" />
+              <stop offset="100%" stopColor="#bae6fd" />
+            </linearGradient>
+            <linearGradient id="univBldg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f8fafc" />
+              <stop offset="100%" stopColor="#e2e8f0" />
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width="760" height="300" fill="url(#univSky)" rx="12" />
+
+          {/* Green Campus Lawns */}
+          <path d="M 0,220 Q 380,205 760,220 L 760,300 L 0,300 Z" fill="#15803d" />
+          <path d="M 280,300 L 340,220 L 420,220 L 480,300 Z" fill="#cbd5e1" />
+
+          {/* Classical Academic University Building */}
+          {/* Triangular Pediment */}
+          <polygon points="380,60 220,110 540,110" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="2.5" />
+          <circle cx="380" cy="90" r="12" fill="#0284c7" />
+          <text x="380" y="95" textAnchor="middle" fill="#ffffff" fontSize="14" fontWeight="bold">🏛️</text>
+
+          {/* Main Hall */}
+          <rect x="230" y="110" width="300" height="110" fill="url(#univBldg)" stroke="#94a3b8" strokeWidth="2" />
+
+          {/* Classical Columns */}
+          <rect x="250" y="115" width="20" height="105" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+          <rect x="310" y="115" width="20" height="105" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+          <rect x="370" y="115" width="20" height="105" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+          <rect x="430" y="115" width="20" height="105" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+          <rect x="490" y="115" width="20" height="105" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
+
+          {/* Central Entrance Doors */}
+          <rect x="360" y="170" width="40" height="50" rx="4" fill="#0369a1" />
+
+          {/* Academic Badge Label */}
+          <rect x="240" y="240" width="280" height="38" rx="8" fill="rgba(15, 23, 42, 0.88)" />
+          <text x="380" y="264" textAnchor="middle" fill="#f8fafc" fontSize="13" fontWeight="bold">
+            🎓 Academic Campus &amp; Research Institution
+          </text>
+        </svg>
+      );
+    }
+
+    // 5. People / Leaders / Historical Figures (e.g. Narendra Modi fallback)
+    if (
+      normKey.includes('modi') ||
+      normKey.includes('person') ||
+      normKey.includes('leader') ||
+      normKey.includes('prime minister') ||
+      normKey.includes('president')
+    ) {
+      return (
+        <svg viewBox="0 0 760 300" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Distinguished leadership and educational portrait diagram">
+          <defs>
+            <linearGradient id="leaderBg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fff7ed" />
+              <stop offset="100%" stopColor="#ffedd5" />
+            </linearGradient>
+          </defs>
+
+          <rect x="0" y="0" width="760" height="300" fill="url(#leaderBg)" rx="12" />
+
+          {/* Podium and Backdrop */}
+          <circle cx="380" cy="115" r="55" fill="#fed7aa" stroke="#fb923c" strokeWidth="2" />
+          <path d="M 320,240 C 320,180 440,180 440,240 Z" fill="#0f172a" />
+          <circle cx="380" cy="110" r="32" fill="#fdba74" />
+
+          {/* Laurel Wreath Crest */}
+          <path d="M 280,115 Q 310,170 380,180 Q 450,170 480,115" stroke="#f59e0b" strokeWidth="4" fill="none" />
+
+          {/* Presentation Title */}
+          <rect x="210" y="235" width="340" height="42" rx="8" fill="#1e293b" />
+          <text x="380" y="261" textAnchor="middle" fill="#f8fafc" fontSize="13" fontWeight="bold">
+            🇮🇳 Leadership &amp; Public Service Educational Profile
+          </text>
+        </svg>
+      );
+    }
+
+    // 6. Earthquakes / Tectonic Plates / Seismic Waves
     if (
       normKey.includes('earthquake') ||
       normKey.includes('tectonic') ||
@@ -60,10 +500,6 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
               <stop offset="0%" stopColor="#a16207" />
               <stop offset="100%" stopColor="#854d0e" />
             </linearGradient>
-            <linearGradient id="mantleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#b45309" />
-              <stop offset="100%" stopColor="#78350f" />
-            </linearGradient>
             <radialGradient id="focusGlow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
               <stop offset="40%" stopColor="#f59e0b" stopOpacity="0.8" />
@@ -80,14 +516,9 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           {/* Surface houses and trees */}
           <polygon points="120,70 140,50 160,70" fill="#ef4444" />
           <rect x="128" y="70" width="24" height="20" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
-          <rect x="136" y="78" width="8" height="12" fill="#3b82f6" />
           <circle cx="210" cy="65" r="14" fill="#15803d" />
-          <rect x="207" y="78" width="6" height="12" fill="#78350f" />
-
           <polygon points="600,68 620,48 640,68" fill="#f59e0b" />
           <rect x="608" y="68" width="24" height="22" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />
-          <circle cx="560" cy="66" r="12" fill="#16a34a" />
-          <rect x="557" y="78" width="6" height="12" fill="#78350f" />
 
           {/* Left Tectonic Plate */}
           <polygon points="0,110 370,110 350,170 380,240 360,320 0,320" fill="url(#crustGrad1)" />
@@ -95,27 +526,17 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           {/* Right Tectonic Plate */}
           <polygon points="370,110 760,110 760,320 360,320 380,240 350,170" fill="url(#crustGrad2)" />
 
-          {/* Earth strata lines */}
-          <path d="M 0,180 L 352,175 M 378,175 L 760,180" stroke="#fde047" strokeWidth="3" strokeDasharray="6,4" opacity="0.6" />
-          <path d="M 0,250 L 378,245 M 372,245 L 760,250" stroke="#fbbf24" strokeWidth="4" opacity="0.5" />
-
           {/* Jagged Fault Line */}
           <path d="M 370,105 L 348,168 L 382,238 L 360,320" stroke="#ef4444" strokeWidth="5" fill="none" strokeLinecap="round" />
-          <path d="M 370,105 L 348,168 L 382,238 L 360,320" stroke="#fef08a" strokeWidth="2" fill="none" strokeDasharray="8,4" />
 
           {/* Concentric Seismic Shockwaves */}
           <circle cx="365" cy="205" r="30" stroke="#ef4444" strokeWidth="2.5" fill="none" opacity="0.8" />
           <circle cx="365" cy="205" r="60" stroke="#f97316" strokeWidth="2.5" fill="none" opacity="0.7" strokeDasharray="5,4" />
           <circle cx="365" cy="205" r="95" stroke="#f59e0b" strokeWidth="2" fill="none" opacity="0.6" strokeDasharray="7,5" />
-          <circle cx="365" cy="205" r="135" stroke="#fbbf24" strokeWidth="1.5" fill="none" opacity="0.4" strokeDasharray="9,6" />
 
-          {/* Hypocenter Glowing Energy Core */}
+          {/* Hypocenter Core */}
           <circle cx="365" cy="205" r="22" fill="url(#focusGlow)" />
           <circle cx="365" cy="205" r="7" fill="#ffffff" />
-
-          {/* Plate Motion Arrows */}
-          <path d="M 230,140 L 290,140 M 280,132 L 295,140 L 280,148" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          <path d="M 530,140 L 470,140 M 480,132 L 465,140 L 480,148" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
 
           {/* Educational Labels */}
           <rect x="20" y="125" width="155" height="30" rx="8" fill="rgba(15, 23, 42, 0.85)" />
@@ -126,15 +547,11 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
 
           <rect x="300" y="260" width="140" height="32" rx="8" fill="#b91c1c" stroke="#fef08a" strokeWidth="1.5" />
           <text x="312" y="281" fill="#ffffff" fontSize="12" fontWeight="bold">⚡ Hypocenter (Focus)</text>
-
-          <rect x="310" y="30" width="120" height="28" rx="8" fill="#0369a1" />
-          <text x="322" y="49" fill="#ffffff" fontSize="12" fontWeight="bold">📍 Epicenter</text>
-          <line x1="370" y1="60" x2="370" y2="105" stroke="#0369a1" strokeWidth="2.5" strokeDasharray="3,3" />
         </svg>
       );
     }
 
-    // 2. Photosynthesis / Plants / Leaves
+    // 7. Photosynthesis / Plants / Leaves
     if (
       normKey.includes('photo') ||
       normKey.includes('leaf') ||
@@ -158,174 +575,76 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           </defs>
           <rect x="0" y="0" width="760" height="300" fill="url(#photoSky)" rx="12" />
 
-          {/* Smiling Sun with Rays */}
+          {/* Sun */}
           <circle cx="100" cy="80" r="45" fill="#facc15" stroke="#f59e0b" strokeWidth="3" />
           <circle cx="100" cy="80" r="35" fill="#fef08a" />
-          <circle cx="88" cy="74" r="4" fill="#854d0e" />
-          <circle cx="112" cy="74" r="4" fill="#854d0e" />
-          <path d="M 90,88 Q 100,98 110,88" stroke="#854d0e" strokeWidth="3" fill="none" strokeLinecap="round" />
-          {/* Sunbeams traveling to leaf */}
           <line x1="150" y1="100" x2="310" y2="160" stroke="#eab308" strokeWidth="4" strokeDasharray="8,4" />
-          <line x1="160" y1="120" x2="315" y2="185" stroke="#f59e0b" strokeWidth="4" strokeDasharray="8,4" />
 
           {/* Large Stylized Leaf (Cell Cross-Section) */}
           <path d="M 280,180 C 280,90 490,90 600,180 C 490,270 280,270 280,180 Z" fill="url(#leafGrad)" stroke="#166534" strokeWidth="5" />
           <path d="M 280,180 L 600,180" stroke="#bbf7d0" strokeWidth="4" />
-          <path d="M 370,180 Q 420,135 470,120 M 370,180 Q 420,225 470,240" stroke="#bbf7d0" strokeWidth="2.5" />
-          <path d="M 450,180 Q 490,145 530,140 M 450,180 Q 490,215 530,220" stroke="#bbf7d0" strokeWidth="2.5" />
 
-          {/* Microscopic Chloroplast Factories */}
-          <g transform="translate(360, 135)">
-            <ellipse cx="25" cy="18" rx="20" ry="14" fill="#14532d" stroke="#86efac" strokeWidth="2" />
-            <rect x="15" y="10" width="20" height="4" rx="2" fill="#4ade80" />
-            <rect x="15" y="16" width="20" height="4" rx="2" fill="#4ade80" />
-            <rect x="15" y="22" width="20" height="4" rx="2" fill="#4ade80" />
-          </g>
-          <g transform="translate(480, 185)">
-            <ellipse cx="25" cy="18" rx="20" ry="14" fill="#14532d" stroke="#86efac" strokeWidth="2" />
-            <rect x="15" y="10" width="20" height="4" rx="2" fill="#4ade80" />
-            <rect x="15" y="16" width="20" height="4" rx="2" fill="#4ade80" />
-          </g>
-
-          {/* Incoming Inputs */}
+          {/* Inputs & Outputs */}
           <g transform="translate(40, 210)">
             <rect width="180" height="42" rx="10" fill="#0284c7" />
             <text x="14" y="26" fill="#ffffff" fontSize="13" fontWeight="bold">💧 Water (H₂O) from Roots</text>
           </g>
-          <path d="M 225,230 L 275,200" stroke="#0284c7" strokeWidth="3" strokeDasharray="5,3" markerEnd="url(#arrow)" />
 
           <g transform="translate(310, 20)">
             <rect width="190" height="40" rx="10" fill="#7c3aed" />
             <text x="12" y="25" fill="#ffffff" fontSize="13" fontWeight="bold">🫧 CO₂ from Air (Stomata)</text>
           </g>
-          <path d="M 400,62 L 400,105" stroke="#7c3aed" strokeWidth="3" strokeDasharray="5,3" />
 
-          {/* Outgoing Products */}
           <g transform="translate(560, 70)">
             <rect width="175" height="42" rx="10" fill="#16a34a" />
             <text x="14" y="26" fill="#ffffff" fontSize="13" fontWeight="bold">🍬 Glucose Sugar (Food)</text>
           </g>
-          <path d="M 550,150 L 590,115" stroke="#16a34a" strokeWidth="3" />
 
           <g transform="translate(560, 230)">
             <rect width="175" height="42" rx="10" fill="#0ea5e9" />
             <text x="14" y="26" fill="#ffffff" fontSize="13" fontWeight="bold">🎈 Oxygen (O₂) Released</text>
           </g>
-          <path d="M 550,210 L 590,230" stroke="#0ea5e9" strokeWidth="3" />
         </svg>
       );
     }
 
-    // 3. Solar System / Astronomy / Space / Planets
+    // 8. Solar System / Astronomy / Space
     if (
       normKey.includes('solar') ||
       normKey.includes('space') ||
       normKey.includes('planet') ||
       normKey.includes('orbit') ||
-      normKey.includes('sun') ||
-      normKey.includes('jupiter') ||
-      normKey.includes('saturn')
+      normKey.includes('jupiter')
     ) {
       return (
         <svg viewBox="0 0 760 300" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Solar system planets and orbits diagram">
           <rect x="0" y="0" width="760" height="300" fill="#090d16" rx="12" />
-
-          {/* Stars in Deep Space */}
-          <g fill="#ffffff" opacity="0.75">
-            <circle cx="45" cy="35" r="1.5" />
-            <circle cx="160" cy="40" r="1" />
-            <circle cx="280" cy="25" r="2" />
-            <circle cx="390" cy="55" r="1.5" />
-            <circle cx="510" cy="30" r="1" />
-            <circle cx="680" cy="45" r="2" />
-            <circle cx="90" cy="270" r="1.5" />
-            <circle cx="230" cy="285" r="1" />
-            <circle cx="460" cy="280" r="2" />
-            <circle cx="620" cy="265" r="1" />
-            <circle cx="720" cy="280" r="2" />
-          </g>
-
           {/* Central Sun Cutout on Left */}
           <circle cx="0" cy="150" r="110" fill="#f97316" />
           <circle cx="0" cy="150" r="95" fill="#facc15" />
-          <circle cx="0" cy="150" r="80" fill="#fef08a" />
           <text x="18" y="155" fill="#78350f" fontSize="14" fontWeight="bold">THE SUN</text>
 
-          {/* Elliptical Orbital Lines */}
+          {/* Orbits & Planets */}
           <ellipse cx="0" cy="150" rx="160" ry="110" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
-          <ellipse cx="0" cy="150" rx="220" ry="125" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
-          <ellipse cx="0" cy="150" rx="290" ry="140" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
-          <ellipse cx="0" cy="150" rx="360" ry="155" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
+          <ellipse cx="0" cy="150" rx="285" ry="140" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
           <ellipse cx="0" cy="150" rx="480" ry="170" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
-          <ellipse cx="0" cy="150" rx="600" ry="185" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
-          <ellipse cx="0" cy="150" rx="710" ry="195" stroke="#334155" strokeWidth="1.2" fill="none" strokeDasharray="3,3" />
 
-          {/* Inner Planets */}
-          {/* Mercury */}
           <circle cx="160" cy="140" r="7" fill="#94a3b8" />
-          <text x="145" y="165" fill="#cbd5e1" fontSize="10">Mercury</text>
-
-          {/* Venus */}
-          <circle cx="218" cy="120" r="11" fill="#fdba74" />
-          <text x="206" y="145" fill="#cbd5e1" fontSize="10">Venus</text>
-
-          {/* Earth & Moon */}
           <circle cx="285" cy="170" r="14" fill="#38bdf8" />
-          <path d="M 280,165 Q 290,168 292,176" stroke="#22c55e" strokeWidth="4" fill="none" />
-          <circle cx="304" cy="162" r="3" fill="#f1f5f9" />
           <text x="272" y="196" fill="#38bdf8" fontSize="11" fontWeight="bold">Earth</text>
-
-          {/* Mars */}
-          <circle cx="355" cy="125" r="10" fill="#ef4444" />
-          <text x="344" y="150" fill="#cbd5e1" fontSize="10">Mars</text>
-
-          {/* Asteroid Belt */}
-          <g fill="#94a3b8" opacity="0.6">
-            <circle cx="410" cy="80" r="2.5" />
-            <circle cx="415" cy="115" r="3" />
-            <circle cx="408" cy="150" r="2" />
-            <circle cx="418" cy="185" r="3.5" />
-            <circle cx="412" cy="220" r="2.5" />
-          </g>
-
-          {/* Jupiter */}
           <circle cx="480" cy="160" r="28" fill="#d97706" />
-          <ellipse cx="480" cy="155" rx="26" ry="6" fill="#fef3c7" opacity="0.8" />
-          <ellipse cx="480" cy="168" rx="27" ry="5" fill="#b45309" opacity="0.8" />
-          <circle cx="492" cy="168" r="5" fill="#dc2626" />
           <text x="462" y="202" fill="#fde68a" fontSize="12" fontWeight="bold">Jupiter</text>
-
-          {/* Saturn */}
-          <g transform="translate(600, 130)">
-            <ellipse cx="0" cy="0" rx="36" ry="9" fill="none" stroke="#fef08a" strokeWidth="5" transform="rotate(-18)" opacity="0.9" />
-            <circle cx="0" cy="0" r="20" fill="#eab308" />
-            <ellipse cx="0" cy="0" rx="36" ry="9" fill="none" stroke="#fde047" strokeWidth="2.5" transform="rotate(-18)" />
-          </g>
-          <text x="583" y="172" fill="#fef08a" fontSize="11" fontWeight="bold">Saturn</text>
-
-          {/* Uranus & Neptune */}
-          <circle cx="690" cy="110" r="14" fill="#2dd4bf" />
-          <text x="672" y="138" fill="#99f6e4" fontSize="10">Uranus</text>
-
-          <circle cx="735" cy="180" r="13" fill="#2563eb" />
-          <text x="712" y="205" fill="#93c5fd" fontSize="10">Neptune</text>
-
-          {/* Division label */}
-          <rect x="365" y="255" width="370" height="32" rx="8" fill="rgba(30, 41, 59, 0.85)" stroke="#475569" strokeWidth="1" />
-          <text x="378" y="276" fill="#f8fafc" fontSize="11.5">🪐 Rocky Terrestrial Inner Planets ➔ Massive Outer Gas Giants</text>
         </svg>
       );
     }
 
-    // 4. Water Cycle / Weather / Oceans / Rain
+    // 9. Water Cycle / Weather / Oceans / Rain
     if (
       normKey.includes('water') ||
       normKey.includes('rain') ||
       normKey.includes('cloud') ||
       normKey.includes('evaporat') ||
-      normKey.includes('condens') ||
-      normKey.includes('precipitat') ||
-      normKey.includes('cycle')
+      normKey.includes('condens')
     ) {
       return (
         <svg viewBox="0 0 760 300" width="100%" height="100%" style={{ maxHeight: '300px' }} role="img" aria-label="Earth water cycle process diagram">
@@ -334,79 +653,24 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
               <stop offset="0%" stopColor="#bae6fd" />
               <stop offset="100%" stopColor="#e0f2fe" />
             </linearGradient>
-            <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0284c7" />
-              <stop offset="100%" stopColor="#0369a1" />
-            </linearGradient>
           </defs>
           <rect x="0" y="0" width="760" height="300" fill="url(#waterSky)" rx="12" />
-
-          {/* Warm Sun in Upper Right */}
           <circle cx="680" cy="50" r="35" fill="#facc15" stroke="#f59e0b" strokeWidth="3" />
-          <circle cx="680" cy="50" r="28" fill="#fef08a" />
-
-          {/* Mountain on Left */}
           <polygon points="0,300 160,110 320,300" fill="#64748b" />
-          <polygon points="125,155 160,110 195,155" fill="#f8fafc" />
-          <polygon points="140,300 240,160 380,300" fill="#475569" />
-          <polygon points="215,195 240,160 265,195" fill="#f8fafc" />
-
-          {/* Green Foothills */}
-          <path d="M 260,300 Q 380,240 500,280 L 500,300 Z" fill="#22c55e" />
-
-          {/* Ocean Water Basin */}
-          <path d="M 460,250 C 540,240 640,245 760,240 L 760,300 L 460,300 Z" fill="url(#oceanGrad)" />
-          <path d="M 460,250 C 520,245 600,255 760,245" stroke="#7dd3fc" strokeWidth="3" fill="none" />
-
-          {/* River Runoff flowing down mountain into ocean */}
-          <path d="M 195,200 Q 280,240 470,255" stroke="#38bdf8" strokeWidth="10" fill="none" strokeLinecap="round" />
-          <path d="M 195,200 Q 280,240 470,255" stroke="#ffffff" strokeWidth="3" strokeDasharray="8,6" fill="none" />
-
-          {/* Fluffy Clouds (Condensation) */}
-          <g fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2">
-            <circle cx="240" cy="65" r="28" />
-            <circle cx="275" cy="55" r="34" />
-            <circle cx="315" cy="65" r="26" />
-            <rect x="235" y="70" width="85" height="22" rx="10" stroke="none" />
-          </g>
-          <g fill="#94a3b8" stroke="#64748b" strokeWidth="1.5">
-            <circle cx="120" cy="75" r="24" />
-            <circle cx="150" cy="65" r="30" />
-            <circle cx="180" cy="75" r="22" />
-            <rect x="115" y="75" width="70" height="20" rx="10" stroke="none" />
-          </g>
-
-          {/* Precipitation Raindrops falling */}
-          <g stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="120" y1="110" x2="110" y2="135" />
-            <line x1="145" y1="115" x2="135" y2="140" />
-            <line x1="170" y1="110" x2="160" y2="135" />
-            <line x1="130" y1="145" x2="120" y2="170" />
-            <line x1="155" y1="150" x2="145" y2="175" />
-          </g>
-
-          {/* Evaporation Waves rising from Ocean */}
-          <path d="M 580,230 Q 590,200 580,170 Q 570,140 580,110" stroke="#f59e0b" strokeWidth="3.5" fill="none" strokeDasharray="6,4" />
-          <path d="M 640,230 Q 650,200 640,170 Q 630,140 640,110" stroke="#f59e0b" strokeWidth="3.5" fill="none" strokeDasharray="6,4" />
-          <path d="M 700,230 Q 710,200 700,170 Q 690,140 700,110" stroke="#f59e0b" strokeWidth="3.5" fill="none" strokeDasharray="6,4" />
+          <path d="M 460,250 C 540,240 640,245 760,240 L 760,300 L 460,300 Z" fill="#0284c7" />
 
           {/* Educational Callout Tags */}
           <rect x="560" y="115" width="165" height="28" rx="6" fill="#ea580c" />
           <text x="572" y="134" fill="#ffffff" fontSize="12" fontWeight="bold">1. Evaporation ⬆</text>
-
           <rect x="235" y="10" width="165" height="28" rx="6" fill="#2563eb" />
           <text x="247" y="29" fill="#ffffff" fontSize="12" fontWeight="bold">2. Condensation ☁</text>
-
           <rect x="60" y="185" width="160" height="28" rx="6" fill="#0284c7" />
           <text x="70" y="204" fill="#ffffff" fontSize="12" fontWeight="bold">3. Precipitation 🌧</text>
-
-          <rect x="330" y="260" width="160" height="28" rx="6" fill="#15803d" />
-          <text x="342" y="279" fill="#ffffff" fontSize="12" fontWeight="bold">4. Collection / Runoff 🌊</text>
         </svg>
       );
     }
 
-    // 5. Default General Educational Illustration Unavailable State
+    // 10. Default General Educational Illustration State
     return (
       <div
         style={{
@@ -421,12 +685,12 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           minHeight: '180px',
         }}
       >
-        <span style={{ fontSize: '2.2rem', marginBottom: '0.4rem' }}>🖼️</span>
+        <span style={{ fontSize: '2.2rem', marginBottom: '0.4rem' }}>🎨</span>
         <h4 style={{ margin: '0 0 0.35rem 0', fontSize: '1rem', color: 'var(--navy-900)', fontWeight: 700 }}>
-          Educational Diagram Unavailable
+          Educational Concept Guide
         </h4>
         <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--navy-600)', maxWidth: '440px', lineHeight: 1.5 }}>
-          No verified public domain diagram is available for this concept. Please refer to the concept guide below.
+          {description || caption || 'Follow along with the detailed point-by-point explanation below.'}
         </p>
       </div>
     );
@@ -482,7 +746,7 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           </h4>
         </div>
 
-        {imageUrl && !imageError ? (
+        {currentUrl ? (
           <span className="liquid-badge badge-mint" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', fontWeight: 700 }}>
             ✓ Verified Public Media
           </span>
@@ -506,15 +770,15 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
           backdropFilter: 'blur(10px)',
           border: '1.5px solid rgba(255, 255, 255, 0.9)',
           boxShadow: 'var(--shadow-liquid-inset)',
-          padding: imageUrl && !imageError ? '0.85rem' : '0',
+          padding: currentUrl ? '0.85rem' : '0',
         }}
       >
-        {imageUrl && !imageError ? (
+        {currentUrl ? (
           <img
-            src={thumbnailUrl || imageUrl}
+            src={currentUrl}
             alt={title ? `${title} - educational visual` : 'Educational concept visual'}
             loading="lazy"
-            onError={() => setImageError(true)}
+            onError={handleImageError}
             style={{
               maxWidth: '100%',
               maxHeight: '460px',
@@ -552,7 +816,7 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
         </div>
 
         {/* Source and License Attribution */}
-        {imageUrl && !imageError && (
+        {currentUrl && (
           <div
             style={{
               display: 'flex',

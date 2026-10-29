@@ -253,6 +253,7 @@ async function runTests() {
 
   if (failures === 0) {
     console.log('\n🎉 ALL AUTHENTICATION, ADMIN & NOTIFICATION TESTS PASSED SUCCESSFULLY!');
+    process.exit(0);
   } else {
     console.error(`\n❌ ${failures} test(s) failed.`);
     process.exit(1);

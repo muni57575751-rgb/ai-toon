@@ -28,9 +28,11 @@ export interface ImageSearchOptions {
   entityName?: string;
   secondaryContext?: string;
   timeoutMs?: number;
+  excludeIdentifiers?: string[];
 }
 
 export interface IImageSearchProvider {
   readonly name: string;
   searchImage(query: string, options?: ImageSearchOptions): Promise<ImageSearchResult | null>;
+  searchImages?(query: string, options?: ImageSearchOptions, limit?: number): Promise<ImageSearchResult[]>;
 }

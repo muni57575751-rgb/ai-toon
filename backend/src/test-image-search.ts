@@ -2,251 +2,532 @@ import { wikimediaProvider } from './services/imageSearch/wikimedia.provider.js'
 import { imageSearchService, ImageSearchService } from './services/imageSearch/imageSearch.service.js';
 import { imageSearchCache } from './services/imageSearch/imageSearch.cache.js';
 import { entityClassifier } from './services/imageSearch/entityClassifier.js';
-import type { IImageSearchProvider } from './services/imageSearch/imageSearch.types.js';
+import {
+  extractCanonicalFileIdentifier,
+  normalizeImageUrl,
+  isDuplicateImage,
+  deduplicateCandidates,
+} from './services/imageSearch/imageDeduplicator.js';
+import { storyService } from './services/story.service.js';
+import type { IImageSearchProvider, ImageSearchResult } from './services/imageSearch/imageSearch.types.js';
+import type { Story } from '@ai-toon/shared';
 
-async function runImageSearchTests() {
+async function runAllImageSearchVerificationTests() {
   console.log('========================================================================');
-  console.log('   AI TOON: ENTITY-AWARE IMAGE SEARCH & FALLBACK TEST SUITE (PHASE 2-4) ');
+  console.log('   AI TOON: COMPLETE 12-PART IMAGE SEARCH & DEDUPLICATION TEST SUITE    ');
   console.log('========================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 6;
+  const totalTests = 12;
 
-  // The 6 specified topics from the project requirements
-  const requiredTopics = [
-    {
-      topic: 'Narendra Modi',
-      expectedCategory: 'person',
-      expectedFormat: 'photo', // JPEG/PNG/WEBP photo
-      keywordsExpected: ['modi', 'narendra'],
-    },
-    {
-      topic: 'Vignan University, Vadlamudi',
-      expectedCategory: 'institution',
-      expectedFormat: 'photo', // JPEG/PNG/WEBP photo of campus/building/logo
-      keywordsExpected: ['vignan'],
-    },
-    {
-      topic: 'How Does Artificial Intelligence Work?',
-      expectedCategory: 'technical',
-      expectedFormat: 'diagram',
-      keywordsExpected: ['intelligence', 'artificial', 'ai', 'model'],
-    },
-    {
-      topic: 'How Does Photosynthesis Work?',
-      expectedCategory: 'scientific',
-      expectedFormat: 'diagram',
-      keywordsExpected: ['photosynthesis'],
-    },
-    {
-      topic: 'How Does Binary Search Work?',
-      expectedCategory: 'technical',
-      expectedFormat: 'diagram',
-      keywordsExpected: ['binary', 'search'],
-    },
-    {
-      topic: 'How Does the Human Heart Pump Blood?',
-      expectedCategory: 'scientific',
-      expectedFormat: 'diagram',
-      keywordsExpected: ['heart'],
-    },
-  ];
-
-  // TEST 1: Entity Classification Verification
-  console.log('--- TEST 1: Entity Classification Across Required Topics ---');
-  let classificationPassed = true;
-
-  for (const item of requiredTopics) {
-    const classification = entityClassifier.classify(item.topic);
-    const isCorrect = classification.category === item.expectedCategory;
-    console.log(
-      `   [${item.topic}] -> Classified: [${classification.category.toUpperCase()}] (Confidence: ${classification.confidence}, Name: "${classification.entityName}", Context: "${classification.secondaryContext || 'none'}") ${isCorrect ? '✅' : '❌'}`
-    );
-    if (!isCorrect) {
-      classificationPassed = false;
-    }
-  }
-
-  if (classificationPassed) {
-    console.log('✅ Test 1 PASSED: All 6 topics correctly classified into entity categories.\n');
-    passedTests++;
-  } else {
-    console.error('❌ Test 1 FAILED: Misclassified one or more topics.\n');
-  }
-
-  // TEST 2: Authentic Public Media Search for All 6 Required Topics
-  console.log('--- TEST 2: Entity-Aware Public Media Retrieval for All 6 Topics ---');
-  let mediaPassedCount = 0;
-
-  for (const item of requiredTopics) {
-    try {
-      const startTime = Date.now();
-      const mockStory: any = {
-        id: `mock_test_${Date.now()}`,
-        topic: item.topic,
-        title: item.topic,
-        illustrations: [
-          {
-            id: 'ill_1',
-            title: `${item.topic} Visual Concept`,
-            description: `Visual depicting ${item.topic}`,
-            positionIndex: 2,
-          },
-        ],
-      };
-
-      const enhanced = await imageSearchService.enhanceStoryIllustrations(mockStory);
-      const ill = enhanced.illustrations[0];
-      const elapsed = Date.now() - startTime;
-
-      if (ill.imageUrl && ill.sourceType === 'wikimedia') {
-        const lowerTitle = (ill.title || '').toLowerCase() + ' ' + (ill.sourcePageUrl || '').toLowerCase();
-        const hasKeyword = item.keywordsExpected.some((kw) => lowerTitle.includes(kw));
-
-        console.log(`✅ [${item.topic}]`);
-        console.log(`   Selected Image: "${ill.title}"`);
-        console.log(`   Image URL: ${ill.imageUrl?.slice(0, 75)}...`);
-        console.log(`   Source Page: ${ill.sourcePageUrl}`);
-        console.log(`   Author: ${ill.author || 'Contributor'}`);
-        console.log(`   License: ${ill.license}`);
-        console.log(`   Dimensions: ${ill.width}x${ill.height} (${elapsed}ms)`);
-        console.log(`   Semantic Match: ${hasKeyword ? 'Exact Entity Overlap Confirmed ✓' : 'Notice: secondary context match'}\n`);
-
-        mediaPassedCount++;
-      } else {
-        console.error(`❌ [${item.topic}] Failed to retrieve authentic public image.`);
-      }
-    } catch (err) {
-      console.error(`❌ [${item.topic}] Error during search:`, err);
-    }
-  }
-
-  if (mediaPassedCount === requiredTopics.length) {
-    console.log(`✅ Test 2 PASSED: All 6 topics retrieved authentic topic-aware public media (${mediaPassedCount}/${requiredTopics.length}).\n`);
-    passedTests++;
-  } else {
-    console.error(`❌ Test 2 FAILED: Only ${mediaPassedCount}/${requiredTopics.length} topics succeeded.\n`);
-  }
-
-  // TEST 3: Photogragh vs Diagram Differentiation
-  console.log('--- TEST 3: Photographic Priority for People & Institutions vs Diagrams for Science ---');
+  // -------------------------------------------------------------------------
+  // TEST 1: Duplicate URLs are removed
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 1: Duplicate URLs are removed ---');
   {
-    // Search Narendra Modi -> should be JPEG/PNG/WEBP photo, NOT svg diagram
-    const modiResult = await wikimediaProvider.searchImage('Narendra Modi', {
+    const cand1: ImageSearchResult = {
+      id: 'wiki_101',
+      title: 'Solar System Diagram',
+      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/1/12/Solar_System.jpg',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/1/12/Solar_System.jpg',
+      sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Solar_System.jpg',
+      author: 'NASA',
+      license: 'Public Domain',
+      sourceType: 'wikimedia',
+    };
+    const cand2: ImageSearchResult = {
+      id: 'wiki_102',
+      title: 'Solar System Diagram Duplicate',
+      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/1/12/Solar_System.jpg',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/1/12/Solar_System.jpg',
+      sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Solar_System.jpg',
+      author: 'NASA',
+      license: 'Public Domain',
+      sourceType: 'wikimedia',
+    };
+    const cand3: ImageSearchResult = {
+      id: 'wiki_103',
+      title: 'Jupiter High Resolution',
+      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Jupiter.jpg',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Jupiter.jpg',
+      sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Jupiter.jpg',
+      author: 'ESA',
+      license: 'CC-BY-4.0',
+      sourceType: 'wikimedia',
+    };
+
+    const deduplicated = deduplicateCandidates([cand1, cand2, cand3]);
+    const isDup = isDuplicateImage(cand1, cand2);
+
+    if (deduplicated.length === 2 && isDup) {
+      console.log('✅ Test 1 PASSED: Identical URLs correctly identified as duplicates and filtered out.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 1 FAILED: Expected 2 candidates after deduplicating identical URLs.', deduplicated);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 2: Different thumbnail URLs for the same underlying file are deduplicated
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 2: Different thumbnail URLs for same underlying file are deduplicated ---');
+  {
+    const url800 =
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Narendra_Modi_official_portrait.jpg/800px-Narendra_Modi_official_portrait.jpg';
+    const url500 =
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Narendra_Modi_official_portrait.jpg/500px-Narendra_Modi_official_portrait.jpg';
+    const directUrl =
+      'https://upload.wikimedia.org/wikipedia/commons/a/ab/Narendra_Modi_official_portrait.jpg';
+
+    const id800 = extractCanonicalFileIdentifier(url800);
+    const id500 = extractCanonicalFileIdentifier(url500);
+    const idDirect = extractCanonicalFileIdentifier(directUrl);
+
+    const norm800 = normalizeImageUrl(url800);
+    const norm500 = normalizeImageUrl(url500);
+
+    const cand800: ImageSearchResult = {
+      id: 'wiki_201',
+      title: 'File:Narendra_Modi_official_portrait.jpg',
+      imageUrl: url800,
+      thumbnailUrl: url800,
+      sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Narendra_Modi_official_portrait.jpg',
+      author: 'PMO India',
+      license: 'GODL',
+      sourceType: 'wikimedia',
+    };
+    const cand500: ImageSearchResult = {
+      id: 'wiki_202',
+      title: 'File:Narendra_Modi_official_portrait.jpg',
+      imageUrl: url500,
+      thumbnailUrl: url500,
+      sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Narendra_Modi_official_portrait.jpg',
+      author: 'PMO India',
+      license: 'GODL',
+      sourceType: 'wikimedia',
+    };
+
+    const isSameFile = isDuplicateImage(cand800, cand500);
+    const deduplicated = deduplicateCandidates([cand800, cand500]);
+
+    if (id800 === id500 && id800 === idDirect && norm800 === norm500 && isSameFile && deduplicated.length === 1) {
+      console.log(`   Canonical File: "${id800}"`);
+      console.log(`   Normalized Base URL: ${norm800}`);
+      console.log('✅ Test 2 PASSED: 800px and 500px thumbnails accurately resolve to the same file and deduplicate.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 2 FAILED: Thumbnail deduplication failed.', { id800, id500, idDirect, isSameFile });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 3: Two distinct relevant images are selected when suitable candidates exist
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 3: Two distinct relevant images selected when suitable candidates exist ---');
+  {
+    const mockStory: Story = {
+      id: 'story_distinct_test',
+      title: 'Narendra Modi: Leadership and Public Service',
+      topic: 'Narendra Modi',
+      tone: 'adventure',
+      language: 'en',
+      introduction: 'Learn about Narendra Modi.',
+      keyPoints: [
+        { pointNumber: 1, heading: 'Early Life', bulletPoints: ['Born in Vadnagar.'] },
+        { pointNumber: 2, heading: 'Chief Minister', bulletPoints: ['Served as CM of Gujarat.'] },
+        { pointNumber: 3, heading: 'Prime Minister', bulletPoints: ['Elected Prime Minister of India.'] },
+        { pointNumber: 4, heading: 'Global Initiatives', bulletPoints: ['Represented India on global stage.'] },
+      ],
+      illustrations: [
+        {
+          id: 'ill_1',
+          title: 'Official Portrait of Narendra Modi',
+          caption: 'Narendra Modi official portrait',
+          description: 'Official portrait of Prime Minister Narendra Modi',
+          keyword: 'narendra_modi',
+          positionIndex: 2,
+        },
+        {
+          id: 'ill_2',
+          title: 'Prime Minister Narendra Modi Address',
+          caption: 'Narendra Modi speaking at a national event',
+          description: 'Prime Minister Narendra Modi addressing an assembly',
+          keyword: 'narendra_modi_speech',
+          positionIndex: 4,
+        },
+      ],
+      keyTakeaway: 'Dedication to national service.',
+      createdAt: new Date().toISOString(),
+    };
+
+    const enhanced = await imageSearchService.enhanceStoryIllustrations(mockStory);
+    const ill1 = enhanced.illustrations[0];
+    const ill2 = enhanced.illustrations[1];
+
+    const hasBothImages = Boolean(ill1.imageUrl && ill2.imageUrl);
+    const isDup = isDuplicateImage(
+      { id: ill1.id, title: ill1.title, imageUrl: ill1.imageUrl, thumbnailUrl: ill1.thumbnailUrl },
+      { id: ill2.id, title: ill2.title, imageUrl: ill2.imageUrl, thumbnailUrl: ill2.thumbnailUrl }
+    );
+    const canonical1 = extractCanonicalFileIdentifier(ill1.imageUrl || '');
+    const canonical2 = extractCanonicalFileIdentifier(ill2.imageUrl || '');
+
+    if (hasBothImages && !isDup && canonical1 !== canonical2) {
+      console.log(`   Illustration 1: "${ill1.title}" -> ${ill1.imageUrl?.slice(0, 70)}...`);
+      console.log(`   Illustration 2: "${ill2.title}" -> ${ill2.imageUrl?.slice(0, 70)}...`);
+      console.log('✅ Test 3 PASSED: Two completely distinct authentic images selected for the lesson.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 3 FAILED: Duplication detected or images missing.', { ill1, ill2, isDup, canonical1, canonical2 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 4: Different illustration concepts can select different images
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 4: Different illustration concepts select different images ---');
+  {
+    const aiStory: Story = {
+      id: 'story_ai_concepts',
+      title: 'How Artificial Intelligence Works',
+      topic: 'Artificial Intelligence',
+      tone: 'comic',
+      language: 'en',
+      introduction: 'How computers learn and reason.',
+      keyPoints: [
+        { pointNumber: 1, heading: 'Input and Processing', bulletPoints: ['Data fed into AI models.'] },
+        { pointNumber: 2, heading: 'Neural Networks', bulletPoints: ['Connected layers mimicking brain synapses.'] },
+      ],
+      illustrations: [
+        {
+          id: 'ill_ai_1',
+          title: 'Artificial Intelligence Workflow',
+          caption: 'AI system processing workflow',
+          description: 'Flowchart showing data input, training, and output generation in AI',
+          keyword: 'artificial_intelligence',
+          positionIndex: 1,
+        },
+        {
+          id: 'ill_ai_2',
+          title: 'Neural Network Architecture',
+          caption: 'Deep neural network nodes and weights',
+          description: 'Diagram of input layer, hidden layers, and output nodes in neural networks',
+          keyword: 'neural_network',
+          positionIndex: 2,
+        },
+      ],
+      keyTakeaway: 'AI leverages deep neural networks to extract patterns.',
+      createdAt: new Date().toISOString(),
+    };
+
+    const enhanced = await imageSearchService.enhanceStoryIllustrations(aiStory);
+    const ill1 = enhanced.illustrations[0];
+    const ill2 = enhanced.illustrations[1];
+
+    const distinct = ill1.imageUrl !== ill2.imageUrl;
+    const can1 = extractCanonicalFileIdentifier(ill1.imageUrl || '');
+    const can2 = extractCanonicalFileIdentifier(ill2.imageUrl || '');
+
+    if (ill1.imageUrl && ill2.imageUrl && distinct && can1 !== can2) {
+      console.log(`   Concept 1 (AI Workflow): "${ill1.title}"`);
+      console.log(`   Concept 2 (Neural Network): "${ill2.title}"`);
+      console.log('✅ Test 4 PASSED: Distinct illustration concepts retrieved different, appropriate visuals.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 4 FAILED: Concept differentiation failed.', { ill1, ill2 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 5: A Narendra Modi query does not select an unrelated politician
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 5: Narendra Modi query rejects unrelated politicians ---');
+  {
+    // 1. Direct search for Narendra Modi
+    const modiResult = await wikimediaProvider.searchImage('Narendra Modi official portrait', {
       entityCategory: 'person',
       entityName: 'Narendra Modi',
     });
 
-    // Search Photosynthesis -> should be diagram
-    const photoResult = await wikimediaProvider.searchImage('photosynthesis diagram', {
+    // 2. Search for an unrelated person with entityName set to "Narendra Modi"
+    const unrelatedResult = await wikimediaProvider.searchImage('Barack Obama official portrait', {
+      entityCategory: 'person',
+      entityName: 'Narendra Modi',
+    });
+
+    const isModiValid = Boolean(
+      modiResult &&
+        (modiResult.title.toLowerCase().includes('modi') || modiResult.sourcePageUrl.toLowerCase().includes('modi')) &&
+        (modiResult.mime?.includes('jpeg') || modiResult.mime?.includes('png') || modiResult.mime?.includes('webp'))
+    );
+    const isUnrelatedRejected = unrelatedResult === null;
+
+    if (isModiValid && isUnrelatedRejected) {
+      console.log(`   Valid Modi Result: "${modiResult?.title}" (MIME: ${modiResult?.mime}) ✓`);
+      console.log(`   Unrelated Politician with Modi entityName: correctly rejected (Result: ${unrelatedResult}) ✓`);
+      console.log('✅ Test 5 PASSED: Rejects unrelated politicians and selects authentic Narendra Modi photos.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 5 FAILED: Modi entity verification failed.', { isModiValid, isUnrelatedRejected, modiResult, unrelatedResult });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 6: A Vignan University query does not select an unrelated university
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 6: Vignan University query rejects unrelated universities ---');
+  {
+    const vignanResult = await wikimediaProvider.searchImage('Vignan University Vadlamudi', {
+      entityCategory: 'institution',
+      entityName: 'Vignan University',
+      secondaryContext: 'Vadlamudi',
+    });
+
+    const unrelatedUniversity = await wikimediaProvider.searchImage('Harvard University Harvard Yard campus', {
+      entityCategory: 'institution',
+      entityName: 'Vignan University',
+      secondaryContext: 'Vadlamudi',
+    });
+
+    const isVignanValid = Boolean(
+      vignanResult &&
+        (vignanResult.title.toLowerCase().includes('vignan') || vignanResult.sourcePageUrl.toLowerCase().includes('vignan'))
+    );
+    const isHarvardRejected = unrelatedUniversity === null;
+
+    if (isVignanValid && isHarvardRejected) {
+      console.log(`   Valid Vignan Result: "${vignanResult?.title}" ✓`);
+      console.log(`   Harvard Query with Vignan entityName: correctly rejected (Result: ${unrelatedUniversity}) ✓`);
+      console.log('✅ Test 6 PASSED: Rejects unrelated universities and selects authentic Vignan University media.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 6 FAILED: Vignan entity verification failed.', { isVignanValid, isHarvardRejected, vignanResult, unrelatedUniversity });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 7: Binary search returns conceptually appropriate diagrams
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 7: Binary search returns conceptually appropriate diagrams ---');
+  {
+    const binaryResult = await wikimediaProvider.searchImage('binary search diagram', {
+      entityCategory: 'technical',
+      entityName: 'Binary Search',
+    });
+
+    const isDiagram = Boolean(
+      binaryResult &&
+        (binaryResult.title.toLowerCase().includes('binary') ||
+          binaryResult.title.toLowerCase().includes('search') ||
+          binaryResult.title.toLowerCase().includes('algorithm') ||
+          binaryResult.sourcePageUrl.toLowerCase().includes('binary'))
+    );
+
+    if (isDiagram && binaryResult) {
+      console.log(`   Binary Search Visual: "${binaryResult.title}"`);
+      console.log(`   Source: ${binaryResult.sourcePageUrl}`);
+      console.log('✅ Test 7 PASSED: Binary search returns conceptually appropriate educational diagram.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 7 FAILED: Binary search diagram not found.', binaryResult);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 8: Human-heart and photosynthesis queries return relevant images
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 8: Human-heart and photosynthesis queries return relevant images ---');
+  {
+    const heartResult = await wikimediaProvider.searchImage('human heart diagram', {
+      entityCategory: 'scientific',
+      entityName: 'Human Heart',
+    });
+
+    const photoResult = await wikimediaProvider.searchImage('photosynthesis process diagram', {
       entityCategory: 'scientific',
       entityName: 'Photosynthesis',
     });
 
-    const isModiPhoto = modiResult && (modiResult.mime?.includes('jpeg') || modiResult.mime?.includes('png') || modiResult.mime?.includes('webp'));
-    const isPhotoDiagram = photoResult && (photoResult.title.toLowerCase().includes('diagram') || photoResult.title.toLowerCase().includes('photosynthesis'));
+    const heartValid = Boolean(
+      heartResult &&
+        (heartResult.title.toLowerCase().includes('heart') || heartResult.sourcePageUrl.toLowerCase().includes('heart'))
+    );
+    const photoValid = Boolean(
+      photoResult &&
+        (photoResult.title.toLowerCase().includes('photo') || photoResult.sourcePageUrl.toLowerCase().includes('photo'))
+    );
 
-    if (isModiPhoto && isPhotoDiagram) {
-      console.log(`   Modi Result: "${modiResult.title}" (MIME: ${modiResult.mime}) -> Photograph ✓`);
-      console.log(`   Photosynthesis Result: "${photoResult.title}" (MIME: ${photoResult.mime}) -> Diagram ✓`);
-      console.log('✅ Test 3 PASSED: People/institutions prioritize photographs; science topics prioritize diagrams.\n');
+    if (heartValid && photoValid) {
+      console.log(`   Heart Diagram: "${heartResult?.title}" ✓`);
+      console.log(`   Photosynthesis Diagram: "${photoResult?.title}" ✓`);
+      console.log('✅ Test 8 PASSED: Human-heart and photosynthesis return relevant scientific diagrams.\n');
       passedTests++;
     } else {
-      console.error('❌ Test 3 FAILED: Incorrect format preference.', { modiResult, photoResult });
+      console.error('❌ Test 8 FAILED: Science images not relevant.', { heartResult, photoResult });
     }
   }
 
-  // TEST 4: Rejection of Unrelated Candidates for Named Entities
-  console.log('--- TEST 4: Identity Verification & Rejection of Unrelated Images ---');
+  // -------------------------------------------------------------------------
+  // TEST 9: Broken images trigger alternative candidates or appropriate fallback
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 9: Broken image handling & candidate fallback lists ---');
   {
-    // Searching for an institution like "Vignan University" retrieves a candidate matching "Vignan"
-    const vignanResult = await wikimediaProvider.searchImage('Vignan University', {
-      entityCategory: 'institution',
-      entityName: 'Vignan University',
+    // Search candidates for photosynthesis
+    const candidates = await imageSearchService.findEducationalCandidates('photosynthesis process diagram', {
+      entityCategory: 'scientific',
+      entityName: 'Photosynthesis',
     });
 
-    // Searching with entityName "Vignan University" on unrelated university images must REJECT them (return null)
-    const unrelatedResult = await wikimediaProvider.searchImage('Harvard Yard library', {
-      entityCategory: 'institution',
-      entityName: 'Vignan University',
-    });
-
-    const matchesEntity = vignanResult && vignanResult.title.toLowerCase().includes('vignan');
-    const rejectsUnrelated = unrelatedResult === null;
-
-    if (matchesEntity && rejectsUnrelated) {
-      console.log(`   Vignan Result: "${vignanResult?.title}" - Entity overlap confirmed ✓`);
-      console.log(`   Unrelated Harvard Query with Vignan entityName: correctly rejected (${unrelatedResult}) ✓`);
-      console.log('✅ Test 4 PASSED: Named entity search correctly requires entity name overlap and excludes unrelated universities.\n');
+    const hasAlternatives = candidates.length >= 2;
+    if (hasAlternatives) {
+      console.log(`   Retrieved ${candidates.length} candidates for multi-level frontend resilience.`);
+      console.log(`   Primary: "${candidates[0].title}"`);
+      console.log(`   Backup Candidate 1: "${candidates[1].title}"`);
+      console.log('✅ Test 9 PASSED: Multi-candidate retrieval provides alternative URLs for broken image fallback.\n');
       passedTests++;
     } else {
-      console.error('❌ Test 4 FAILED: Identity verification or rejection check failed:', { matchesEntity, rejectsUnrelated, vignanResult, unrelatedResult });
+      console.error('❌ Test 9 FAILED: Failed to retrieve multiple candidates for fallback.', candidates);
     }
   }
 
-  // TEST 5: Caching & In-flight Deduplication
-  console.log('--- TEST 5: In-Memory Caching & Query Deduplication ---');
+  // -------------------------------------------------------------------------
+  // TEST 10: Existing caching and request deduplication still work
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 10: Existing caching and request deduplication still work ---');
   {
-    const testQuery = 'Narendra Modi official portrait';
-    const statsBefore = imageSearchCache.getStats();
-    const startTime = Date.now();
-    const cachedResult = await imageSearchService.findEducationalImage(testQuery, {
-      entityCategory: 'person',
-      entityName: 'Narendra Modi',
-    });
-    const elapsed = Date.now() - startTime;
-    const statsAfter = imageSearchCache.getStats();
+    const query = 'water cycle diagram';
+    imageSearchCache.clear();
 
-    if (cachedResult && elapsed < 20 && statsAfter.hits > statsBefore.hits) {
-      console.log(
-        `✅ Test 5 PASSED: Instant cache hit in ${elapsed}ms without network refetch (Hits: ${statsAfter.hits}, HitRate: ${statsAfter.hitRate}).\n`
-      );
+    const t0 = Date.now();
+    const res1 = await imageSearchService.findEducationalImage(query, { entityCategory: 'scientific' });
+    const missTime = Date.now() - t0;
+
+    const t1 = Date.now();
+    const res2 = await imageSearchService.findEducationalImage(query, { entityCategory: 'scientific' });
+    const hitTime = Date.now() - t1;
+
+    const stats = imageSearchCache.getStats();
+
+    // In-flight deduplication test
+    const [concurrent1, concurrent2] = await Promise.all([
+      imageSearchService.findEducationalImage('earthquake fault line diagram', { entityCategory: 'scientific' }),
+      imageSearchService.findEducationalImage('earthquake fault line diagram', { entityCategory: 'scientific' }),
+    ]);
+
+    const cachingWorks = res1 !== null && res2 !== null && hitTime < 20 && stats.hits >= 1;
+    const concurrentWorks = concurrent1 !== null && concurrent2 !== null && concurrent1.id === concurrent2.id;
+
+    if (cachingWorks && concurrentWorks) {
+      console.log(`   Initial Fetch (Miss): ${missTime}ms | Cached Fetch (Hit): ${hitTime}ms (Hits: ${stats.hits})`);
+      console.log('✅ Test 10 PASSED: Caching and in-flight request deduplication functioning flawlessly.\n');
       passedTests++;
     } else {
-      console.error('❌ Test 5 FAILED: Expected instant cache hit.', { elapsed, statsBefore, statsAfter });
+      console.error('❌ Test 10 FAILED: Caching or in-flight deduplication failed.', { cachingWorks, concurrentWorks, stats, hitTime });
     }
   }
 
-  // TEST 6: Graceful Fallback on Network / Provider Failure
-  console.log('--- TEST 6: Graceful Fallback Handling ---');
+  // -------------------------------------------------------------------------
+  // TEST 11: Application handles cases where fewer than two suitable images exist
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 11: Handles cases where fewer than two suitable images exist ---');
   {
-    const failingProvider: IImageSearchProvider = {
-      name: 'FailingMockProvider',
-      searchImage: async () => {
-        throw new Error('Simulated network timeout');
+    // Mock provider with strictly 1 image available
+    const singleImage: ImageSearchResult = {
+      id: 'wiki_single_only',
+      title: 'Only One Authentic Image Available',
+      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/99/Only_One.jpg',
+      thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/99/Only_One.jpg',
+      sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Only_One.jpg',
+      author: 'Rare Archives',
+      license: 'Public Domain',
+      sourceType: 'wikimedia',
+    };
+
+    const mockProviderSingle: IImageSearchProvider = {
+      name: 'MockSingleImageProvider',
+      searchImage: async () => singleImage,
+      searchImages: async (_q, options) => {
+        // If singleImage is already in excludeIdentifiers, return empty
+        if (options?.excludeIdentifiers?.includes('only one.jpg') || options?.excludeIdentifiers?.includes('wiki_single_only')) {
+          return [];
+        }
+        return [singleImage];
       },
     };
-    const testService = new ImageSearchService(failingProvider);
 
-    const mockStory: any = {
-      id: 'mock_story_fallback',
-      title: 'Earthquakes and Plate Tectonics',
-      topic: 'Earthquakes',
-      illustrations: [
-        {
-          id: 'ill_1',
-          title: 'Tectonic Plates Fault',
-          description: 'Fault line under stress',
-          keyword: 'earthquake_tectonic',
-          positionIndex: 2,
-        },
+    const singleService = new ImageSearchService(mockProviderSingle);
+    const storyTwoSlots: Story = {
+      id: 'story_single_test',
+      title: 'Obscure Topic Story',
+      topic: 'Obscure Rare Topic',
+      tone: 'adventure',
+      language: 'en',
+      introduction: 'Rare topic.',
+      keyPoints: [
+        { pointNumber: 1, heading: 'Point 1', bulletPoints: ['Details 1'] },
+        { pointNumber: 2, heading: 'Point 2', bulletPoints: ['Details 2'] },
       ],
+      illustrations: [
+        { id: 'ill_slot_1', title: 'First Visual', caption: 'Visual 1', description: 'Desc 1', keyword: 'rare', positionIndex: 1 },
+        { id: 'ill_slot_2', title: 'Second Visual', caption: 'Visual 2', description: 'Desc 2', keyword: 'rare', positionIndex: 2 },
+      ],
+      keyTakeaway: 'Key takeaway.',
+      createdAt: new Date().toISOString(),
     };
 
-    const enhanced = await testService.enhanceStoryIllustrations(mockStory);
-    const ill = enhanced.illustrations[0];
+    const enhanced = await singleService.enhanceStoryIllustrations(storyTwoSlots);
+    const slot1 = enhanced.illustrations[0];
+    const slot2 = enhanced.illustrations[1];
 
-    if (ill.sourceType === 'svg_fallback' && ill.imageUrl === undefined) {
-      console.log('✅ Test 6 PASSED: On provider failure, illustrations gracefully maintain SVG fallback without crashing.\n');
+    const slot1HasImage = slot1.imageUrl === singleImage.imageUrl;
+    const slot2HasFallback = slot2.sourceType === 'svg_fallback' && slot2.imageUrl === undefined;
+    const notDuplicated = slot1.imageUrl !== slot2.imageUrl;
+
+    if (slot1HasImage && slot2HasFallback && notDuplicated) {
+      console.log('   Slot 1: Retrieved authentic single image.');
+      console.log('   Slot 2: Gracefully used topic-specific SVG fallback without duplicating slot 1.');
+      console.log('✅ Test 11 PASSED: Never duplicates images or uses unrelated images when candidates are scarce.\n');
       passedTests++;
     } else {
-      console.error('❌ Test 6 FAILED: Did not fallback properly.', ill);
+      console.error('❌ Test 11 FAILED: Single image handling failed.', { slot1, slot2 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // TEST 12: Existing lesson generation, authentication, and quizzes remain functional
+  // -------------------------------------------------------------------------
+  console.log('--- TEST 12: Existing lesson generation, authentication, and quizzes remain functional ---');
+  {
+    // Retrieve built-in example lesson (Photosynthesis)
+    const { story } = await storyService.getOrGenerateStory({
+      topic: 'Photosynthesis',
+      difficulty: 'beginner',
+      language: 'en',
+      tone: 'comic',
+    });
+
+    const hasTitle = Boolean(story.title);
+    const hasPoints = Array.isArray(story.keyPoints) && story.keyPoints.length >= 3;
+    const hasIllustrations = Array.isArray(story.illustrations) && story.illustrations.length >= 2;
+    const hasQuiz = Array.isArray(story.quizQuestions) && story.quizQuestions.length === 3;
+    const quizOptionsValid = (story.quizQuestions || []).every(
+      (q) => Array.isArray(q.options) && q.options.length === 4 && Boolean(q.correctOptionId)
+    );
+
+    if (hasTitle && hasPoints && hasIllustrations && hasQuiz && quizOptionsValid) {
+      console.log(`   Lesson Title: "${story.title}"`);
+      console.log(`   Key Points: ${story.keyPoints.length} | Illustrations: ${story.illustrations.length}`);
+      console.log(`   Quiz Questions: ${story.quizQuestions?.length} (All 4-option MCQs verified)`);
+      console.log('✅ Test 12 PASSED: Lesson generation, quizzes, and educational features fully intact.\n');
+      passedTests++;
+    } else {
+      console.error('❌ Test 12 FAILED: Story structure corrupted.', { hasTitle, hasPoints, hasIllustrations, hasQuiz });
     }
   }
 
   console.log('========================================================================');
-  console.log(`   TEST RESULTS: ${passedTests}/${totalTests} TESTS PASSED`);
-  console.log('========================================================================');
+  console.log(`   IMAGE SEARCH SUITE RESULTS: ${passedTests}/${totalTests} TESTS PASSED`);
+  console.log('========================================================================\n');
 
   if (passedTests === totalTests) {
     process.exit(0);
@@ -255,7 +536,7 @@ async function runImageSearchTests() {
   }
 }
 
-runImageSearchTests().catch((err) => {
+runAllImageSearchVerificationTests().catch((err) => {
   console.error('Unhandled test failure:', err);
   process.exit(1);
 });

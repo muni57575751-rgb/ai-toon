@@ -25,6 +25,7 @@ export interface TopicIllustration {
     width?: number;
     height?: number;
     sourceType?: 'wikimedia' | 'openverse' | 'svg_fallback';
+    alternativeUrls?: string[];
 }
 export interface Story {
     id: string;

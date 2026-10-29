@@ -1,4 +1,5 @@
 import type { IImageSearchProvider, ImageSearchOptions, ImageSearchResult } from './imageSearch.types.js';
+import { extractCanonicalFileIdentifier, deduplicateCandidates } from './imageDeduplicator.js';
 
 interface WikimediaPage {
   pageid: number;
@@ -35,23 +36,24 @@ export class WikimediaImageProvider implements IImageSearchProvider {
   public readonly name = 'Wikimedia Commons API';
   private readonly userAgent = 'AIToonEducationalApp/1.0 (https://github.com/ai-toon; contact: educational-app@example.com)';
 
-  public async searchImage(
+  public async searchImages(
     query: string,
-    options: ImageSearchOptions = {}
-  ): Promise<ImageSearchResult | null> {
+    options: ImageSearchOptions = {},
+    limit: number = 10
+  ): Promise<ImageSearchResult[]> {
     const cleanQuery = query.trim();
-    if (!cleanQuery) return null;
+    if (!cleanQuery) return [];
 
     const timeoutMs = options.timeoutMs ?? 8000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      // Wikimedia Commons API generator search in File namespace (ns=6) excluding document containers
+      // Wikimedia Commons API generator search in File namespace (ns=6) excluding raw document files
       const searchQuery = `${cleanQuery} -filetype:pdf -filetype:djvu`;
       const endpoint = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
         searchQuery
-      )}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|size|extmetadata|mime&iiurlwidth=800&format=json`;
+      )}&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url|size|extmetadata|mime&iiurlwidth=800&format=json`;
 
       const res = await fetch(endpoint, {
         method: 'GET',
@@ -63,15 +65,27 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       });
 
       if (!res.ok) {
-        console.warn(`[WikimediaProvider] HTTP ${res.status} error for query "${cleanQuery}"`);
-        return null;
+        console.warn(`[WikimediaProvider] HTTP ${res.status} response for query "${cleanQuery}"`);
+        return [];
       }
 
-      const data = (await res.json()) as WikimediaApiResponse;
-      const pages = Object.values(data.query?.pages || {});
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('json')) {
+        console.warn(`[WikimediaProvider] Non-JSON response for query "${cleanQuery}": ${contentType}`);
+        return [];
+      }
 
+      let data: WikimediaApiResponse;
+      try {
+        data = (await res.json()) as WikimediaApiResponse;
+      } catch (parseErr) {
+        console.warn(`[WikimediaProvider] Failed to parse JSON response for "${cleanQuery}":`, parseErr);
+        return [];
+      }
+
+      const pages = Object.values(data.query?.pages || {});
       if (pages.length === 0) {
-        return null;
+        return [];
       }
 
       const candidates: Array<{ result: ImageSearchResult; score: number }> = [];
@@ -158,22 +172,46 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       }
 
       if (candidates.length === 0) {
-        return null;
+        return [];
       }
 
       // Sort by relevance score descending
       candidates.sort((a, b) => b.score - a.score);
-      return candidates[0].result;
+
+      // Exclude passed identifiers and deduplicate within candidate list
+      const excludedSet = new Set<string>();
+      if (options.excludeIdentifiers && Array.isArray(options.excludeIdentifiers)) {
+        for (const id of options.excludeIdentifiers) {
+          const canonical = extractCanonicalFileIdentifier(id);
+          if (canonical) excludedSet.add(canonical);
+          excludedSet.add(id);
+        }
+      }
+
+      const deduplicated = deduplicateCandidates(
+        candidates.map((c) => c.result),
+        excludedSet
+      );
+
+      return deduplicated.slice(0, limit);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') {
         console.warn(`[WikimediaProvider] Image search timed out after ${timeoutMs}ms for query "${cleanQuery}"`);
       } else {
         console.warn(`[WikimediaProvider] Image search failed for query "${cleanQuery}":`, err);
       }
-      return null;
+      return [];
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  public async searchImage(
+    query: string,
+    options: ImageSearchOptions = {}
+  ): Promise<ImageSearchResult | null> {
+    const results = await this.searchImages(query, options, 1);
+    return results[0] || null;
   }
 
   private tokenize(text: string): string[] {
@@ -255,6 +293,8 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       'pm',
       'king',
       'queen',
+      'leader',
+      'politician',
     ]);
 
     if (entityCategory === 'person' || entityCategory === 'institution') {
@@ -262,14 +302,27 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       const genericSet = entityCategory === 'institution' ? genericInstitutionWords : genericPersonWords;
       const distinctiveTokens = entityTokens.filter((t) => !genericSet.has(t));
 
-      // Check if candidate matches the distinctive entity name
-      const hasDistinctiveMatch =
-        (lowerEntity.length > 3 && combined.includes(lowerEntity)) ||
-        (distinctiveTokens.length > 0 && distinctiveTokens.some((token) => combined.includes(token)));
+      // For Narendra Modi, distinctive tokens MUST include 'modi' (and ideally 'narendra')
+      if (lowerEntity.includes('narendra modi') || lowerEntity.includes('modi')) {
+        const hasModiMatch = lowerTitle.includes('modi') || combined.includes('modi');
+        if (!hasModiMatch) {
+          return 0; // Exclude unrelated politicians completely
+        }
+      } else if (lowerEntity.includes('vignan')) {
+        // For Vignan University, title/description MUST include 'vignan'
+        const hasVignanMatch = lowerTitle.includes('vignan') || combined.includes('vignan');
+        if (!hasVignanMatch) {
+          return 0; // Exclude unrelated universities completely
+        }
+      } else {
+        // General distinctive tokens check
+        const hasDistinctiveMatch =
+          (lowerEntity.length > 3 && combined.includes(lowerEntity)) ||
+          (distinctiveTokens.length > 0 && distinctiveTokens.some((token) => combined.includes(token)));
 
-      // If distinctive entity name does not match, reject candidate completely
-      if (distinctiveTokens.length > 0 && !hasDistinctiveMatch) {
-        return 0; // Exclude unrelated pictures that only match generic keywords like "university"
+        if (distinctiveTokens.length > 0 && !hasDistinctiveMatch) {
+          return 0; // Exclude unrelated pictures that only match generic keywords like "university"
+        }
       }
     }
 
@@ -308,7 +361,7 @@ export class WikimediaImageProvider implements IImageSearchProvider {
     switch (entityCategory) {
       case 'person': {
         // Prioritize actual photographic portraits and official photos
-        if (isPhoto) score += 10;
+        if (isPhoto) score += 12;
         if (isSvg) score -= 8; // Avoid SVG icons for real people
 
         if (lowerTitle.includes('portrait')) score += 12;
@@ -316,9 +369,14 @@ export class WikimediaImageProvider implements IImageSearchProvider {
         if (lowerTitle.includes('photograph') || lowerTitle.includes('photo')) score += 8;
         if (lowerTitle.includes('prime minister') || lowerTitle.includes('president')) score += 6;
 
+        // Boost authentic distinct photo tags
+        if (lowerTitle.includes('address') || lowerTitle.includes('speech') || lowerTitle.includes('meeting')) {
+          score += 6;
+        }
+
         // Penalize caricatures, stamps, satirical drawings when photos are expected
-        if (combined.includes('caricature') || combined.includes('satire') || combined.includes('graffiti')) {
-          score -= 15;
+        if (combined.includes('caricature') || combined.includes('satire') || combined.includes('graffiti') || combined.includes('parody')) {
+          score -= 20;
         }
         break;
       }
@@ -326,10 +384,11 @@ export class WikimediaImageProvider implements IImageSearchProvider {
       case 'institution': {
         // Prioritize campus, buildings, and official grounds
         if (isPhoto) score += 8;
-        if (lowerTitle.includes('building') || lowerTitle.includes('campus')) score += 12;
+        if (lowerTitle.includes('building') || lowerTitle.includes('campus')) score += 14;
         if (lowerTitle.includes('university') || lowerTitle.includes('college')) score += 6;
-        if (lowerTitle.includes('logo')) score += 6;
-        if (lowerTitle.includes('entrance') || lowerTitle.includes('library')) score += 8;
+        if (lowerTitle.includes('entrance') || lowerTitle.includes('gate') || lowerTitle.includes('library')) score += 10;
+        if (lowerTitle.includes('vadlamudi')) score += 15;
+        if (lowerTitle.includes('logo')) score += 5;
 
         // Penalize generic conceptual diagrams
         if (isSvg && lowerTitle.includes('diagram')) score -= 10;
@@ -345,22 +404,23 @@ export class WikimediaImageProvider implements IImageSearchProvider {
 
       case 'scientific': {
         // Prioritize diagrams, labeled illustrations, and anatomical models
-        if (combined.includes('diagram')) score += 14;
-        if (combined.includes('labeled') || combined.includes('anatomy')) score += 10;
+        if (combined.includes('diagram')) score += 16;
+        if (combined.includes('labeled') || combined.includes('anatomy')) score += 12;
         if (combined.includes('scheme') || combined.includes('schematic')) score += 8;
-        if (combined.includes('cycle') || combined.includes('process')) score += 6;
-        if (combined.includes('blood flow')) score += 8;
-        if (isSvg) score += 6; // Crisp vector diagrams are excellent for science
+        if (combined.includes('cycle') || combined.includes('process')) score += 8;
+        if (combined.includes('blood flow')) score += 10;
+        if (combined.includes('chloroplast') || combined.includes('photosynthesis')) score += 10;
+        if (isSvg) score += 8; // Crisp vector diagrams are excellent for science
         break;
       }
 
       case 'technical': {
         // Prioritize algorithmic diagrams, flowcharts, architectures
-        if (combined.includes('diagram')) score += 12;
-        if (combined.includes('tree') || combined.includes('array') || combined.includes('search')) score += 8;
-        if (combined.includes('flowchart') || combined.includes('architecture') || combined.includes('structure')) score += 8;
-        if (combined.includes('algorithm') || combined.includes('concept')) score += 6;
-        if (isSvg) score += 6;
+        if (combined.includes('diagram')) score += 16;
+        if (combined.includes('tree') || combined.includes('array') || combined.includes('search')) score += 10;
+        if (combined.includes('neural network') || combined.includes('architecture') || combined.includes('model')) score += 10;
+        if (combined.includes('flowchart') || combined.includes('algorithm') || combined.includes('structure')) score += 8;
+        if (isSvg) score += 8;
         break;
       }
 

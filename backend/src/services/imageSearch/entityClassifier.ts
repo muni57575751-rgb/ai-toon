@@ -346,39 +346,64 @@ export class EntityClassifier {
   }
 
   /**
-   * Generates prioritized, entity-aware search queries
+   * Generates prioritized, entity-aware search queries tailored to the illustration slot
    */
-  public generateQueries(classification: EntityClassification, extraHint?: string): string[] {
+  public generateQueries(
+    classification: EntityClassification,
+    extraHint?: string,
+    slotIndex: number = 0
+  ): string[] {
     const { category, entityName, secondaryContext } = classification;
     const queries: string[] = [];
+    const hintLower = (extraHint || '').toLowerCase();
 
     switch (category) {
       case 'person': {
         // For people, prioritize actual photographic portraits and official photos
-        queries.push(`${entityName} official portrait`);
-        queries.push(`${entityName} photograph`);
-        queries.push(`${entityName} portrait`);
-        queries.push(entityName);
+        if (slotIndex === 0) {
+          queries.push(`${entityName} official portrait`);
+          queries.push(`${entityName} portrait`);
+          queries.push(`${entityName} photograph`);
+          queries.push(entityName);
+        } else {
+          // Second illustration: search for action/speech/event photograph or alternative portrait
+          queries.push(`${entityName} speech photograph`);
+          queries.push(`${entityName} official photograph`);
+          queries.push(`${entityName} photograph`);
+          queries.push(`${entityName} portrait`);
+          queries.push(entityName);
+        }
         break;
       }
 
       case 'institution': {
         // For institutions, search campus, building, or official landmark photos
-        if (secondaryContext) {
-          queries.push(`${entityName} ${secondaryContext} campus`);
-          queries.push(`${entityName} ${secondaryContext}`);
+        if (slotIndex === 0) {
+          if (secondaryContext) {
+            queries.push(`${entityName} ${secondaryContext}`);
+            queries.push(`${entityName} ${secondaryContext} building`);
+          }
+          queries.push(`${entityName}`);
+          queries.push(`${entityName} building`);
+          queries.push(`${entityName} campus`);
+        } else {
+          // Second illustration: search building entrance, library or secondary landmark
+          if (secondaryContext) {
+            queries.push(`${entityName} ${secondaryContext} building`);
+            queries.push(`${entityName} ${secondaryContext}`);
+          }
+          queries.push(`${entityName} building`);
+          queries.push(`${entityName} entrance`);
+          queries.push(`${entityName} library`);
+          queries.push(`${entityName}`);
         }
-        queries.push(`${entityName} campus`);
-        queries.push(`${entityName} building`);
-        queries.push(`${entityName} official campus`);
-        queries.push(entityName);
         break;
       }
 
       case 'place': {
         // For places, search landmark architecture and view photographs
         if (secondaryContext) {
-          queries.push(`${entityName} ${secondaryContext} landmark photograph`);
+          queries.push(`${entityName} ${secondaryContext} landmark`);
         }
         queries.push(`${entityName} landmark photograph`);
         queries.push(`${entityName} architecture`);
@@ -389,27 +414,56 @@ export class EntityClassifier {
       case 'scientific': {
         const lower = entityName.toLowerCase();
         if (lower.includes('photosynthesis')) {
-          queries.push('photosynthesis labeled scientific diagram');
-          queries.push('photosynthesis process diagram');
-          queries.push('photosynthesis diagram');
+          if (slotIndex === 0 || hintLower.includes('process') || hintLower.includes('sunlight')) {
+            queries.push('photosynthesis process diagram');
+            queries.push('photosynthesis diagram');
+            queries.push('photosynthesis labeled diagram');
+          } else {
+            // Second slot: focus on chloroplast structure, light reactions or equation
+            queries.push('chloroplast diagram');
+            queries.push('photosynthesis equation diagram');
+            queries.push('photosynthesis light reaction diagram');
+            queries.push('photosynthesis diagram');
+          }
         } else if (lower.includes('heart')) {
-          queries.push('human heart labeled anatomy blood flow diagram');
-          queries.push('heart diagram blood flow');
-          queries.push('human heart diagram');
-          queries.push('heart anatomy diagram');
+          if (slotIndex === 0 || hintLower.includes('anatomy') || hintLower.includes('chamber')) {
+            queries.push('human heart diagram');
+            queries.push('heart anatomy diagram');
+            queries.push('human heart labeled anatomy');
+          } else {
+            // Second slot: focus on blood flow & cardiac cycle
+            queries.push('heart diagram blood flow');
+            queries.push('cardiac cycle diagram');
+            queries.push('human heart blood flow diagram');
+            queries.push('human heart diagram');
+          }
         } else if (lower.includes('earthquake') || lower.includes('seismic') || lower.includes('tectonic')) {
-          queries.push('tectonic plates fault seismic waves educational diagram');
-          queries.push('earthquake fault line diagram');
-          queries.push('seismic shock waves focus epicenter diagram');
+          if (slotIndex === 0) {
+            queries.push('earthquake fault line diagram');
+            queries.push('tectonic plates diagram');
+          } else {
+            queries.push('seismic shock waves diagram');
+            queries.push('earthquake focus epicenter diagram');
+          }
         } else if (lower.includes('water cycle')) {
-          queries.push('water cycle process diagram');
-          queries.push('water cycle diagram');
+          if (slotIndex === 0) {
+            queries.push('water cycle process diagram');
+            queries.push('water cycle diagram');
+          } else {
+            queries.push('water cycle precipitation evaporation diagram');
+            queries.push('water cycle diagram');
+          }
         } else if (lower.includes('solar system')) {
-          queries.push('solar system planets orbit diagram');
-          queries.push('solar system diagram');
+          if (slotIndex === 0) {
+            queries.push('solar system planets orbit diagram');
+            queries.push('solar system diagram');
+          } else {
+            queries.push('inner rocky planets outer gas giants diagram');
+            queries.push('solar system diagram');
+          }
         } else {
-          queries.push(`${entityName} labeled scientific diagram`);
           queries.push(`${entityName} process diagram`);
+          queries.push(`${entityName} labeled diagram`);
           queries.push(`${entityName} diagram`);
         }
         break;
@@ -418,15 +472,29 @@ export class EntityClassifier {
       case 'technical': {
         const lower = entityName.toLowerCase();
         if (lower.includes('binary search')) {
-          queries.push('binary search sorted array middle element diagram');
-          queries.push('binary search algorithm diagram');
-          queries.push('binary search example');
-          queries.push('binary search');
+          if (slotIndex === 0 || hintLower.includes('algorithm') || hintLower.includes('overview')) {
+            queries.push('binary search diagram');
+            queries.push('binary search algorithm diagram');
+            queries.push('binary search algorithm');
+          } else {
+            // Second slot: focus on sorted array, halving range, or search tree
+            queries.push('binary search sorted array diagram');
+            queries.push('binary search tree');
+            queries.push('binary search example');
+            queries.push('binary search diagram');
+          }
         } else if (lower.includes('artificial intelligence') || lower === 'ai') {
-          queries.push('artificial intelligence relation to generative models diagram');
-          queries.push('artificial intelligence concept diagram');
-          queries.push('artificial intelligence diagram');
-          queries.push('artificial intelligence');
+          if (slotIndex === 0 || hintLower.includes('overview') || hintLower.includes('system')) {
+            queries.push('artificial intelligence diagram');
+            queries.push('artificial intelligence workflow diagram');
+            queries.push('artificial intelligence');
+          } else {
+            // Second slot: focus on neural networks, deep learning architecture
+            queries.push('neural network architecture diagram');
+            queries.push('deep learning neural network diagram');
+            queries.push('machine learning diagram');
+            queries.push('artificial intelligence diagram');
+          }
         } else if (lower.includes('neural network')) {
           queries.push('neural network architecture diagram');
           queries.push('deep learning neural network diagram');
@@ -447,6 +515,16 @@ export class EntityClassifier {
         }
         queries.push(entityName);
         break;
+      }
+    }
+
+    // If an extra hint contains specific keywords not yet in queries, add a targeted combined query
+    if (extraHint && extraHint.trim().length > 3) {
+      const cleanHint = extraHint
+        .replace(/illustration|figure|\d+/gi, '')
+        .trim();
+      if (cleanHint.length > 3 && category !== 'person') {
+        queries.push(`${entityName} ${cleanHint} diagram`);
       }
     }
 
