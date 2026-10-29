@@ -5,7 +5,6 @@ const root = path.resolve(__dirname, '..');
 const vercelDir = path.resolve(root, '.vercel', 'output');
 const staticDir = path.resolve(vercelDir, 'static');
 const funcApi = path.resolve(vercelDir, 'functions', 'api.func');
-const funcApiPath = path.resolve(vercelDir, 'functions', 'api', '[...path].func');
 
 console.log('[build-vercel] Preparing Vercel Build Output API v3...');
 
@@ -13,7 +12,6 @@ console.log('[build-vercel] Preparing Vercel Build Output API v3...');
 fs.rmSync(vercelDir, { recursive: true, force: true });
 fs.mkdirSync(staticDir, { recursive: true });
 fs.mkdirSync(funcApi, { recursive: true });
-fs.mkdirSync(funcApiPath, { recursive: true });
 
 // 2. Copy static frontend
 const frontendDist = path.resolve(root, 'frontend', 'dist');
@@ -29,14 +27,13 @@ if (fs.existsSync(frontendDist)) {
 const apiBundle = path.resolve(root, 'api', 'index.js');
 if (fs.existsSync(apiBundle)) {
   fs.copyFileSync(apiBundle, path.resolve(funcApi, 'index.js'));
-  fs.copyFileSync(apiBundle, path.resolve(funcApiPath, 'index.js'));
-  console.log('[build-vercel] Copied api/index.js -> .vercel/output/functions');
+  console.log('[build-vercel] Copied api/index.js -> .vercel/output/functions/api.func');
 } else {
   console.error('[build-vercel] ERROR: api/index.js not found!');
   process.exit(1);
 }
 
-// 4. Write .vc-config.json for function targets
+// 4. Write .vc-config.json for api.func
 const vcConfig = {
   runtime: 'nodejs20.x',
   handler: 'index.js',
@@ -44,28 +41,22 @@ const vcConfig = {
   launcherType: 'Nodejs',
   shouldAddHelpers: true,
 };
-for (const dir of [funcApi, funcApiPath]) {
-  fs.writeFileSync(
-    path.resolve(dir, '.vc-config.json'),
-    JSON.stringify(vcConfig, null, 2),
-    'utf8'
-  );
-}
+fs.writeFileSync(
+  path.resolve(funcApi, '.vc-config.json'),
+  JSON.stringify(vcConfig, null, 2),
+  'utf8'
+);
 
 // 5. Write config.json with routing rules
 const config = {
   version: 3,
   routes: [
     {
-      src: '^/api$',
-      dest: '/api',
-    },
-    {
-      src: '^/api/(.*)$',
-      dest: '/api/[...path]',
-    },
-    {
       handle: 'filesystem',
+    },
+    {
+      src: '^/api(?:/.*)?$',
+      dest: '/api',
     },
     {
       src: '^/(.*)$',
