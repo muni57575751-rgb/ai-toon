@@ -33,8 +33,8 @@ export const createApp = (): Express => {
   app.use('/api', apiRouter);
   app.use('/', apiRouter);
 
-  // Root welcome route
-  app.get('/', (_req, res) => {
+  // Root and /api welcome routes
+  const welcomeHandler = (_req: express.Request, res: express.Response) => {
     res.json({
       message: 'Welcome to AI Toon API — Story-Based Learning Using Artificial Intelligence',
       version: '0.1.0',
@@ -43,7 +43,10 @@ export const createApp = (): Express => {
         health: '/api/health',
       },
     });
-  });
+  };
+  app.get('/', welcomeHandler);
+  app.get('/api', welcomeHandler);
+  app.get('/api/', welcomeHandler);
 
   // 404 & Centralized Error Handlers
   app.use(notFoundHandler);

@@ -4,14 +4,14 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const vercelDir = path.resolve(root, '.vercel', 'output');
 const staticDir = path.resolve(vercelDir, 'static');
-const funcApi = path.resolve(vercelDir, 'functions', 'api.func');
+const functionsDir = path.resolve(vercelDir, 'functions');
 
 console.log('[build-vercel] Preparing Vercel Build Output API v3...');
 
 // 1. Clean & create output structure
 fs.rmSync(vercelDir, { recursive: true, force: true });
 fs.mkdirSync(staticDir, { recursive: true });
-fs.mkdirSync(funcApi, { recursive: true });
+fs.mkdirSync(functionsDir, { recursive: true });
 
 // 2. Copy static frontend
 const frontendDist = path.resolve(root, 'frontend', 'dist');
@@ -23,17 +23,29 @@ if (fs.existsSync(frontendDist)) {
   process.exit(1);
 }
 
-// 3. Copy bundled api backend (standalone 1.3 MB bundle)
+// 3. Copy bundled api backend to all function targets
 const apiBundle = path.resolve(root, 'api', 'index.js');
-if (fs.existsSync(apiBundle)) {
-  fs.copyFileSync(apiBundle, path.resolve(funcApi, 'index.js'));
-  console.log('[build-vercel] Copied api/index.js -> .vercel/output/functions/api.func');
-} else {
+if (!fs.existsSync(apiBundle)) {
   console.error('[build-vercel] ERROR: api/index.js not found!');
   process.exit(1);
 }
 
-// 4. Write .vc-config.json for api.func
+const targetFuncDirs = [
+  path.resolve(functionsDir, 'api.func'),
+  path.resolve(functionsDir, 'api', 'health.func'),
+  path.resolve(functionsDir, 'api', '[...path].func'),
+  path.resolve(functionsDir, 'api', 'auth.func'),
+  path.resolve(functionsDir, 'api', 'auth', '[...path].func'),
+  path.resolve(functionsDir, 'api', 'stories.func'),
+  path.resolve(functionsDir, 'api', 'stories', '[...path].func'),
+  path.resolve(functionsDir, 'api', 'admin.func'),
+  path.resolve(functionsDir, 'api', 'admin', '[...path].func'),
+  path.resolve(functionsDir, 'api', 'members.func'),
+  path.resolve(functionsDir, 'api', 'members', '[...path].func'),
+  path.resolve(functionsDir, 'api', 'search.func'),
+  path.resolve(functionsDir, 'api', 'index.func'),
+];
+
 const vcConfig = {
   runtime: 'nodejs20.x',
   handler: 'index.js',
@@ -41,13 +53,19 @@ const vcConfig = {
   launcherType: 'Nodejs',
   shouldAddHelpers: true,
 };
-fs.writeFileSync(
-  path.resolve(funcApi, '.vc-config.json'),
-  JSON.stringify(vcConfig, null, 2),
-  'utf8'
-);
 
-// 5. Write config.json with routing rules
+for (const dir of targetFuncDirs) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.copyFileSync(apiBundle, path.resolve(dir, 'index.js'));
+  fs.writeFileSync(
+    path.resolve(dir, '.vc-config.json'),
+    JSON.stringify(vcConfig, null, 2),
+    'utf8'
+  );
+}
+console.log(`[build-vercel] Deployed standalone bundle across ${targetFuncDirs.length} function endpoints`);
+
+// 4. Write config.json with routing rules
 const config = {
   version: 3,
   routes: [
@@ -55,8 +73,20 @@ const config = {
       handle: 'filesystem',
     },
     {
-      src: '^/api(?:/.*)?$',
+      src: '^/api/?$',
       dest: '/api',
+    },
+    {
+      src: '^/api/health/?$',
+      dest: '/api/health',
+    },
+    {
+      src: '^/api/search/?$',
+      dest: '/api/search',
+    },
+    {
+      src: '^/api/(?<path>.*)$',
+      dest: '/api/[...path]',
     },
     {
       src: '^/(.*)$',

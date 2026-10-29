@@ -27976,7 +27976,7 @@ var createApp = () => {
   app2.use(import_express8.default.urlencoded({ extended: true }));
   app2.use("/api", api_routes_default);
   app2.use("/", api_routes_default);
-  app2.get("/", (_req, res) => {
+  const welcomeHandler = (_req, res) => {
     res.json({
       message: "Welcome to AI Toon API \u2014 Story-Based Learning Using Artificial Intelligence",
       version: "0.1.0",
@@ -27985,7 +27985,10 @@ var createApp = () => {
         health: "/api/health"
       }
     });
-  });
+  };
+  app2.get("/", welcomeHandler);
+  app2.get("/api", welcomeHandler);
+  app2.get("/api/", welcomeHandler);
   app2.use(notFoundHandler);
   app2.use(errorHandler);
   return app2;
