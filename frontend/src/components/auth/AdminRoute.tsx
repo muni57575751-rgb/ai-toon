@@ -185,9 +185,9 @@ export const AdminRoute: React.FC = () => {
               onClick={() => loginDemoAdmin()}
               className="btn-liquid-secondary"
               style={{ padding: '0.75rem 1.5rem', fontWeight: 700 }}
-              title="Switch to Demo Admin Account for testing"
+              title="Sign in with Master Admin Muni credentials"
             >
-              🔑 Switch to Admin Demo
+              🔑 Sign In as Admin (Muni)
             </button>
           </div>
         </div>

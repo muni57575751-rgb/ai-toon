@@ -1,8 +1,9 @@
 import { createApp } from './app.js';
 import type { Server } from 'http';
+import { MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD } from './services/member.service.js';
 
 async function runTests() {
-  console.log('🧪 Starting Authentication & Admin Access Verification Tests...\n');
+  console.log('🧪 Starting Authentication, Admin Credentials & Approval Workflow Tests...\n');
   const app = createApp();
   const server: Server = await new Promise((resolve) => {
     const s = app.listen(0, () => resolve(s));
@@ -24,231 +25,223 @@ async function runTests() {
   }
 
   try {
-    // 1. Unauthenticated request to admin API should fail with 401
+    // 1. Master Admin Login with muni57575751@gmail.com and Poola@1234
+    let adminId = 'admin-muni-master';
     {
-      const res = await fetch(`${baseUrl}/admin/members`);
+      const res = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: MASTER_ADMIN_EMAIL,
+          password: MASTER_ADMIN_PASSWORD,
+        }),
+      });
       const data = await res.json() as any;
-      assert(res.status === 401, 'Unauthenticated request to /api/admin/members returns 401 Unauthorized', `Status was ${res.status}`);
-      assert(data.success === false, 'Response indicates success = false for unauthenticated call');
+      assert(res.status === 200, `Admin login with ${MASTER_ADMIN_EMAIL} and correct password succeeds`);
+      assert(data.success === true, 'Login response has success = true');
+      assert(data.data.user.role === 'admin', 'Muni user role is verified as "admin"');
+      assert(data.data.user.email === MASTER_ADMIN_EMAIL, 'Email matches master admin email');
+      adminId = data.data.user.id;
     }
 
-    // 2. Normal user (non-admin) requesting admin API should fail with 403 Forbidden
+    // 2. Master Admin with incorrect password MUST be rejected
     {
-      const res = await fetch(`${baseUrl}/admin/members`, {
+      const res = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: MASTER_ADMIN_EMAIL,
+          password: 'IncorrectPassword!99',
+        }),
+      });
+      const data = await res.json() as any;
+      assert(res.status === 401, 'Admin login with incorrect password returns 401 Unauthorized');
+      assert(data.success === false, 'Rejected login response indicates success = false');
+    }
+
+    // 3. Unauthenticated request to /api/admin/members fails with 401
+    {
+      const res = await fetch(`${baseUrl}/admin/members`);
+      assert(res.status === 401, 'Unauthenticated request to /api/admin/members returns 401');
+    }
+
+    // 4. Register a new user: John Doe
+    const testUserEmail = `john.student.${Date.now()}@example.com`;
+    const testUserPass = 'Student@1234';
+    let newUserId = '';
+    let notificationId = '';
+
+    {
+      const res = await fetch(`${baseUrl}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: testUserEmail,
+          password: testUserPass,
+        }),
+      });
+      const data = await res.json() as any;
+      assert(res.status === 201, 'User registration returns 201 Created');
+      assert(data.data.pendingApproval === true, 'New account indicates pendingApproval = true');
+      assert(data.data.member.verificationStatus === 'pending', 'New account status is "pending"');
+      newUserId = data.data.member.id;
+    }
+
+    // 5. Newly registered user CANNOT log in while pending approval
+    {
+      const res = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: testUserEmail,
+          password: testUserPass,
+        }),
+      });
+      const data = await res.json() as any;
+      assert(res.status === 403, 'Pending user login attempt is blocked with 403 Forbidden');
+      assert(data.error?.code === 'PENDING_APPROVAL', 'Error code is PENDING_APPROVAL');
+      assert(data.error?.message?.includes(MASTER_ADMIN_EMAIL), 'Message informs user about Admin approval requirement');
+    }
+
+    // 6. Admin Portal checks notifications and sees John Doe's pending registration
+    {
+      const res = await fetch(`${baseUrl}/admin/notifications`, {
         headers: {
-          'x-user-id': 'demo-student-id-123',
-          'x-user-email': 'alex.explorer@student.aitoon.edu',
+          'x-user-id': adminId,
+          'x-user-email': MASTER_ADMIN_EMAIL,
+          'x-user-role': 'admin',
+        },
+      });
+      const data = await res.json() as any;
+      assert(res.status === 200, 'Admin can fetch /api/admin/notifications');
+      assert(Array.isArray(data.data.notifications), 'Notifications array returned');
+      const matchingNotif = data.data.notifications.find((n: any) => n.email === testUserEmail);
+      assert(Boolean(matchingNotif), 'Admin received notification for newly registered account');
+      assert(matchingNotif?.status === 'pending', 'Notification status is pending');
+      notificationId = matchingNotif?.id || '';
+    }
+
+    // 7. Non-admin attempting to access admin notifications is blocked with 403
+    {
+      const res = await fetch(`${baseUrl}/admin/notifications`, {
+        headers: {
+          'x-user-id': newUserId,
+          'x-user-email': testUserEmail,
           'x-user-role': 'user',
         },
       });
-      const data = await res.json() as any;
-      assert(res.status === 403, 'Normal user request to /api/admin/members returns 403 Forbidden', `Status was ${res.status}`);
-      assert(data.error?.code === 'FORBIDDEN_ADMIN_ONLY', 'Error code is FORBIDDEN_ADMIN_ONLY');
+      assert(res.status === 403, 'Normal user blocked from admin notifications with 403 Forbidden');
     }
 
-    // 3. Normal user attempting to spoof role header (sending 'admin' role while actually user in DB)
+    // 8. Admin approves John Doe as a regular User
     {
-      const res = await fetch(`${baseUrl}/admin/members`, {
+      const res = await fetch(`${baseUrl}/admin/notifications/${notificationId}/approve`, {
+        method: 'POST',
         headers: {
-          'x-user-id': 'demo-student-id-123',
-          'x-user-email': 'alex.explorer@student.aitoon.edu',
-          'x-user-role': 'admin', // spoof attempt
-        },
-      });
-      assert(res.status === 403, 'Spoofed admin role header by non-admin member is rejected with 403 Forbidden', `Status was ${res.status}`);
-    }
-
-    // 4. Genuine admin requesting admin members and stats
-    let initialStats: any;
-    {
-      const res = await fetch(`${baseUrl}/admin/members`, {
-        headers: {
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
+          'Content-Type': 'application/json',
+          'x-user-id': adminId,
+          'x-user-email': MASTER_ADMIN_EMAIL,
           'x-user-role': 'admin',
         },
+        body: JSON.stringify({ role: 'user' }),
       });
       const data = await res.json() as any;
-      assert(res.status === 200, 'Admin request to /api/admin/members succeeds with 200 OK');
-      assert(data.success === true, 'Admin response success = true');
-      assert(Array.isArray(data.data.members), 'Admin receives members list');
-      assert(data.data.members.some((m: any) => m.sessionStatus === 'logged_in'), 'Admin sees logged-in members');
-      assert(data.data.members.some((m: any) => m.sessionStatus === 'logged_out'), 'Admin sees logged-out members');
-      assert(data.data.stats.maxAdmins === 5, 'Stats show maxAdmins = 5');
-      initialStats = data.data.stats;
-      console.log(`     Current Admins: ${initialStats.adminCount}/${initialStats.maxAdmins}, Total Members: ${initialStats.totalMembers}`);
+      assert(res.status === 200, 'Admin successfully approved account via notification');
+      assert(data.data.member.verificationStatus === 'verified', 'Member is now verified');
+      assert(data.data.member.role === 'user', 'Member role set to "user"');
+      assert(data.data.notification.status === 'approved', 'Notification marked as approved');
     }
 
-    // 5. Member session update (login and logout tracking)
+    // 9. Now John Doe CAN log in!
     {
-      // Log out alex
-      const logoutRes = await fetch(`${baseUrl}/members/session`, {
+      const res = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: 'demo-student-id-123',
-          email: 'alex.explorer@student.aitoon.edu',
-          status: 'logged_out',
+          email: testUserEmail,
+          password: testUserPass,
         }),
       });
-      const logoutData = await logoutRes.json() as any;
-      assert(logoutData.data.sessionStatus === 'logged_out', 'Alex session correctly updated to logged_out');
+      const data = await res.json() as any;
+      assert(res.status === 200, 'Approved user can now successfully log in');
+      assert(data.data.user.role === 'user', 'Logged-in user role is "user"');
+      assert(data.data.user.sessionStatus === 'logged_in', 'User session status is now "logged_in"');
+    }
 
-      // Check admin view reflects Alex as logged_out
-      const adminRes = await fetch(`${baseUrl}/admin/members`, {
+    // 10. Verify Admin Limit (5 Max):
+    // Register 4 more accounts and promote them to Admin until we reach 5 admins total
+    {
+      const promoIds: string[] = [];
+      for (let i = 1; i <= 4; i++) {
+        const email = `admin.candidate.${i}.${Date.now()}@test.edu`;
+        const regRes = await fetch(`${baseUrl}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: `Admin Candidate ${i}`, email, password: 'Password@123' }),
+        });
+        const regData = await regRes.json() as any;
+        const candidateId = regData.data.member.id;
+        promoIds.push(candidateId);
+
+        // Promote to admin
+        const promoRes = await fetch(`${baseUrl}/admin/members/${candidateId}/role`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': adminId,
+            'x-user-email': MASTER_ADMIN_EMAIL,
+            'x-user-role': 'admin',
+          },
+          body: JSON.stringify({ role: 'admin' }),
+        });
+        const promoData = await promoRes.json() as any;
+        assert(promoRes.status === 200, `Promoted candidate ${i} to Admin (total admins: ${promoData.data.stats.adminCount}/5)`);
+      }
+
+      // Check stats show 5/5 admins
+      const statsRes = await fetch(`${baseUrl}/admin/stats`, {
         headers: {
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
+          'x-user-id': adminId,
+          'x-user-email': MASTER_ADMIN_EMAIL,
           'x-user-role': 'admin',
         },
       });
-      const adminData = await adminRes.json() as any;
-      const alex = adminData.data.members.find((m: any) => m.id === 'demo-student-id-123');
-      assert(alex?.sessionStatus === 'logged_out', 'Admin view immediately reflects Alex as logged_out');
+      const statsData = await statsRes.json() as any;
+      assert(statsData.data.adminCount === 5, 'System currently has exactly 5 admins (5/5)');
 
-      // Log alex back in
-      const loginRes = await fetch(`${baseUrl}/members/session`, {
+      // Attempt to promote John Doe to a 6th admin -> MUST BE BLOCKED WITH 400!
+      const p6 = await fetch(`${baseUrl}/admin/members/${newUserId}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': adminId,
+          'x-user-email': MASTER_ADMIN_EMAIL,
+          'x-user-role': 'admin',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      });
+      const p6Data = await p6.json() as any;
+      assert(p6.status === 400, 'Promotion to 6th admin is strictly rejected with 400 Bad Request');
+      assert(p6Data.error?.code === 'ADMIN_LIMIT_EXCEEDED', 'Error code is ADMIN_LIMIT_EXCEEDED');
+      assert(p6Data.error?.message?.includes('5'), 'Error message clearly specifies 5-admin quota limit');
+    }
+
+    // 11. Clean Reset: Wipe all accounts except Muni
+    {
+      const resetRes = await fetch(`${baseUrl}/admin/members/reset`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'demo-student-id-123',
-          email: 'alex.explorer@student.aitoon.edu',
-          status: 'logged_in',
-        }),
-      });
-      const loginData = await loginRes.json() as any;
-      assert(loginData.data.sessionStatus === 'logged_in', 'Alex session correctly restored to logged_in');
-    }
-
-    // 6. Admin verifies an account and sets whether user or admin
-    {
-      // Verify priya and set as user
-      const verifyRes = await fetch(`${baseUrl}/admin/members/user-priya-006/verify`, {
-        method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
+          'x-user-id': adminId,
+          'x-user-email': MASTER_ADMIN_EMAIL,
           'x-user-role': 'admin',
         },
-        body: JSON.stringify({
-          verificationStatus: 'verified',
-          role: 'user',
-        }),
       });
-      const verifyData = await verifyRes.json() as any;
-      assert(verifyRes.status === 200, 'Admin can verify member and confirm role = user');
-      assert(verifyData.data.member.verificationStatus === 'verified', 'Priya is now marked as verified');
-      assert(verifyData.data.member.role === 'user', 'Priya confirmed as role = user');
-    }
-
-    // 7. Test Admin Limit: Fill up to 5 admins, then verify 6th admin attempt is REJECTED
-    {
-      // We start with 2 admins. Let's promote members until we reach 5 admins.
-      // Promote maya -> admin (Admin #3)
-      const p1 = await fetch(`${baseUrl}/admin/members/user-maya-004/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'admin' }),
-      });
-      const p1Data = await p1.json() as any;
-      assert(p1.status === 200 && p1Data.data.stats.adminCount === 3, 'Successfully promoted Maya to Admin (3/5)');
-
-      // Promote rohit -> admin (Admin #4)
-      const p2 = await fetch(`${baseUrl}/admin/members/user-rohit-005/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'admin' }),
-      });
-      const p2Data = await p2.json() as any;
-      assert(p2.status === 200 && p2Data.data.stats.adminCount === 4, 'Successfully promoted Rohit to Admin (4/5)');
-
-      // Promote priya -> admin (Admin #5 - MAX LIMIT REACHED)
-      const p3 = await fetch(`${baseUrl}/admin/members/user-priya-006/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'admin' }),
-      });
-      const p3Data = await p3.json() as any;
-      assert(p3.status === 200 && p3Data.data.stats.adminCount === 5, 'Successfully promoted Priya to Admin (5/5 slots full)');
-
-      // NOW attempt to promote a 6th member (arjun) to admin -> MUST BE BLOCKED WITH 400!
-      const p4 = await fetch(`${baseUrl}/admin/members/user-arjun-007/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'admin' }),
-      });
-      const p4Data = await p4.json() as any;
-      assert(p4.status === 400, 'Promotion to 6th admin is strictly rejected with 400 Bad Request', `Got status ${p4.status}`);
-      assert(p4Data.error?.code === 'ADMIN_LIMIT_EXCEEDED', 'Error code is ADMIN_LIMIT_EXCEEDED');
-      assert(p4Data.error?.message?.includes('5'), 'Error message clearly references the 5 admin limit');
-
-      // Also verify setting role = admin during account verification is ALSO blocked when 5 admins exist
-      const p5 = await fetch(`${baseUrl}/admin/members/user-arjun-007/verify`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ verificationStatus: 'verified', role: 'admin' }),
-      });
-      const p5Data = await p5.json() as any;
-      assert(p5.status === 400, 'Account verification with role = admin is blocked when 5 admins exist', `Got status ${p5.status}`);
-
-      // Reset test state: Demote Maya and Rohit back to user so we keep 2-3 admins for demo
-      await fetch(`${baseUrl}/admin/members/user-maya-004/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'user' }),
-      });
-      await fetch(`${baseUrl}/admin/members/user-rohit-005/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'user' }),
-      });
-      await fetch(`${baseUrl}/admin/members/user-priya-006/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'admin-super-001',
-          'x-user-email': 'admin@aitoon.edu',
-          'x-user-role': 'admin',
-        },
-        body: JSON.stringify({ role: 'user' }),
-      });
-      console.log('     Cleaned up test promotions back to default demo state.');
+      const resetData = await resetRes.json() as any;
+      assert(resetRes.status === 200, 'System reset succeeded');
+      assert(resetData.data.members.length === 1, 'Only 1 member remains in system');
+      assert(resetData.data.members[0].email === MASTER_ADMIN_EMAIL, `Only Master Admin (${MASTER_ADMIN_EMAIL}) remains`);
+      assert(resetData.data.stats.adminCount === 1, 'Admin count reset back to 1');
     }
 
   } catch (err) {
@@ -259,7 +252,7 @@ async function runTests() {
   }
 
   if (failures === 0) {
-    console.log('\n🎉 ALL AUTHENTICATION & ADMIN ACCESS TESTS PASSED SUCCESSFULLY!');
+    console.log('\n🎉 ALL AUTHENTICATION, ADMIN & NOTIFICATION TESTS PASSED SUCCESSFULLY!');
   } else {
     console.error(`\n❌ ${failures} test(s) failed.`);
     process.exit(1);
@@ -267,4 +260,3 @@ async function runTests() {
 }
 
 runTests();
-

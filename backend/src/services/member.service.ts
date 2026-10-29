@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import {
   MemberRecord,
   AdminStats,
+  AdminNotification,
   UserRole,
   MemberVerificationStatus,
   MemberSessionStatus,
@@ -14,99 +15,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.resolve(__dirname, '../../data');
 const DATA_FILE = path.resolve(DATA_DIR, 'members.json');
+const NOTIFICATIONS_FILE = path.resolve(DATA_DIR, 'notifications.json');
+
+export const MASTER_ADMIN_EMAIL = 'muni57575751@gmail.com';
+export const MASTER_ADMIN_PASSWORD = 'Poola@1234';
 
 const INITIAL_MEMBERS: MemberRecord[] = [
   {
-    id: 'admin-super-001',
-    email: 'admin@aitoon.edu',
-    fullName: 'System Administrator',
-    role: 'admin',
-    verificationStatus: 'verified',
-    sessionStatus: 'logged_in',
-    lastActiveAt: new Date().toISOString(),
-    lastLoginAt: new Date().toISOString(),
-    createdAt: '2026-09-01T08:00:00.000Z',
-    verifiedAt: '2026-09-01T08:00:00.000Z',
-    verifiedBy: 'System Init',
-  },
-  {
-    id: 'admin-faculty-002',
-    email: 'faculty.admin@aitoon.edu',
-    fullName: 'Dr. Sarah Chen',
+    id: 'admin-muni-master',
+    email: MASTER_ADMIN_EMAIL,
+    fullName: 'Muni (Super Admin)',
+    password: MASTER_ADMIN_PASSWORD,
     role: 'admin',
     verificationStatus: 'verified',
     sessionStatus: 'logged_out',
-    lastActiveAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-    lastLoginAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-    createdAt: '2026-09-10T09:30:00.000Z',
-    verifiedAt: '2026-09-10T10:00:00.000Z',
-    verifiedBy: 'admin@aitoon.edu',
-  },
-  {
-    id: 'demo-student-id-123',
-    email: 'alex.explorer@student.aitoon.edu',
-    fullName: 'Alex Explorer',
-    role: 'user',
-    verificationStatus: 'verified',
-    sessionStatus: 'logged_in',
     lastActiveAt: new Date().toISOString(),
     lastLoginAt: new Date().toISOString(),
-    createdAt: '2026-10-01T11:15:00.000Z',
-    verifiedAt: '2026-10-01T12:00:00.000Z',
-    verifiedBy: 'admin@aitoon.edu',
-  },
-  {
-    id: 'user-maya-004',
-    email: 'maya.patel@student.aitoon.edu',
-    fullName: 'Maya Patel',
-    role: 'user',
-    verificationStatus: 'verified',
-    sessionStatus: 'logged_out',
-    lastActiveAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    lastLoginAt: new Date(Date.now() - 3600000 * 9).toISOString(),
-    createdAt: '2026-10-12T14:20:00.000Z',
-    verifiedAt: '2026-10-12T15:00:00.000Z',
-    verifiedBy: 'admin@aitoon.edu',
-  },
-  {
-    id: 'user-rohit-005',
-    email: 'rohit.sharma@student.aitoon.edu',
-    fullName: 'Rohit Sharma',
-    role: 'user',
-    verificationStatus: 'verified',
-    sessionStatus: 'logged_out',
-    lastActiveAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    lastLoginAt: new Date(Date.now() - 3600000 * 26).toISOString(),
-    createdAt: '2026-10-18T16:00:00.000Z',
-    verifiedAt: '2026-10-18T16:30:00.000Z',
-    verifiedBy: 'faculty.admin@aitoon.edu',
-  },
-  {
-    id: 'user-priya-006',
-    email: 'priya.verma@student.aitoon.edu',
-    fullName: 'Priya Verma',
-    role: 'user',
-    verificationStatus: 'pending',
-    sessionStatus: 'logged_out',
-    lastActiveAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    lastLoginAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-  },
-  {
-    id: 'user-arjun-007',
-    email: 'arjun.reddy@student.aitoon.edu',
-    fullName: 'Arjun Reddy',
-    role: 'user',
-    verificationStatus: 'pending',
-    sessionStatus: 'logged_in',
-    lastActiveAt: new Date().toISOString(),
-    lastLoginAt: new Date().toISOString(),
-    createdAt: new Date(Date.now() - 3600000 * 1).toISOString(),
+    createdAt: new Date().toISOString(),
+    verifiedAt: new Date().toISOString(),
+    verifiedBy: 'System Master Root',
   },
 ];
 
 export class MemberService {
   private members: Map<string, MemberRecord> = new Map();
+  private notifications: Map<string, AdminNotification> = new Map();
 
   constructor() {
     this.initStore();
@@ -118,20 +51,54 @@ export class MemberService {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
 
+      // Check if we need to clean out old demo accounts
+      let resetNeeded = false;
       if (fs.existsSync(DATA_FILE)) {
         const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-        const list: MemberRecord[] = JSON.parse(raw);
-        for (const item of list) {
-          this.members.set(item.id, item);
+        try {
+          const list: MemberRecord[] = JSON.parse(raw);
+          // If old test accounts like 'admin@aitoon.edu' exist, purge and reset to only Muni
+          if (list.some((m) => m.email === 'admin@aitoon.edu' || m.email.includes('@aitoon.edu'))) {
+            resetNeeded = true;
+          } else {
+            for (const item of list) {
+              this.members.set(item.id, item);
+            }
+          }
+        } catch {
+          resetNeeded = true;
         }
       } else {
+        resetNeeded = true;
+      }
+
+      if (resetNeeded || !this.getMemberByEmail(MASTER_ADMIN_EMAIL)) {
+        this.members.clear();
         for (const item of INITIAL_MEMBERS) {
           this.members.set(item.id, item);
         }
         this.saveToFile();
       }
+
+      // Load or init notifications
+      if (fs.existsSync(NOTIFICATIONS_FILE)) {
+        try {
+          const raw = fs.readFileSync(NOTIFICATIONS_FILE, 'utf-8');
+          const notifs: AdminNotification[] = JSON.parse(raw);
+          for (const n of notifs) {
+            this.notifications.set(n.id, n);
+          }
+        } catch {
+          this.notifications.clear();
+          this.saveNotificationsToFile();
+        }
+      } else {
+        this.notifications.clear();
+        this.saveNotificationsToFile();
+      }
     } catch (err) {
       console.warn('[MemberService] Could not access local storage file, using in-memory store:', err);
+      this.members.clear();
       for (const item of INITIAL_MEMBERS) {
         this.members.set(item.id, item);
       }
@@ -147,6 +114,18 @@ export class MemberService {
       fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), 'utf-8');
     } catch (err) {
       console.warn('[MemberService] Failed to persist members to disk:', err);
+    }
+  }
+
+  private saveNotificationsToFile(): void {
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      const list = Array.from(this.notifications.values());
+      fs.writeFileSync(NOTIFICATIONS_FILE, JSON.stringify(list, null, 2), 'utf-8');
+    } catch (err) {
+      console.warn('[MemberService] Failed to persist notifications to disk:', err);
     }
   }
 
@@ -218,6 +197,7 @@ export class MemberService {
     let adminCount = 0;
     let userCount = 0;
     let pendingCount = 0;
+    let unreadNotificationsCount = 0;
 
     for (const m of this.members.values()) {
       if (m.sessionStatus === 'logged_in') loggedInCount++;
@@ -229,6 +209,12 @@ export class MemberService {
       if (m.verificationStatus === 'pending') pendingCount++;
     }
 
+    for (const n of this.notifications.values()) {
+      if (!n.read && n.status === 'pending') {
+        unreadNotificationsCount++;
+      }
+    }
+
     return {
       totalMembers: this.members.size,
       loggedInCount,
@@ -237,7 +223,252 @@ export class MemberService {
       maxAdmins: MAX_ADMIN_LIMIT,
       userCount,
       pendingCount,
+      unreadNotificationsCount,
     };
+  }
+
+  /**
+   * Primary Authentication Handler
+   */
+  public authenticate(
+    email: string,
+    password: string
+  ): {
+    success: boolean;
+    member?: MemberRecord;
+    code?: string;
+    error?: string;
+  } {
+    const normalized = email.toLowerCase().trim();
+
+    // Check Master Admin
+    if (normalized === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      if (password === MASTER_ADMIN_PASSWORD) {
+        let master = this.getMemberByEmail(MASTER_ADMIN_EMAIL);
+        if (!master) {
+          master = INITIAL_MEMBERS[0];
+          this.members.set(master.id, master);
+        }
+        master.sessionStatus = 'logged_in';
+        master.lastLoginAt = new Date().toISOString();
+        master.lastActiveAt = new Date().toISOString();
+        this.saveToFile();
+        return { success: true, member: master };
+      } else {
+        return {
+          success: false,
+          code: 'INVALID_CREDENTIALS',
+          error: 'Invalid administrator credentials. Please check your password.',
+        };
+      }
+    }
+
+    // Normal User Authentication
+    const member = this.getMemberByEmail(normalized);
+    if (!member) {
+      return {
+        success: false,
+        code: 'USER_NOT_FOUND',
+        error: 'No account found with this email. Please create an account first.',
+      };
+    }
+
+    // Verify Password if recorded
+    if (member.password && member.password !== password) {
+      return {
+        success: false,
+        code: 'INVALID_PASSWORD',
+        error: 'Invalid password. Please check your password.',
+      };
+    }
+
+    // Verify Approval Status
+    if (member.verificationStatus === 'pending') {
+      return {
+        success: false,
+        code: 'PENDING_APPROVAL',
+        error: `Your account registration is awaiting approval from the Administrator (${MASTER_ADMIN_EMAIL}). A notification has been sent to the admin portal. You will be able to log in once approved.`,
+      };
+    }
+
+    if (member.verificationStatus === 'rejected') {
+      return {
+        success: false,
+        code: 'ACCOUNT_REJECTED',
+        error: 'Your account registration was not approved by the administrator.',
+      };
+    }
+
+    // Approved member login
+    member.sessionStatus = 'logged_in';
+    member.lastLoginAt = new Date().toISOString();
+    member.lastActiveAt = new Date().toISOString();
+    this.members.set(member.id, member);
+    this.saveToFile();
+
+    return { success: true, member };
+  }
+
+  /**
+   * User Registration with automatic Admin Portal notification
+   */
+  public register(
+    name: string,
+    email: string,
+    password: string
+  ): {
+    success: boolean;
+    member?: MemberRecord;
+    notification?: AdminNotification;
+    error?: string;
+    pendingApproval?: boolean;
+  } {
+    const normalized = email.toLowerCase().trim();
+
+    if (normalized === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      return {
+        success: false,
+        error: 'This email is reserved for the Master Administrator. Please sign in instead.',
+      };
+    }
+
+    if (this.getMemberByEmail(normalized)) {
+      return {
+        success: false,
+        error: 'An account with this email address already exists.',
+      };
+    }
+
+    const now = new Date().toISOString();
+    const newMemberId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    const newMember: MemberRecord = {
+      id: newMemberId,
+      email: normalized,
+      fullName: name.trim(),
+      password,
+      role: 'user',
+      verificationStatus: 'pending', // Requires admin verification
+      sessionStatus: 'logged_out',
+      lastActiveAt: now,
+      lastLoginAt: now,
+      createdAt: now,
+    };
+
+    this.members.set(newMember.id, newMember);
+    this.saveToFile();
+
+    // Create Admin Notification
+    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const notification: AdminNotification = {
+      id: notifId,
+      type: 'NEW_REGISTRATION',
+      memberId: newMember.id,
+      fullName: newMember.fullName,
+      email: newMember.email,
+      createdAt: now,
+      read: false,
+      status: 'pending',
+    };
+
+    this.notifications.set(notification.id, notification);
+    this.saveNotificationsToFile();
+
+    return {
+      success: true,
+      pendingApproval: true,
+      member: newMember,
+      notification,
+    };
+  }
+
+  /**
+   * Notifications Management
+   */
+  public getNotifications(): AdminNotification[] {
+    return Array.from(this.notifications.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  public approveNotification(
+    notificationId: string,
+    role: UserRole = 'user',
+    adminEmail: string = MASTER_ADMIN_EMAIL
+  ): { success: boolean; member?: MemberRecord; notification?: AdminNotification; error?: string } {
+    const notif = this.notifications.get(notificationId);
+    if (!notif) {
+      return { success: false, error: 'Notification not found.' };
+    }
+
+    const member = this.getMemberById(notif.memberId) || this.getMemberByEmail(notif.email);
+    if (!member) {
+      return { success: false, error: 'Corresponding member not found.' };
+    }
+
+    if (role === 'admin' && member.role !== 'admin') {
+      const currentAdmins = this.getAdminCount();
+      if (currentAdmins >= MAX_ADMIN_LIMIT) {
+        return {
+          success: false,
+          error: `Cannot approve as Admin. Maximum limit of ${MAX_ADMIN_LIMIT} administrators has been reached (${currentAdmins}/${MAX_ADMIN_LIMIT}).`,
+        };
+      }
+      member.role = 'admin';
+    } else {
+      member.role = role;
+    }
+
+    const now = new Date().toISOString();
+    member.verificationStatus = 'verified';
+    member.verifiedAt = now;
+    member.verifiedBy = adminEmail;
+    this.members.set(member.id, member);
+    this.saveToFile();
+
+    notif.status = 'approved';
+    notif.read = true;
+    notif.actionedAt = now;
+    notif.actionedBy = adminEmail;
+    notif.approvedRole = member.role;
+    this.notifications.set(notif.id, notif);
+    this.saveNotificationsToFile();
+
+    return { success: true, member, notification: notif };
+  }
+
+  public rejectNotification(
+    notificationId: string,
+    adminEmail: string = MASTER_ADMIN_EMAIL
+  ): { success: boolean; member?: MemberRecord; notification?: AdminNotification; error?: string } {
+    const notif = this.notifications.get(notificationId);
+    if (!notif) {
+      return { success: false, error: 'Notification not found.' };
+    }
+
+    const member = this.getMemberById(notif.memberId) || this.getMemberByEmail(notif.email);
+    if (member) {
+      member.verificationStatus = 'rejected';
+      this.members.set(member.id, member);
+      this.saveToFile();
+    }
+
+    const now = new Date().toISOString();
+    notif.status = 'rejected';
+    notif.read = true;
+    notif.actionedAt = now;
+    notif.actionedBy = adminEmail;
+    this.notifications.set(notif.id, notif);
+    this.saveNotificationsToFile();
+
+    return { success: true, member, notification: notif };
+  }
+
+  public markNotificationsRead(): void {
+    for (const n of this.notifications.values()) {
+      n.read = true;
+    }
+    this.saveNotificationsToFile();
   }
 
   public updateSessionStatus(
@@ -263,7 +494,7 @@ export class MemberService {
       return existing;
     }
 
-    // New member created
+    // New member created directly via session ping
     const newMember: MemberRecord = {
       id: userId,
       email,
@@ -278,6 +509,21 @@ export class MemberService {
 
     this.members.set(newMember.id, newMember);
     this.saveToFile();
+
+    // Trigger notification
+    const notif: AdminNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      type: 'NEW_REGISTRATION',
+      memberId: newMember.id,
+      fullName: newMember.fullName,
+      email: newMember.email,
+      createdAt: now,
+      read: false,
+      status: 'pending',
+    };
+    this.notifications.set(notif.id, notif);
+    this.saveNotificationsToFile();
+
     return newMember;
   }
 
@@ -293,7 +539,6 @@ export class MemberService {
 
     if (newRole === 'admin') {
       const currentAdmins = this.getAdminCount();
-      // If target is already an admin, no-op or re-affirm
       if (target.role !== 'admin' && currentAdmins >= MAX_ADMIN_LIMIT) {
         return {
           success: false,
@@ -301,7 +546,6 @@ export class MemberService {
         };
       }
     } else if (newRole === 'user' && target.role === 'admin') {
-      // Prevent demoting the last remaining admin
       const currentAdmins = this.getAdminCount();
       if (currentAdmins <= 1) {
         return {
@@ -381,7 +625,16 @@ export class MemberService {
     this.saveToFile();
     return { success: true };
   }
+
+  public resetAllExceptMasterAdmin(): void {
+    const master = this.getMemberByEmail(MASTER_ADMIN_EMAIL) || INITIAL_MEMBERS[0];
+    master.sessionStatus = 'logged_out';
+    this.members.clear();
+    this.members.set(master.id, master);
+    this.notifications.clear();
+    this.saveToFile();
+    this.saveNotificationsToFile();
+  }
 }
 
 export const memberService = new MemberService();
-

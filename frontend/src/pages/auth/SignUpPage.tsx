@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/auth.css';
 
@@ -13,8 +13,7 @@ export const SignUpPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { signUp, isConfigured, loginDemoUser } = useAuth();
-  const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,24 +42,20 @@ export const SignUpPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const { error, needsEmailConfirmation } = await signUp(trimmedName, trimmedEmail, password);
+    const { error, needsAdminApproval } = await signUp(trimmedName, trimmedEmail, password);
     setIsSubmitting(false);
 
     if (error) {
       setErrorMsg(error.message || 'Registration failed. Please try again.');
-    } else if (needsEmailConfirmation) {
+    } else if (needsAdminApproval) {
       setSuccessMsg(
-        'Registration successful! Please check your email inbox to confirm your account before logging in.'
+        'Registration successful! A notification has been sent to the Administrator (muni57575751@gmail.com). You will be able to log in as soon as the admin approves your account.'
       );
-    } else {
-      // Auto-confirmed, redirect to dashboard
-      navigate('/dashboard', { replace: true });
+      setName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
     }
-  };
-
-  const handleDemoLogin = () => {
-    loginDemoUser();
-    navigate('/dashboard', { replace: true });
   };
 
   return (
@@ -73,35 +68,39 @@ export const SignUpPage: React.FC = () => {
           </div>
           <h2 className="auth-title">Create Account</h2>
           <p className="auth-subtitle">
-            Join AI Toon to start learning through personalized cartoon stories!
+            Join AI Toon! Newly created accounts are submitted to the Admin for approval.
           </p>
         </div>
 
-        {/* Supabase Notice if not configured */}
-        {!isConfigured && (
-          <div className="auth-alert-info" style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
-              <span>ℹ️</span> Supabase Setup Required for Production Auth
-            </div>
-            <p style={{ margin: '0.2rem 0 0.5rem', fontSize: '0.82rem', lineHeight: 1.4 }}>
-              Set <code style={{ background: '#e0e7ff', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>VITE_SUPABASE_URL</code> and <code style={{ background: '#e0e7ff', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>VITE_SUPABASE_ANON_KEY</code> in <code style={{ background: '#e0e7ff', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>frontend/.env.local</code>.
-            </p>
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              className="btn-neoclay-secondary"
-              style={{ width: '100%', fontSize: '0.85rem', padding: '0.5rem' }}
-            >
-              🚀 Quick Test: Explore Dashboard via Demo Account
-            </button>
-          </div>
-        )}
-
         {/* Success Banner */}
         {successMsg && (
-          <div className="auth-alert-success" style={{ marginBottom: '1.25rem' }}>
-            <span>🎉</span>
-            <span>{successMsg}</span>
+          <div
+            className="auth-alert-success"
+            style={{
+              marginBottom: '1.5rem',
+              padding: '1.25rem',
+              borderRadius: 'var(--radius-md)',
+              lineHeight: 1.5,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, marginBottom: '0.4rem' }}>
+              <span>🔔</span> Approval Request Sent!
+            </div>
+            <div>{successMsg}</div>
+            <div style={{ marginTop: '1rem' }}>
+              <Link
+                to="/login"
+                className="btn-neoclay-primary"
+                style={{
+                  display: 'inline-block',
+                  textDecoration: 'none',
+                  fontSize: '0.85rem',
+                  padding: '0.55rem 1.25rem',
+                }}
+              >
+                Go to Sign In Page →
+              </Link>
+            </div>
           </div>
         )}
 
@@ -113,96 +112,98 @@ export const SignUpPage: React.FC = () => {
           </div>
         )}
 
-        {/* Registration Form */}
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label className="form-label" htmlFor="signup-name">
-              Full Name
-            </label>
-            <input
-              id="signup-name"
-              type="text"
-              className="form-input"
-              placeholder="e.g. Alex Explorer"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isSubmitting}
-              autoComplete="name"
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="signup-email">
-              Email Address
-            </label>
-            <input
-              id="signup-email"
-              type="email"
-              className="form-input"
-              placeholder="student@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isSubmitting}
-              autoComplete="email"
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="signup-password">
-              Password
-            </label>
-            <div className="password-input-wrapper">
+        {/* Registration Form (hidden when successMsg is shown) */}
+        {!successMsg && (
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="form-group">
+              <label className="form-label" htmlFor="signup-name">
+                Full Name
+              </label>
               <input
-                id="signup-password"
+                id="signup-name"
+                type="text"
+                className="form-input"
+                placeholder="e.g. John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isSubmitting}
+                autoComplete="name"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="signup-email">
+                Email Address
+              </label>
+              <input
+                id="signup-email"
+                type="email"
+                className="form-input"
+                placeholder="e.g. student@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isSubmitting}
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="signup-password">
+                Password
+              </label>
+              <div className="password-input-wrapper">
+                <input
+                  id="signup-password"
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isSubmitting}
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="signup-confirm-password">
+                Confirm Password
+              </label>
+              <input
+                id="signup-confirm-password"
                 type={showPassword ? 'text' : 'password'}
                 className="form-input"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={isSubmitting}
                 autoComplete="new-password"
                 required
               />
-              <button
-                type="button"
-                className="password-toggle-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? '🙈' : '👁️'}
-              </button>
             </div>
-          </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="signup-confirm-password">
-              Confirm Password
-            </label>
-            <input
-              id="signup-confirm-password"
-              type={showPassword ? 'text' : 'password'}
-              className="form-input"
-              placeholder="Re-enter your password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+            <button
+              type="submit"
+              className="btn-neoclay-primary"
+              style={{ width: '100%', marginTop: '0.5rem' }}
               disabled={isSubmitting}
-              autoComplete="new-password"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn-neoclay-primary"
-            style={{ width: '100%', marginTop: '0.5rem' }}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Creating Student Account...' : 'Create My AI Toon Account'}
-          </button>
-        </form>
+            >
+              {isSubmitting ? 'Submitting Registration...' : 'Create Account & Request Approval'}
+            </button>
+          </form>
+        )}
 
         {/* Footer Links */}
         <div className="auth-footer">

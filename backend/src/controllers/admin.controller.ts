@@ -205,3 +205,118 @@ export const deleteMember = (req: AuthenticatedAdminRequest, res: Response): voi
     },
   });
 };
+
+/**
+ * Notifications endpoints for Admin Portal
+ */
+export const getNotifications = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const notifications = memberService.getNotifications();
+  const stats = memberService.getStats();
+
+  res.json({
+    success: true,
+    data: {
+      notifications,
+      stats,
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+export const approveNotification = (req: AuthenticatedAdminRequest, res: Response): void => {
+  const id = getParamId(req.params.id);
+  const { role } = req.body;
+
+  if (!id) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'MISSING_ID', message: 'Notification ID is required.' },
+    });
+    return;
+  }
+
+  const targetRole = role === 'admin' ? 'admin' : 'user';
+  const result = memberService.approveNotification(id, targetRole, req.adminMember?.email);
+
+  if (!result.success) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'APPROVAL_ERROR',
+        message: result.error,
+      },
+      meta: {
+        stats: memberService.getStats(),
+      },
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: {
+      member: result.member,
+      notification: result.notification,
+      stats: memberService.getStats(),
+    },
+    meta: {
+      message: `Account approved as "${targetRole}".`,
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+export const rejectNotification = (req: AuthenticatedAdminRequest, res: Response): void => {
+  const id = getParamId(req.params.id);
+
+  if (!id) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'MISSING_ID', message: 'Notification ID is required.' },
+    });
+    return;
+  }
+
+  const result = memberService.rejectNotification(id, req.adminMember?.email);
+
+  if (!result.success) {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'REJECTION_ERROR',
+        message: result.error,
+      },
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: {
+      member: result.member,
+      notification: result.notification,
+      stats: memberService.getStats(),
+    },
+    meta: {
+      message: 'Account registration rejected.',
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+export const resetAllAccounts = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  memberService.resetAllExceptMasterAdmin();
+  res.json({
+    success: true,
+    data: {
+      members: memberService.getAllMembers(),
+      stats: memberService.getStats(),
+    },
+    meta: {
+      message: 'All accounts except the Master Admin have been cleared.',
+      timestamp: new Date().toISOString(),
+    },
+  });
+};

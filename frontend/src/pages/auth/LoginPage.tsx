@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD } from '../../context/AuthContext';
 import '../../styles/auth.css';
 
 export const LoginPage: React.FC = () => {
@@ -10,7 +10,7 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { signIn, loginDemoUser, loginDemoAdmin } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,21 +41,20 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(false);
 
     if (error) {
-      setErrorMsg(error.message || 'Invalid email or password.');
+      setErrorMsg(error.message);
     } else {
-      navigate(from, { replace: true });
+      // If logging in as Muni admin, redirect to admin console if coming from general login
+      if (trimmedEmail.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() && from === '/dashboard') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
   };
 
-  const handleDemoStudentLogin = () => {
-    loginDemoUser();
-    navigate(from, { replace: true });
-  };
-
-  const handleDemoAdminLogin = () => {
-    loginDemoAdmin();
-    // If user was trying to go to /admin or /dashboard, respect that
-    navigate(from === '/login' ? '/admin' : from, { replace: true });
+  const fillAdminCredentials = () => {
+    setEmail(MASTER_ADMIN_EMAIL);
+    setPassword(MASTER_ADMIN_PASSWORD);
   };
 
   return (
@@ -68,43 +67,40 @@ export const LoginPage: React.FC = () => {
           </div>
           <h2 className="auth-title">Welcome Back!</h2>
           <p className="auth-subtitle">
-            Sign in to continue your AI-powered cartoon learning adventure.
+            Sign in to access AI Toon. New accounts require Administrator approval before logging in.
           </p>
         </div>
 
-        {/* Quick Testing Accounts */}
-        <div className="auth-alert-info" style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, marginBottom: '0.4rem' }}>
-            <span>⚡</span> Quick Role Testing
-          </div>
-          <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', lineHeight: 1.4 }}>
-            Instantly test role restrictions, dashboard access, and admin governance:
-          </p>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {/* Master Admin One-Click Quick Fill */}
+        <div
+          className="auth-alert-info"
+          style={{
+            marginBottom: '1.5rem',
+            background: 'linear-gradient(135deg, rgba(243, 232, 255, 0.8) 0%, rgba(224, 242, 254, 0.8) 100%)',
+            border: '1.5px solid rgba(168, 85, 247, 0.35)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem', marginBottom: '0.4rem' }}>
+            <span style={{ fontWeight: 800, color: '#581c87', fontSize: '0.86rem' }}>
+              🛡️ Master Administrator Access
+            </span>
             <button
               type="button"
-              onClick={handleDemoStudentLogin}
-              className="btn-neoclay-secondary"
-              style={{ flex: 1, fontSize: '0.82rem', padding: '0.45rem', minWidth: '130px' }}
-            >
-              🧑‍🎓 Student Login
-            </button>
-            <button
-              type="button"
-              onClick={handleDemoAdminLogin}
+              onClick={fillAdminCredentials}
               className="btn-neoclay-secondary"
               style={{
-                flex: 1,
-                fontSize: '0.82rem',
-                padding: '0.45rem',
-                minWidth: '130px',
+                fontSize: '0.78rem',
+                padding: '0.25rem 0.65rem',
                 borderColor: '#a855f7',
                 color: '#6b21a8',
                 fontWeight: 800,
               }}
             >
-              🛡️ Admin Login
+              Autofill Credentials
             </button>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#6b21a8', lineHeight: 1.45 }}>
+            Admin Email: <code>{MASTER_ADMIN_EMAIL}</code>
           </div>
         </div>
 
@@ -126,7 +122,7 @@ export const LoginPage: React.FC = () => {
               id="login-email"
               type="email"
               className="form-input"
-              placeholder="student@example.com"
+              placeholder="e.g. muni57575751@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isSubmitting}

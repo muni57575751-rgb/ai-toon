@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, MASTER_ADMIN_EMAIL } from '../../context/AuthContext';
 import { Header } from '../../components/common/Header';
 import { Footer } from '../../components/common/Footer';
 import { API_BASE_URL } from '../../config/api';
 import type {
   MemberRecord,
   AdminStats,
+  AdminNotification,
   UserRole,
   MemberVerificationStatus,
 } from '@ai-toon/shared';
@@ -14,6 +15,7 @@ import type {
 export const AdminPage: React.FC = () => {
   const { user, profile } = useAuth();
   const [members, setMembers] = useState<MemberRecord[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [stats, setStats] = useState<AdminStats>({
     totalMembers: 0,
     loggedInCount: 0,
@@ -22,6 +24,7 @@ export const AdminPage: React.FC = () => {
     maxAdmins: 5,
     userCount: 0,
     pendingCount: 0,
+    unreadNotificationsCount: 0,
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -31,32 +34,39 @@ export const AdminPage: React.FC = () => {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeTab, setActiveTab] = useState<
-    'all' | 'logged_in' | 'logged_out' | 'admins' | 'pending'
+    'all' | 'notifications' | 'logged_in' | 'logged_out' | 'admins' | 'pending'
   >('all');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
-  // Fetch members and stats from backend
-  const fetchMembers = useCallback(async () => {
+  // Fetch members, notifications, and stats from backend
+  const fetchData = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/members`, {
-        headers: {
-          'x-user-id': user.id,
-          'x-user-email': user.email || '',
-          'x-user-role': profile?.role || 'admin',
-        },
-      });
+      const headers = {
+        'x-user-id': user.id,
+        'x-user-email': user.email || '',
+        'x-user-role': profile?.role || 'admin',
+      };
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error?.message || `Failed to fetch members (${res.status})`);
+      const [membersRes, notifsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/admin/members`, { headers }),
+        fetch(`${API_BASE_URL}/admin/notifications`, { headers }),
+      ]);
+
+      if (membersRes.ok) {
+        const body = await membersRes.json();
+        if (body.success && body.data) {
+          setMembers(body.data.members || []);
+          if (body.data.stats) {
+            setStats(body.data.stats);
+          }
+        }
       }
 
-      const body = await res.json();
-      if (body.success && body.data) {
-        setMembers(body.data.members || []);
-        if (body.data.stats) {
-          setStats(body.data.stats);
+      if (notifsRes.ok) {
+        const body = await notifsRes.json();
+        if (body.success && body.data) {
+          setNotifications(body.data.notifications || []);
         }
       }
     } catch (err) {
@@ -68,19 +78,86 @@ export const AdminPage: React.FC = () => {
   }, [user, profile]);
 
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    fetchData();
+  }, [fetchData]);
 
-  // Auto-refresh interval
+  // Auto-refresh interval (every 5 seconds)
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
-      fetchMembers();
-    }, 6000);
+      fetchData();
+    }, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, fetchMembers]);
+  }, [autoRefresh, fetchData]);
 
-  // Handle Verify & Set Role
+  // Approve registration notification
+  const handleApproveNotification = async (notificationId: string, targetRole: UserRole) => {
+    if (!user) return;
+    setActionLoadingId(notificationId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/notifications/${notificationId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+          'x-user-role': profile?.role || 'admin',
+        },
+        body: JSON.stringify({ role: targetRole }),
+      });
+
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || 'Approval failed.');
+      }
+
+      setSuccessMsg(
+        `Account approved successfully as "${targetRole}". The user is now verified and can log in.`
+      );
+      await fetchData();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Approval failed.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Reject registration notification
+  const handleRejectNotification = async (notificationId: string) => {
+    if (!user) return;
+    setActionLoadingId(notificationId);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/notifications/${notificationId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+          'x-user-role': profile?.role || 'admin',
+        },
+      });
+
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || 'Rejection failed.');
+      }
+
+      setSuccessMsg('Account registration rejected.');
+      await fetchData();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Rejection failed.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Handle Verify & Set Role directly on member row
   const handleVerify = async (
     targetId: string,
     status: MemberVerificationStatus,
@@ -112,9 +189,9 @@ export const AdminPage: React.FC = () => {
       }
 
       setSuccessMsg(
-        `Account status updated to "${status}"${targetRole ? ` with role "${targetRole}"` : ''} successfully.`
+        `Account status updated to "${status}"${targetRole ? ` with role "${targetRole}"` : ''}.`
       );
-      await fetchMembers();
+      await fetchData();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Update failed.');
     } finally {
@@ -147,7 +224,7 @@ export const AdminPage: React.FC = () => {
       }
 
       setSuccessMsg(`Member successfully updated to role "${newRole}".`);
-      await fetchMembers();
+      await fetchData();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Role change failed.');
     } finally {
@@ -155,9 +232,43 @@ export const AdminPage: React.FC = () => {
     }
   };
 
+  // Purge / Clean System
+  const handleResetAccounts = async () => {
+    if (!window.confirm('Are you sure you want to remove all accounts except Master Admin Muni?')) {
+      return;
+    }
+    if (!user) return;
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/members/reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+          'x-user-email': user.email || '',
+          'x-user-role': profile?.role || 'admin',
+        },
+      });
+
+      const body = await res.json();
+      if (!res.ok || !body.success) {
+        throw new Error(body.error?.message || 'Reset failed.');
+      }
+
+      setSuccessMsg('All accounts except Master Admin Muni have been wiped cleanly.');
+      await fetchData();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Reset failed.');
+    }
+  };
+
+  // Pending notifications
+  const pendingNotifications = notifications.filter((n) => n.status === 'pending');
+
   // Filtered members list
   const filteredMembers = members.filter((m) => {
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const match =
@@ -167,7 +278,6 @@ export const AdminPage: React.FC = () => {
       if (!match) return false;
     }
 
-    // Tab filter
     if (activeTab === 'logged_in') return m.sessionStatus === 'logged_in';
     if (activeTab === 'logged_out') return m.sessionStatus === 'logged_out';
     if (activeTab === 'admins') return m.role === 'admin';
@@ -183,7 +293,7 @@ export const AdminPage: React.FC = () => {
       <Header />
 
       <main className="container" style={{ padding: '2.5rem 1.75rem' }}>
-        {/* Admin Navigation Breadcrumb */}
+        {/* Navigation Breadcrumb & Live Controls */}
         <div
           style={{
             display: 'flex',
@@ -208,11 +318,26 @@ export const AdminPage: React.FC = () => {
             </Link>
             <span style={{ color: 'var(--sky-300)' }}>/</span>
             <span style={{ color: 'var(--liquid-navy-dark)', fontWeight: 800, fontSize: '0.92rem' }}>
-              🛡️ Admin Console
+              🛡️ Muni Admin Console
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => handleResetAccounts()}
+              className="btn-liquid-secondary"
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.45rem 0.85rem',
+                color: '#b91c1c',
+                borderColor: '#fca5a5',
+                fontWeight: 700,
+              }}
+              title="Remove all created accounts and keep only Muni"
+            >
+              🧹 Wipe All Except Muni
+            </button>
+
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
               className="btn-liquid-secondary"
@@ -224,10 +349,11 @@ export const AdminPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              {autoRefresh ? '🟢 Auto-Sync ON (6s)' : '⚪ Auto-Sync OFF'}
+              {autoRefresh ? '🟢 Auto-Sync ON (5s)' : '⚪ Auto-Sync OFF'}
             </button>
+
             <button
-              onClick={() => fetchMembers()}
+              onClick={() => fetchData()}
               className="btn-liquid-primary"
               style={{ fontSize: '0.82rem', padding: '0.45rem 1.15rem' }}
               disabled={loading}
@@ -237,7 +363,7 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Hero Admin Banner */}
+        {/* Hero Admin Header Card */}
         <section
           className="liquid-glass-card"
           style={{
@@ -278,13 +404,13 @@ export const AdminPage: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <h1 style={{ fontSize: '1.95rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
-                    Admin Member Management & Presence
+                    Admin Member Management & Approvals
                   </h1>
                   <span
                     className="liquid-badge badge-lavender"
                     style={{ fontSize: '0.82rem', padding: '0.25rem 0.75rem' }}
                   >
-                    👑 Super Admin Control
+                    👑 Master Admin: {MASTER_ADMIN_EMAIL}
                   </span>
                 </div>
                 <p
@@ -295,8 +421,8 @@ export const AdminPage: React.FC = () => {
                     fontWeight: 600,
                   }}
                 >
-                  Track all logged-in and logged-out members in real time. Verify created accounts and assign
-                  roles (User vs Admin) with strict 5-admin cap enforcement.
+                  Newly created accounts trigger an instant notification to this portal for your verification.
+                  Approve accounts as User or Admin, with strict 5-admin limit enforcement.
                 </p>
               </div>
             </div>
@@ -378,6 +504,146 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
+        {/* REAL-TIME INCOMING NOTIFICATION BANNER */}
+        {pendingNotifications.length > 0 && (
+          <section
+            className="liquid-glass-card"
+            style={{
+              background: 'linear-gradient(135deg, rgba(254, 243, 199, 0.95) 0%, rgba(255, 237, 213, 0.9) 100%)',
+              border: '2.5px solid #f59e0b',
+              padding: '1.5rem',
+              borderRadius: 'var(--radius-xl)',
+              marginBottom: '2rem',
+              boxShadow: '0 12px 28px rgba(245, 158, 11, 0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <span style={{ fontSize: '1.8rem', animation: 'pulse 1.5s infinite' }}>🔔</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#92400e' }}>
+                  Action Required: {pendingNotifications.length} New Account{pendingNotifications.length > 1 ? 's' : ''} Awaiting Your Approval!
+                </h3>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.86rem', color: '#b45309' }}>
+                  These users registered on the website and cannot access the app until you approve them.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {pendingNotifications.map((notif) => {
+                const isLoading = actionLoadingId === notif.id;
+
+                return (
+                  <div
+                    key={notif.id}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '1.1rem 1.4rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '1rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '12px',
+                          background: '#fef3c7',
+                          color: '#d97706',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.3rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        👤
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--liquid-navy-dark)' }}>
+                            {notif.fullName}
+                          </span>
+                          <span
+                            style={{
+                              background: '#fef3c7',
+                              color: '#b45309',
+                              padding: '0.15rem 0.5rem',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                            }}
+                          >
+                            New Registration
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.84rem', color: 'var(--liquid-navy-muted)', marginTop: '0.15rem' }}>
+                          Email: <strong>{notif.email}</strong> • Requested at:{' '}
+                          {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons on notification */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <button
+                        onClick={() => handleApproveNotification(notif.id, 'user')}
+                        disabled={isLoading}
+                        className="btn-liquid-primary"
+                        style={{
+                          fontSize: '0.82rem',
+                          padding: '0.45rem 1rem',
+                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                        }}
+                      >
+                        ✓ Approve as User
+                      </button>
+
+                      <button
+                        onClick={() => handleApproveNotification(notif.id, 'admin')}
+                        disabled={isLoading || isMaxAdminsReached}
+                        className="btn-liquid-secondary"
+                        style={{
+                          fontSize: '0.82rem',
+                          padding: '0.45rem 1rem',
+                          borderColor: '#a855f7',
+                          color: '#6b21a8',
+                          fontWeight: 800,
+                          opacity: isMaxAdminsReached ? 0.45 : 1,
+                        }}
+                        title={isMaxAdminsReached ? '5-admin limit reached' : 'Approve and grant Admin access'}
+                      >
+                        🛡️ Approve as Admin {isMaxAdminsReached ? '(Full)' : ''}
+                      </button>
+
+                      <button
+                        onClick={() => handleRejectNotification(notif.id)}
+                        disabled={isLoading}
+                        className="btn-liquid-secondary"
+                        style={{
+                          fontSize: '0.82rem',
+                          padding: '0.45rem 0.85rem',
+                          color: '#b91c1c',
+                          borderColor: '#fca5a5',
+                          fontWeight: 700,
+                        }}
+                      >
+                        ✕ Reject
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* 5-Admin Limit Governance Alert Bar */}
         <div
           className="liquid-glass-card"
@@ -409,7 +675,7 @@ export const AdminPage: React.FC = () => {
                     color: isMaxAdminsReached ? '#92400e' : '#1e3a8a',
                   }}
                 >
-                  Admin Cap Enforcement: Strictly Maximum 5 Administrators Allowed
+                  Admin Cap Policy: Exactly Maximum 5 Administrators Allowed
                 </h3>
                 <span
                   style={{
@@ -434,13 +700,13 @@ export const AdminPage: React.FC = () => {
               >
                 {isMaxAdminsReached ? (
                   <span>
-                    ⚠️ <strong>Admin limit reached!</strong> All 5 administrator seats are currently filled.
-                    You cannot promote another account to admin unless an existing admin is first demoted to user.
+                    ⚠️ <strong>Admin slots full (5/5).</strong> To assign admin privileges to another member,
+                    an existing administrator must first be demoted.
                   </span>
                 ) : (
                   <span>
-                    ✓ <strong>{adminSlotsRemaining} administrator seat{adminSlotsRemaining !== 1 ? 's' : ''} available.</strong>{' '}
-                    New accounts can be verified and assigned as standard Users or promoted to Admin.
+                    ✓ <strong>{adminSlotsRemaining} administrator slot{adminSlotsRemaining !== 1 ? 's' : ''} available.</strong>{' '}
+                    Muni ({MASTER_ADMIN_EMAIL}) controls member role assignments.
                   </span>
                 )}
               </p>
@@ -509,7 +775,7 @@ export const AdminPage: React.FC = () => {
               {stats.totalMembers}
             </div>
             <span style={{ fontSize: '0.86rem', color: 'var(--liquid-navy-muted)', fontWeight: 700 }}>
-              Total Registered Members
+              Registered Members
             </span>
           </div>
 
@@ -594,7 +860,7 @@ export const AdminPage: React.FC = () => {
                 fontWeight: 700,
               }}
             >
-              Admins (Limit: 5)
+              Admins (Max: 5)
             </span>
           </div>
 
@@ -613,7 +879,7 @@ export const AdminPage: React.FC = () => {
               {stats.pendingCount}
             </div>
             <span style={{ fontSize: '0.86rem', color: '#b45309', fontWeight: 700 }}>
-              Pending Verification
+              Awaiting Approval
             </span>
           </div>
         </section>
@@ -640,6 +906,19 @@ export const AdminPage: React.FC = () => {
               style={{ fontSize: '0.85rem', padding: '0.45rem 1rem' }}
             >
               All Members ({members.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={activeTab === 'notifications' ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
+              style={{
+                fontSize: '0.85rem',
+                padding: '0.45rem 1rem',
+                borderColor: pendingNotifications.length > 0 ? '#f59e0b' : undefined,
+                color: pendingNotifications.length > 0 ? '#b45309' : undefined,
+                fontWeight: 800,
+              }}
+            >
+              🔔 Notifications ({pendingNotifications.length})
             </button>
             <button
               onClick={() => setActiveTab('logged_in')}
@@ -676,7 +955,7 @@ export const AdminPage: React.FC = () => {
             <input
               type="text"
               className="form-input"
-              placeholder="🔍 Search by name or email..."
+              placeholder="🔍 Search members..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ margin: 0, padding: '0.55rem 1rem', fontSize: '0.88rem' }}
@@ -684,419 +963,464 @@ export const AdminPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Member Directory & Action Table */}
-        <section
-          className="liquid-glass-card"
-          style={{
-            borderRadius: 'var(--radius-xl)',
-            overflow: 'hidden',
-            padding: '0.5rem',
-            background: 'rgba(255, 255, 255, 0.94)',
-          }}
-        >
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  border: '4px solid var(--sky-200)',
-                  borderTopColor: 'var(--sky-500)',
-                  borderRadius: '50%',
-                  margin: '0 auto 1rem',
-                  animation: 'spin 0.8s linear infinite',
-                }}
-              />
-              <p style={{ color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>Loading members data...</p>
-            </div>
-          ) : filteredMembers.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3.5rem 2rem' }}>
-              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🔍</span>
-              <h3 style={{ margin: '0 0 0.5rem', color: 'var(--liquid-navy-dark)' }}>No Members Match Filters</h3>
-              <p style={{ color: 'var(--liquid-navy-muted)', fontSize: '0.9rem' }}>
-                Try adjusting your search query or switching tabs.
-              </p>
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  textAlign: 'left',
-                  fontSize: '0.9rem',
-                }}
-              >
-                <thead>
-                  <tr
+        {/* Tab 1: Notifications Feed */}
+        {activeTab === 'notifications' ? (
+          <section
+            className="liquid-glass-card"
+            style={{
+              padding: '1.75rem',
+              borderRadius: 'var(--radius-xl)',
+              background: 'rgba(255, 255, 255, 0.95)',
+            }}
+          >
+            <h3 style={{ margin: '0 0 1.25rem', color: 'var(--liquid-navy-dark)' }}>
+              🔔 Registration Notifications & Approval Requests
+            </h3>
+
+            {notifications.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--liquid-navy-muted)' }}>
+                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📭</span>
+                No registration notifications received yet. When users sign up, they will appear here.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {notifications.map((n) => (
+                  <div
+                    key={n.id}
                     style={{
-                      borderBottom: '2px solid rgba(226, 232, 240, 0.8)',
-                      background: 'rgba(248, 250, 252, 0.8)',
+                      padding: '1.25rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid #e2e8f0',
+                      background: n.status === 'pending' ? '#fffbeb' : '#f8fafc',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '1rem',
                     }}
                   >
-                    <th style={{ padding: '1rem 1.25rem', color: 'var(--liquid-navy-dark)' }}>Member</th>
-                    <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Session Status</th>
-                    <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Assigned Role</th>
-                    <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Verification</th>
-                    <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Last Active</th>
-                    <th style={{ padding: '1rem 1.25rem', color: 'var(--liquid-navy-dark)', textAlign: 'right' }}>
-                      Admin Verification & Role Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMembers.map((m) => {
-                    const isTargetLoading = actionLoadingId === m.id;
-                    const isSelf = user?.id === m.id || user?.email === m.email;
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--liquid-navy-dark)' }}>{n.fullName}</span>
+                        <span style={{ color: 'var(--liquid-navy-muted)', fontSize: '0.85rem' }}>({n.email})</span>
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '6px',
+                            background:
+                              n.status === 'approved'
+                                ? '#ecfdf5'
+                                : n.status === 'rejected'
+                                ? '#fef2f2'
+                                : '#fef3c7',
+                            color:
+                              n.status === 'approved'
+                                ? '#047857'
+                                : n.status === 'rejected'
+                                ? '#b91c1c'
+                                : '#b45309',
+                          }}
+                        >
+                          {n.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--liquid-navy-muted)', marginTop: '0.2rem' }}>
+                        Requested: {new Date(n.createdAt).toLocaleString()}
+                        {n.actionedBy && ` • Actioned by ${n.actionedBy}`}
+                      </div>
+                    </div>
 
-                    return (
-                      <tr
-                        key={m.id}
-                        style={{
-                          borderBottom: '1px solid rgba(241, 245, 249, 0.8)',
-                          transition: 'background 0.2s ease',
-                          background: m.role === 'admin' ? 'rgba(243, 232, 255, 0.2)' : 'transparent',
-                        }}
-                      >
-                        {/* Member Info */}
-                        <td style={{ padding: '1.1rem 1.25rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                            <div
-                              style={{
-                                width: '42px',
-                                height: '42px',
-                                borderRadius: '14px',
-                                background:
-                                  m.role === 'admin'
-                                    ? 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)'
-                                    : 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
-                                color: '#ffffff',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '1.2rem',
-                                fontWeight: 700,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {m.role === 'admin' ? '🛡️' : '🧑‍🎓'}
-                            </div>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                                <span style={{ fontWeight: 800, color: 'var(--liquid-navy-dark)' }}>
-                                  {m.fullName}
-                                </span>
-                                {isSelf && (
-                                  <span
-                                    style={{
-                                      fontSize: '0.72rem',
-                                      background: '#dbeafe',
-                                      color: '#1e40af',
-                                      padding: '0.1rem 0.45rem',
-                                      borderRadius: '6px',
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    YOU
-                                  </span>
-                                )}
-                              </div>
-                              <span
+                    {n.status === 'pending' && (
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => handleApproveNotification(n.id, 'user')}
+                          className="btn-liquid-primary"
+                          style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
+                        >
+                          Approve as User
+                        </button>
+                        <button
+                          onClick={() => handleApproveNotification(n.id, 'admin')}
+                          disabled={isMaxAdminsReached}
+                          className="btn-liquid-secondary"
+                          style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem', fontWeight: 800 }}
+                        >
+                          Approve as Admin
+                        </button>
+                        <button
+                          onClick={() => handleRejectNotification(n.id)}
+                          className="btn-liquid-secondary"
+                          style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem', color: '#b91c1c' }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
+          /* Tab 2: Members Directory Table */
+          <section
+            className="liquid-glass-card"
+            style={{
+              borderRadius: 'var(--radius-xl)',
+              overflow: 'hidden',
+              padding: '0.5rem',
+              background: 'rgba(255, 255, 255, 0.94)',
+            }}
+          >
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    border: '4px solid var(--sky-200)',
+                    borderTopColor: 'var(--sky-500)',
+                    borderRadius: '50%',
+                    margin: '0 auto 1rem',
+                    animation: 'spin 0.8s linear infinite',
+                  }}
+                />
+                <p style={{ color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>Loading member records...</p>
+              </div>
+            ) : filteredMembers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3.5rem 2rem' }}>
+                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🔍</span>
+                <h3 style={{ margin: '0 0 0.5rem', color: 'var(--liquid-navy-dark)' }}>No Members Found</h3>
+                <p style={{ color: 'var(--liquid-navy-muted)', fontSize: '0.9rem' }}>
+                  Try adjusting your search query or tab filters.
+                </p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    textAlign: 'left',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        borderBottom: '2px solid rgba(226, 232, 240, 0.8)',
+                        background: 'rgba(248, 250, 252, 0.8)',
+                      }}
+                    >
+                      <th style={{ padding: '1rem 1.25rem', color: 'var(--liquid-navy-dark)' }}>Member</th>
+                      <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Session Status</th>
+                      <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Assigned Role</th>
+                      <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Approval Status</th>
+                      <th style={{ padding: '1rem', color: 'var(--liquid-navy-dark)' }}>Last Active</th>
+                      <th style={{ padding: '1rem 1.25rem', color: 'var(--liquid-navy-dark)', textAlign: 'right' }}>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMembers.map((m) => {
+                      const isTargetLoading = actionLoadingId === m.id;
+                      const isMasterAdmin = m.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+
+                      return (
+                        <tr
+                          key={m.id}
+                          style={{
+                            borderBottom: '1px solid rgba(241, 245, 249, 0.8)',
+                            transition: 'background 0.2s ease',
+                            background: isMasterAdmin ? 'rgba(243, 232, 255, 0.35)' : 'transparent',
+                          }}
+                        >
+                          {/* Member Info */}
+                          <td style={{ padding: '1.1rem 1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                              <div
                                 style={{
-                                  fontSize: '0.8rem',
-                                  color: 'var(--liquid-navy-muted)',
-                                  display: 'block',
+                                  width: '42px',
+                                  height: '42px',
+                                  borderRadius: '14px',
+                                  background:
+                                    m.role === 'admin'
+                                      ? 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)'
+                                      : 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
+                                  color: '#ffffff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '1.2rem',
+                                  fontWeight: 700,
+                                  flexShrink: 0,
                                 }}
                               >
-                                {m.email}
-                              </span>
+                                {m.role === 'admin' ? '🛡️' : '🧑‍🎓'}
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                  <span style={{ fontWeight: 800, color: 'var(--liquid-navy-dark)' }}>
+                                    {m.fullName}
+                                  </span>
+                                  {isMasterAdmin && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        background: '#f3e8ff',
+                                        color: '#6b21a8',
+                                        padding: '0.1rem 0.45rem',
+                                        borderRadius: '6px',
+                                        fontWeight: 800,
+                                      }}
+                                    >
+                                      MASTER ADMIN
+                                    </span>
+                                  )}
+                                </div>
+                                <span
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    color: 'var(--liquid-navy-muted)',
+                                    display: 'block',
+                                  }}
+                                >
+                                  {m.email}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Session Status: Logged In vs Logged Out */}
-                        <td style={{ padding: '1rem' }}>
-                          {m.sessionStatus === 'logged_in' ? (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.45rem',
-                                background: '#dcfce7',
-                                color: '#166534',
-                                padding: '0.3rem 0.75rem',
-                                borderRadius: '12px',
-                                fontSize: '0.82rem',
-                                fontWeight: 800,
-                                border: '1px solid rgba(22, 101, 52, 0.2)',
-                              }}
-                            >
+                          {/* Session Status */}
+                          <td style={{ padding: '1rem' }}>
+                            {m.sessionStatus === 'logged_in' ? (
                               <span
                                 style={{
-                                  width: '8px',
-                                  height: '8px',
-                                  borderRadius: '50%',
-                                  background: '#16a34a',
-                                  boxShadow: '0 0 6px #16a34a',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.45rem',
+                                  background: '#dcfce7',
+                                  color: '#166534',
+                                  padding: '0.3rem 0.75rem',
+                                  borderRadius: '12px',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  border: '1px solid rgba(22, 101, 52, 0.2)',
                                 }}
-                              />
-                              Logged In
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.45rem',
-                                background: '#f1f5f9',
-                                color: '#64748b',
-                                padding: '0.3rem 0.75rem',
-                                borderRadius: '12px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                border: '1px solid #cbd5e1',
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: '8px',
-                                  height: '8px',
-                                  borderRadius: '50%',
-                                  background: '#94a3b8',
-                                }}
-                              />
-                              Logged Out
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Role: User vs Admin */}
-                        <td style={{ padding: '1rem' }}>
-                          {m.role === 'admin' ? (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                background: '#f3e8ff',
-                                color: '#6b21a8',
-                                padding: '0.3rem 0.75rem',
-                                borderRadius: '12px',
-                                fontSize: '0.82rem',
-                                fontWeight: 800,
-                                border: '1px solid rgba(107, 33, 168, 0.25)',
-                              }}
-                            >
-                              🛡️ Administrator
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                background: '#e0f2fe',
-                                color: '#0369a1',
-                                padding: '0.3rem 0.75rem',
-                                borderRadius: '12px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                border: '1px solid rgba(3, 105, 161, 0.25)',
-                              }}
-                            >
-                              🧑‍🎓 Student / User
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Verification Status */}
-                        <td style={{ padding: '1rem' }}>
-                          {m.verificationStatus === 'verified' ? (
-                            <span
-                              style={{
-                                background: '#ecfdf5',
-                                color: '#047857',
-                                padding: '0.25rem 0.65rem',
-                                borderRadius: '8px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                border: '1px solid rgba(4, 120, 87, 0.2)',
-                              }}
-                            >
-                              ✓ Verified
-                            </span>
-                          ) : m.verificationStatus === 'pending' ? (
-                            <span
-                              style={{
-                                background: '#fffbeb',
-                                color: '#b45309',
-                                padding: '0.25rem 0.65rem',
-                                borderRadius: '8px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                border: '1px solid rgba(180, 83, 9, 0.2)',
-                              }}
-                            >
-                              ⏳ Pending Review
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                background: '#fef2f2',
-                                color: '#b91c1c',
-                                padding: '0.25rem 0.65rem',
-                                borderRadius: '8px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                              }}
-                            >
-                              ✕ Rejected
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Last Active Timestamp */}
-                        <td style={{ padding: '1rem', color: 'var(--liquid-navy-muted)', fontSize: '0.82rem' }}>
-                          {new Date(m.lastActiveAt).toLocaleDateString([], {
-                            month: 'short',
-                            day: 'numeric',
-                          })}{' '}
-                          at{' '}
-                          {new Date(m.lastActiveAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
-
-                        {/* Action Buttons: Verify & Set Role */}
-                        <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'flex-end',
-                              gap: '0.5rem',
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            {/* Verification Workflow for Pending accounts */}
-                            {m.verificationStatus === 'pending' ? (
-                              <>
-                                <button
-                                  onClick={() => handleVerify(m.id, 'verified', 'user')}
-                                  disabled={isTargetLoading}
-                                  className="btn-liquid-secondary"
+                              >
+                                <span
                                   style={{
-                                    fontSize: '0.78rem',
-                                    padding: '0.35rem 0.75rem',
-                                    color: '#0369a1',
-                                    borderColor: '#0284c7',
-                                    fontWeight: 700,
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: '#16a34a',
+                                    boxShadow: '0 0 6px #16a34a',
                                   }}
-                                  title="Verify this newly registered account as a regular User"
-                                >
-                                  ✓ Verify as User
-                                </button>
-
-                                <button
-                                  onClick={() => handleVerify(m.id, 'verified', 'admin')}
-                                  disabled={isTargetLoading || isMaxAdminsReached}
-                                  className="btn-liquid-primary"
-                                  style={{
-                                    fontSize: '0.78rem',
-                                    padding: '0.35rem 0.75rem',
-                                    opacity: isMaxAdminsReached ? 0.45 : 1,
-                                    cursor: isMaxAdminsReached ? 'not-allowed' : 'pointer',
-                                  }}
-                                  title={
-                                    isMaxAdminsReached
-                                      ? 'Cannot verify as Admin: 5-admin limit reached (5/5)'
-                                      : 'Verify this account and grant Administrator privileges'
-                                  }
-                                >
-                                  🛡️ Verify as Admin {isMaxAdminsReached ? '(Full)' : ''}
-                                </button>
-                              </>
+                                />
+                                Logged In
+                              </span>
                             ) : (
-                              /* Role Assignment Workflow for already verified accounts */
-                              <>
-                                {m.role === 'user' ? (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.45rem',
+                                  background: '#f1f5f9',
+                                  color: '#64748b',
+                                  padding: '0.3rem 0.75rem',
+                                  borderRadius: '12px',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 700,
+                                  border: '1px solid #cbd5e1',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: '#94a3b8',
+                                  }}
+                                />
+                                Logged Out
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Role */}
+                          <td style={{ padding: '1rem' }}>
+                            {m.role === 'admin' ? (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  background: '#f3e8ff',
+                                  color: '#6b21a8',
+                                  padding: '0.3rem 0.75rem',
+                                  borderRadius: '12px',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                🛡️ Admin
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  background: '#e0f2fe',
+                                  color: '#0369a1',
+                                  padding: '0.3rem 0.75rem',
+                                  borderRadius: '12px',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                🧑‍🎓 User
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Verification */}
+                          <td style={{ padding: '1rem' }}>
+                            {m.verificationStatus === 'verified' ? (
+                              <span
+                                style={{
+                                  background: '#ecfdf5',
+                                  color: '#047857',
+                                  padding: '0.25rem 0.65rem',
+                                  borderRadius: '8px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                ✓ Approved
+                              </span>
+                            ) : m.verificationStatus === 'pending' ? (
+                              <span
+                                style={{
+                                  background: '#fffbeb',
+                                  color: '#b45309',
+                                  padding: '0.25rem 0.65rem',
+                                  borderRadius: '8px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 800,
+                                  border: '1.5px solid #f59e0b',
+                                }}
+                              >
+                                ⏳ Pending Approval
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  background: '#fef2f2',
+                                  color: '#b91c1c',
+                                  padding: '0.25rem 0.65rem',
+                                  borderRadius: '8px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                ✕ Rejected
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Last Active */}
+                          <td style={{ padding: '1rem', color: 'var(--liquid-navy-muted)', fontSize: '0.82rem' }}>
+                            {new Date(m.lastActiveAt).toLocaleDateString([], {
+                              month: 'short',
+                              day: 'numeric',
+                            })}{' '}
+                            at{' '}
+                            {new Date(m.lastActiveAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+
+                          {/* Action Buttons */}
+                          <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end',
+                                gap: '0.5rem',
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              {m.verificationStatus === 'pending' ? (
+                                <>
                                   <button
-                                    onClick={() => handleChangeRole(m.id, 'admin')}
+                                    onClick={() => handleVerify(m.id, 'verified', 'user')}
+                                    disabled={isTargetLoading}
+                                    className="btn-liquid-primary"
+                                    style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
+                                  >
+                                    ✓ Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleVerify(m.id, 'verified', 'admin')}
                                     disabled={isTargetLoading || isMaxAdminsReached}
                                     className="btn-liquid-secondary"
-                                    style={{
-                                      fontSize: '0.78rem',
-                                      padding: '0.35rem 0.8rem',
-                                      color: isMaxAdminsReached ? '#94a3b8' : '#6b21a8',
-                                      borderColor: isMaxAdminsReached ? '#cbd5e1' : '#a855f7',
-                                      opacity: isMaxAdminsReached ? 0.5 : 1,
-                                      cursor: isMaxAdminsReached ? 'not-allowed' : 'pointer',
-                                      fontWeight: 700,
-                                    }}
-                                    title={
-                                      isMaxAdminsReached
-                                        ? 'Admin limit of 5 is reached. Demote another admin first.'
-                                        : 'Promote this member to Administrator'
-                                    }
+                                    style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', fontWeight: 800 }}
                                   >
-                                    ⬆️ Make Admin {isMaxAdminsReached ? '(5/5 Full)' : ''}
+                                    🛡️ Make Admin
                                   </button>
-                                ) : (
-                                  <button
-                                    onClick={() => handleChangeRole(m.id, 'user')}
-                                    disabled={isTargetLoading || stats.adminCount <= 1}
-                                    className="btn-liquid-secondary"
-                                    style={{
-                                      fontSize: '0.78rem',
-                                      padding: '0.35rem 0.8rem',
-                                      color: stats.adminCount <= 1 ? '#94a3b8' : '#b91c1c',
-                                      borderColor: stats.adminCount <= 1 ? '#cbd5e1' : '#f87171',
-                                      fontWeight: 700,
-                                    }}
-                                    title={
-                                      stats.adminCount <= 1
-                                        ? 'Cannot demote the last remaining administrator'
-                                        : 'Demote this administrator to regular User'
-                                    }
-                                  >
-                                    ⬇️ Make User
-                                  </button>
-                                )}
-
-                                <button
-                                  onClick={() =>
-                                    handleVerify(
-                                      m.id,
-                                      m.verificationStatus === 'verified' ? 'pending' : 'verified'
-                                    )
-                                  }
-                                  disabled={isTargetLoading}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    fontSize: '0.78rem',
-                                    color: 'var(--liquid-navy-muted)',
-                                    cursor: 'pointer',
-                                    textDecoration: 'underline',
-                                    padding: '0.35rem',
-                                  }}
-                                  title="Toggle verification flag"
-                                >
-                                  {m.verificationStatus === 'verified' ? 'Revoke Verify' : 'Re-verify'}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                                </>
+                              ) : (
+                                <>
+                                  {!isMasterAdmin && (
+                                    <>
+                                      {m.role === 'user' ? (
+                                        <button
+                                          onClick={() => handleChangeRole(m.id, 'admin')}
+                                          disabled={isTargetLoading || isMaxAdminsReached}
+                                          className="btn-liquid-secondary"
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            padding: '0.35rem 0.75rem',
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          ⬆️ Promote Admin
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleChangeRole(m.id, 'user')}
+                                          disabled={isTargetLoading}
+                                          className="btn-liquid-secondary"
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            padding: '0.35rem 0.75rem',
+                                            color: '#b91c1c',
+                                          }}
+                                        >
+                                          ⬇️ Demote User
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
       </main>
 
       <Footer />
