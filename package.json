@@ -13,7 +13,7 @@
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "build": "npm run build --workspace=@ai-toon/shared && npm run build --workspace=backend && npm run build --workspace=frontend && npm run build:api",
+    "build": "npm run build --workspace=@ai-toon/shared && npm run build --workspace=backend && npm run build --workspace=frontend && npm run build:api && node scripts/build-vercel.cjs",
     "build:shared": "npm run build --workspace=@ai-toon/shared",
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
