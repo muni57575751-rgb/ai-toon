@@ -77,16 +77,8 @@ const config = {
       dest: '/api',
     },
     {
-      src: '^/api/health/?$',
-      dest: '/api/health',
-    },
-    {
-      src: '^/api/search/?$',
-      dest: '/api/search',
-    },
-    {
-      src: '^/api/(?<path>.*)$',
-      dest: '/api/[...path]',
+      src: '^/api/(.*)$',
+      dest: '/api?__url=/api/$1',
     },
     {
       src: '^/(.*)$',

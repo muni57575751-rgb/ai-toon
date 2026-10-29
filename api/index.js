@@ -27974,6 +27974,14 @@ var createApp = () => {
   );
   app2.use(import_express8.default.json());
   app2.use(import_express8.default.urlencoded({ extended: true }));
+  app2.use((req, _res, next) => {
+    if (req.query && typeof req.query.__url === "string") {
+      const original = req.query.__url;
+      delete req.query.__url;
+      req.url = original;
+    }
+    next();
+  });
   app2.use("/api", api_routes_default);
   app2.use("/", api_routes_default);
   const welcomeHandler = (_req, res) => {

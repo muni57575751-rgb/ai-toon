@@ -29,6 +29,16 @@ export const createApp = (): Express => {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  // Restore original request URL when rewritten by serverless catch-all routing
+  app.use((req, _res, next) => {
+    if (req.query && typeof req.query.__url === 'string') {
+      const original = req.query.__url;
+      delete req.query.__url;
+      req.url = original;
+    }
+    next();
+  });
+
   // API Routes (mount at /api and / so direct paths and stripped serverless paths both resolve)
   app.use('/api', apiRouter);
   app.use('/', apiRouter);
