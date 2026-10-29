@@ -1,28 +1,64 @@
 /**
  * Global API configuration.
- * Uses VITE_API_BASE_URL if configured as a valid HTTP/HTTPS URL or relative path (e.g. https://your-backend.onrender.com/api),
- * otherwise defaults to '/api'.
- * Rejects database URIs (e.g. postgresql://...) to prevent browser fetch exceptions.
+ * Uses VITE_API_BASE_URL if configured as a valid HTTP/HTTPS URL,
+ * otherwise targets the live Express backend deployment when running on Vercel client domains,
+ * or defaults to '/api' for local development.
  */
 function resolveApiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_BASE_URL;
-  if (!raw || typeof raw !== 'string') {
-    return '/api';
+  if (raw && typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed.replace(/\/$/, '');
+    }
   }
 
-  const trimmed = raw.trim();
-  // Valid URLs must begin with http://, https://, or a relative path /
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
-    return trimmed.replace(/\/$/, '');
+  // When loaded on ai-toon-x9li.vercel.app or other preview Vercel domains, route to live Express backend
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname.endsWith('.vercel.app') &&
+    !window.location.hostname.includes('6w2r')
+  ) {
+    return 'https://ai-toon-6w2r.vercel.app/api';
   }
 
-  console.warn(
-    `[AI Toon] VITE_API_BASE_URL is not an HTTP/HTTPS endpoint. Defaulting to '/api'.`
-  );
   return '/api';
 }
 
 export const API_BASE_URL: string = resolveApiBaseUrl();
+
+// Safe global fetch wrapper to ensure Vercel serverless routing resiliency
+if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    let url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+    // Direct relative /api requests on preview domains to the live backend instance
+    if (url.startsWith('/api') && API_BASE_URL.startsWith('http')) {
+      url = `${API_BASE_URL}${url.slice(4)}`;
+    }
+
+    let res = await nativeFetch(url, init);
+
+    // If serverless route returns 404 (due to Vercel edge rewrite propagation), retry with __url query
+    if (res.status === 404) {
+      try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.pathname.startsWith('/api') && !parsed.searchParams.has('__url')) {
+          const fallbackUrl = `${parsed.origin}/api?__url=${encodeURIComponent(parsed.pathname + parsed.search)}`;
+          const fallbackRes = await nativeFetch(fallbackUrl, init);
+          if (fallbackRes.status !== 404) {
+            return fallbackRes;
+          }
+        }
+      } catch {
+        // Fallback gracefully on parsing errors
+      }
+    }
+
+    return res;
+  };
+}
 
 /**
  * Safely parses a fetch Response as JSON without throwing `Unexpected end of JSON input`.
