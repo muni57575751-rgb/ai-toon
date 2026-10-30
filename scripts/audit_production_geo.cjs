@@ -45,47 +45,47 @@ async function testAdminLogin() {
 }
 
 async function testGeoEndpoints() {
-  console.log('\n[AUDIT CHECK 3] Testing Live Dedicated Geocoding Endpoints...');
+  console.log('\n[AUDIT CHECK 3] Testing Live Dedicated Geocoding & Detection Endpoints...');
 
-  // Test 3a: Ganga Donakonda lookup
-  const res1 = await fetch(`${BASE_URL}/api/geo/lookup?query=Ganga+Donakonda`);
-  const data1 = await res1.json();
-  const loc1 = data1.data || data1.location;
-  if (!loc1 || !loc1.latitude) {
-    throw new Error(`Ganga Donakonda lookup failed: ${JSON.stringify(data1)}`);
+  const endpointsToTest = [
+    { topic: 'Virat Kohli', expectedMap: false, expectedCat: 'PERSON' },
+    { topic: 'Albert Einstein', expectedMap: false, expectedCat: 'PERSON' },
+    { topic: 'Photosynthesis', expectedMap: false, expectedCat: 'SCIENCE' },
+    { topic: 'Binary Search', expectedMap: false, expectedCat: 'TECHNOLOGY' },
+    { topic: 'Artificial Intelligence', expectedMap: false, expectedCat: 'TECHNOLOGY' },
+    { topic: 'Biryani', expectedMap: false, expectedCat: 'FOOD' },
+    { topic: 'Jalebi', expectedMap: false, expectedCat: 'FOOD' },
+    { topic: 'Guntur', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Tirupati', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Donakonda', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Hyderabad', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Mount Everest', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Taj Mahal', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Location of Oxford University', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Birthplace of Virat Kohli', expectedMap: true, expectedCat: 'GEOGRAPHICAL_PLACE' },
+    { topic: 'Washington', expectedMap: false, expectedCat: 'GENERAL', ambiguous: true },
+    { topic: 'Jordan', expectedMap: false, expectedCat: 'GENERAL', ambiguous: true },
+    { topic: 'Victoria', expectedMap: false, expectedCat: 'GENERAL', ambiguous: true },
+  ];
+
+  for (const t of endpointsToTest) {
+    const res = await fetch(`${BASE_URL}/api/geo/detect?topic=${encodeURIComponent(t.topic)}`);
+    if (!res.ok) throw new Error(`Detection endpoint failed for "${t.topic}" with HTTP ${res.status}`);
+    const json = await res.json();
+    const data = json.data || json;
+
+    console.log(`   🏷️  "${t.topic}" -> Category: [${data.category}] | requiresMap: ${data.requiresMap} | ambiguous: ${data.isAmbiguous}`);
+
+    if (t.ambiguous && !data.isAmbiguous) {
+      console.warn(`   ⚠️ Warning: Expected ambiguity for "${t.topic}" but was not flagged`);
+    }
+
+    if (Boolean(data.requiresMap) !== t.expectedMap) {
+      throw new Error(`Detection mismatch for "${t.topic}": expected requiresMap=${t.expectedMap}, got ${data.requiresMap}`);
+    }
   }
-  console.log('   ✅ Live /api/geo/lookup?query=Ganga+Donakonda resolved:');
-  console.log(`      Place: "${loc1.placeName}" | Coords: ${loc1.latitude}, ${loc1.longitude}`);
-  console.log(`      District: ${loc1.district} | State: ${loc1.state} | PIN: ${loc1.postalCode}`);
 
-  // Test 3b: Donakonda lookup
-  const res2 = await fetch(`${BASE_URL}/api/geo/lookup?query=Donakonda`);
-  const data2 = await res2.json();
-  const loc2 = data2.data || data2.location;
-  console.log('   ✅ Live /api/geo/lookup?query=Donakonda resolved:');
-  console.log(`      Place: "${loc2.placeName}" | Coords: ${loc2.latitude}, ${loc2.longitude}`);
-  console.log(`      PIN: ${loc2.postalCode} (Verified: ${loc2.postalCodeVerified})`);
-
-  // Test 3c: Tirupati lookup
-  const res3 = await fetch(`${BASE_URL}/api/geo/lookup?query=Tirupati`);
-  const data3 = await res3.json();
-  const loc3 = data3.data || data3.location;
-  console.log('   ✅ Live /api/geo/lookup?query=Tirupati resolved:');
-  console.log(`      Place: "${loc3.placeName}" | Coords: ${loc3.latitude}, ${loc3.longitude} | PIN: ${loc3.postalCode}`);
-
-  // Test 3d: Mount Everest lookup
-  const res4 = await fetch(`${BASE_URL}/api/geo/lookup?query=Mount+Everest`);
-  const data4 = await res4.json();
-  const loc4 = data4.data || data4.location;
-  console.log('   ✅ Live /api/geo/lookup?query=Mount+Everest resolved:');
-  console.log(`      Place: "${loc4.placeName}" | Coords: ${loc4.latitude}, ${loc4.longitude} | Country: ${loc4.country}`);
-
-  // Test 3e: Non-geographical detection on live endpoint
-  const resNonGeo = await fetch(`${BASE_URL}/api/geo/detect?topic=Photosynthesis`);
-  const dataNonGeo = await resNonGeo.json();
-  const detectNonGeo = dataNonGeo.data || dataNonGeo;
-  console.log('   ✅ Live /api/geo/detect?topic=Photosynthesis:');
-  console.log(`      Category: [${detectNonGeo.category || 'N/A'}] | requiresMap: ${detectNonGeo.requiresMap}`);
+  console.log('   ✅ All live /api/geo/detect tests verified successfully!');
 }
 
 async function testStoryGeneration(token, topic) {

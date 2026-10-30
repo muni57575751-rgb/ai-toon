@@ -1,11 +1,19 @@
 /**
  * Geographical Intelligence Data Models for AI Toon
  */
-export type TopicCategory = 'PERSON' | 'PLACE' | 'INSTITUTION' | 'SCIENCE_CONCEPT' | 'TECHNOLOGY_CONCEPT' | 'FOOD' | 'ANIMAL' | 'HISTORICAL_EVENT' | 'GENERAL_TOPIC';
-export interface TopicClassification {
+export type TopicCategory = 'GEOGRAPHICAL_PLACE' | 'PERSON' | 'SCIENCE' | 'TECHNOLOGY' | 'FOOD' | 'ANIMAL' | 'HISTORY' | 'GENERAL' | 'PLACE' | 'INSTITUTION' | 'SCIENCE_CONCEPT' | 'TECHNOLOGY_CONCEPT' | 'HISTORICAL_EVENT' | 'GENERAL_TOPIC';
+export interface GeminiTopicClassification {
+    topic: string;
     category: TopicCategory;
-    confidence: number;
+    isGeographicalPlace: boolean;
     requiresMap: boolean;
+    identifiedPlace: string | null;
+    confidence: number;
+    reason: string;
+    isAmbiguous?: boolean;
+    ambiguityOptions?: string[];
+}
+export interface TopicClassification extends GeminiTopicClassification {
     reasoning?: string;
     resolvedLocationQuery?: string | null;
 }

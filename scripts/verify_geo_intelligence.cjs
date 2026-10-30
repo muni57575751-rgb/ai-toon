@@ -64,6 +64,30 @@ function dispatch(app, method, url, body = null, headers = {}) {
   });
 }
 
+function matchesCategory(actual, expected) {
+  if (actual === expected) return true;
+  if (Array.isArray(expected)) {
+    return expected.some((exp) => matchesCategory(actual, exp));
+  }
+  const aliases = {
+    GEOGRAPHICAL_PLACE: ['PLACE', 'INSTITUTION', 'GEOGRAPHICAL_PLACE'],
+    PLACE: ['PLACE', 'INSTITUTION', 'GEOGRAPHICAL_PLACE'],
+    INSTITUTION: ['PLACE', 'INSTITUTION', 'GEOGRAPHICAL_PLACE'],
+    SCIENCE: ['SCIENCE', 'SCIENCE_CONCEPT'],
+    SCIENCE_CONCEPT: ['SCIENCE', 'SCIENCE_CONCEPT'],
+    TECHNOLOGY: ['TECHNOLOGY', 'TECHNOLOGY_CONCEPT'],
+    TECHNOLOGY_CONCEPT: ['TECHNOLOGY', 'TECHNOLOGY_CONCEPT'],
+    HISTORY: ['HISTORY', 'HISTORICAL_EVENT'],
+    HISTORICAL_EVENT: ['HISTORY', 'HISTORICAL_EVENT'],
+    GENERAL: ['GENERAL', 'GENERAL_TOPIC'],
+    GENERAL_TOPIC: ['GENERAL', 'GENERAL_TOPIC'],
+    FOOD: ['FOOD'],
+    ANIMAL: ['ANIMAL'],
+    PERSON: ['PERSON'],
+  };
+  return Boolean(aliases[expected] && aliases[expected].includes(actual));
+}
+
 async function run() {
   console.log('========================================================================');
   console.log('🌍 AI TOON CONTEXT-AWARE GEOGRAPHICAL CLASSIFICATION & MAP AUDIT');
@@ -100,13 +124,13 @@ async function run() {
     {
       id: 4,
       topic: 'Photosynthesis',
-      expectedCategory: 'SCIENCE_CONCEPT',
+      expectedCategory: 'SCIENCE',
       expectedRequiresMap: false,
     },
     {
       id: 5,
       topic: 'Solar System',
-      expectedCategory: 'SCIENCE_CONCEPT',
+      expectedCategory: 'SCIENCE',
       expectedRequiresMap: false,
     },
 
@@ -114,23 +138,35 @@ async function run() {
     {
       id: 6,
       topic: 'Binary Search',
-      expectedCategory: 'TECHNOLOGY_CONCEPT',
+      expectedCategory: 'TECHNOLOGY',
+      expectedRequiresMap: false,
+    },
+    {
+      id: 7,
+      topic: 'Artificial Intelligence',
+      expectedCategory: 'TECHNOLOGY',
       expectedRequiresMap: false,
     },
 
     // 4. Food (Must NOT have map)
     {
-      id: 7,
+      id: 8,
       topic: 'Biryani',
+      expectedCategory: 'FOOD',
+      expectedRequiresMap: false,
+    },
+    {
+      id: 9,
+      topic: 'Jalebi',
       expectedCategory: 'FOOD',
       expectedRequiresMap: false,
     },
 
     // 5. Geographical Places (MUST HAVE MAP)
     {
-      id: 8,
+      id: 10,
       topic: 'Guntur',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       expectedState: 'Andhra Pradesh',
       expectedDistrict: 'Guntur',
@@ -138,9 +174,9 @@ async function run() {
       approxLon: 80.43,
     },
     {
-      id: 9,
+      id: 11,
       topic: 'Tirupati',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       expectedState: 'Andhra Pradesh',
       expectedDistrict: 'Tirupati',
@@ -148,25 +184,43 @@ async function run() {
       approxLon: 79.41,
     },
     {
-      id: 10,
+      id: 12,
+      topic: 'Donakonda',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
+      expectedRequiresMap: true,
+      expectedState: 'Andhra Pradesh',
+      approxLat: 15.89,
+      approxLon: 79.49,
+    },
+    {
+      id: 13,
+      topic: 'Hyderabad',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
+      expectedRequiresMap: true,
+      expectedState: 'Telangana',
+      approxLat: 17.38,
+      approxLon: 78.48,
+    },
+    {
+      id: 14,
       topic: 'India',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       approxLat: 20.59,
       approxLon: 78.96,
     },
     {
-      id: 11,
+      id: 15,
       topic: 'Mount Everest',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       approxLat: 27.98,
       approxLon: 86.92,
     },
     {
-      id: 12,
+      id: 16,
       topic: 'Taj Mahal',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       expectedState: 'Uttar Pradesh',
       approxLat: 27.17,
@@ -175,9 +229,17 @@ async function run() {
 
     // 6. Institutions (Physical location relevant: MUST HAVE MAP)
     {
-      id: 13,
+      id: 17,
       topic: 'Oxford University',
-      expectedCategory: 'INSTITUTION',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
+      expectedRequiresMap: true,
+      approxLat: 51.75,
+      approxLon: -1.25,
+    },
+    {
+      id: 18,
+      topic: 'Location of Oxford University',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       approxLat: 51.75,
       approxLon: -1.25,
@@ -185,22 +247,45 @@ async function run() {
 
     // 7. Explicit Location Queries about People (MUST HAVE MAP with verified place)
     {
-      id: 14,
+      id: 19,
       topic: 'Birthplace of Virat Kohli',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       expectedPlaceName: 'New Delhi',
       approxLat: 28.61,
       approxLon: 77.20,
     },
     {
-      id: 15,
+      id: 20,
       topic: 'Where is Virat Kohli from?',
-      expectedCategory: 'PLACE',
+      expectedCategory: 'GEOGRAPHICAL_PLACE',
       expectedRequiresMap: true,
       expectedPlaceName: 'New Delhi',
       approxLat: 28.61,
       approxLon: 77.20,
+    },
+
+    // 8. Ambiguous single terms (MUST HIDE MAP & BE MARKED AS AMBIGUOUS)
+    {
+      id: 21,
+      topic: 'Washington',
+      expectedCategory: 'GENERAL',
+      expectedRequiresMap: false,
+      expectedAmbiguous: true,
+    },
+    {
+      id: 22,
+      topic: 'Jordan',
+      expectedCategory: 'GENERAL',
+      expectedRequiresMap: false,
+      expectedAmbiguous: true,
+    },
+    {
+      id: 23,
+      topic: 'Victoria',
+      expectedCategory: 'GENERAL',
+      expectedRequiresMap: false,
+      expectedAmbiguous: true,
     },
   ];
 
@@ -214,7 +299,7 @@ async function run() {
       throw new Error(`Endpoint failed for "${tc.topic}": ${detectRes.status} ${detectRes.text}`);
     }
 
-    const { category, requiresMap, locationDetails, reasoning } = detectRes.data.data;
+    const { category, requiresMap, locationDetails, reasoning, isAmbiguous, ambiguityOptions } = detectRes.data.data;
 
     console.log(`   🏷️  Classified Category: [${category}] (Expected: [${tc.expectedCategory}])`);
     console.log(`   🗺️  Map Required: ${requiresMap} (Expected: ${tc.expectedRequiresMap})`);
@@ -223,7 +308,7 @@ async function run() {
     }
 
     // 1. Verify Category matches
-    if (category !== tc.expectedCategory) {
+    if (!matchesCategory(category, tc.expectedCategory)) {
       throw new Error(`FAIL on "${tc.topic}": expected category ${tc.expectedCategory}, got ${category}`);
     }
 
@@ -232,7 +317,18 @@ async function run() {
       throw new Error(`FAIL on "${tc.topic}": expected requiresMap=${tc.expectedRequiresMap}, got ${requiresMap}`);
     }
 
-    // 3. For Non-map topics, ensure location is null
+    // 3. For Ambiguous topics, ensure isAmbiguous is true and options provided
+    if (tc.expectedAmbiguous) {
+      if (!isAmbiguous) {
+        throw new Error(`FAIL on "${tc.topic}": expected isAmbiguous=true, got ${isAmbiguous}`);
+      }
+      if (!Array.isArray(ambiguityOptions) || ambiguityOptions.length < 2) {
+        throw new Error(`FAIL on "${tc.topic}": expected ambiguityOptions list with options.`);
+      }
+      console.log(`   🔀 Ambiguity detected successfully: ${ambiguityOptions.join(' | ')}`);
+    }
+
+    // 4. For Non-map topics, ensure location is null
     if (!tc.expectedRequiresMap) {
       if (locationDetails !== null) {
         throw new Error(`FAIL on "${tc.topic}": expected locationDetails to be null when requiresMap=false.`);
@@ -242,7 +338,7 @@ async function run() {
       continue;
     }
 
-    // 4. For Map topics, ensure location details exist and coordinates match
+    // 5. For Map topics, ensure location details exist and coordinates match
     if (!locationDetails) {
       throw new Error(`FAIL on "${tc.topic}": expected locationDetails object, got null.`);
     }

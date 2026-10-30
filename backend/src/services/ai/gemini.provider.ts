@@ -1,4 +1,4 @@
-import type { Story, StoryGenerationRequest } from '@ai-toon/shared';
+import type { Story, StoryGenerationRequest, GeminiTopicClassification } from '@ai-toon/shared';
 import type { IAiProvider, GeneratedStorySchema } from './ai.types.js';
 
 export class GeminiProvider implements IAiProvider {
@@ -24,6 +24,125 @@ export class GeminiProvider implements IAiProvider {
 
   public setSimulation(sim: { failStatus: number; failCount: number } | null): void {
     this.simulation = sim;
+  }
+
+  /**
+   * Fast, lightweight semantic topic classification using Google Gemini.
+   * Understands deep context, local/global entities, birthplace intent, and ambiguous names.
+   */
+  public async classifyTopic(topic: string, timeoutMs: number = 8000): Promise<GeminiTopicClassification | null> {
+    if (!this.isConfigured()) {
+      return null;
+    }
+
+    const cleanTopic = topic.trim();
+    if (!cleanTopic || cleanTopic.length < 2) {
+      return null;
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      this.model
+    )}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+
+    const prompt = `You are an expert semantic entity and geographical classifier for an educational learning platform.
+Analyze the user's requested educational topic and determine its semantic category and whether it represents or explicitly seeks a geographical place requiring a map.
+
+User Topic: "${cleanTopic}"
+
+Output valid JSON matching this schema:
+{
+  "topic": "${cleanTopic}",
+  "category": "GEOGRAPHICAL_PLACE" | "PERSON" | "SCIENCE" | "TECHNOLOGY" | "FOOD" | "ANIMAL" | "HISTORY" | "GENERAL",
+  "isGeographicalPlace": boolean,
+  "requiresMap": boolean,
+  "identifiedPlace": string | null,
+  "confidence": number,
+  "reason": string,
+  "isAmbiguous": boolean,
+  "ambiguityOptions": string[]
+}
+
+CLASSIFICATION RULES:
+1. PERSON:
+   - Celebrities, athletes, cricketers, scientists, historical personalities, leaders (e.g., "Virat Kohli", "MS Dhoni", "Albert Einstein", "Isaac Newton", "Narendra Modi").
+   - category: "PERSON", isGeographicalPlace: false, requiresMap: false, identifiedPlace: null.
+2. EXPLICIT LOCATION OR BIRTHPLACE QUESTIONS:
+   - "Birthplace of Virat Kohli", "Where is Virat Kohli from?", "Where was Einstein born?":
+   - The user is explicitly seeking a geographical location.
+   - category: "GEOGRAPHICAL_PLACE", isGeographicalPlace: true, requiresMap: true, identifiedPlace: the verified birth city/region (e.g. "New Delhi, India" for Virat Kohli, "Ranchi, Jharkhand, India" for MS Dhoni, "Ulm, Germany" for Albert Einstein).
+3. SCIENCE & TECHNOLOGY:
+   - "Photosynthesis", "Solar System", "Gravity" -> SCIENCE, isGeographicalPlace: false, requiresMap: false, identifiedPlace: null.
+   - "Binary Search", "Artificial Intelligence" -> TECHNOLOGY, isGeographicalPlace: false, requiresMap: false, identifiedPlace: null.
+4. FOOD & ANIMALS:
+   - "Biryani", "Jalebi" -> FOOD, isGeographicalPlace: false, requiresMap: false, identifiedPlace: null.
+   - "Tiger", "Blue Whale" -> ANIMAL, isGeographicalPlace: false, requiresMap: false, identifiedPlace: null.
+5. GEOGRAPHICAL PLACES:
+   - Cities, towns, villages, mandals, districts, states, countries (e.g., "Tirupati", "Guntur", "Donakonda", "Hyderabad", "India").
+   - Physical landmarks, mountains, rivers, monuments (e.g., "Mount Everest", "Taj Mahal", "Grand Canyon").
+   - Educational universities with physical campuses where location is relevant (e.g., "Oxford University", "Location of Oxford University" -> identifiedPlace: "Oxford, Oxfordshire, England, United Kingdom").
+   - category: "GEOGRAPHICAL_PLACE", isGeographicalPlace: true, requiresMap: true, identifiedPlace: exact canonical place name.
+6. AMBIGUOUS NAMES:
+   - If a bare single word is ambiguous across person/country/city (e.g., "Washington", "Jordan", "Victoria"):
+     set isAmbiguous: true, category: "GENERAL", isGeographicalPlace: false, requiresMap: false, identifiedPlace: null, and list 2-4 ambiguityOptions (e.g., ["George Washington (Person)", "Washington D.C. (US Capital)", "Washington State (US State)"]).
+   - If qualified with context (e.g. "Washington DC", "Jordan country", "Michael Jordan"), classify unambiguously.
+7. ACCURACY: Never fabricate coordinates or imaginary places. If uncertain, identifiedPlace must be null.`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 500,
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        console.warn(`[GeminiProvider] Topic classification returned HTTP ${response.status}`);
+        return null;
+      }
+
+      const jsonResult = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+      };
+
+      const rawText = jsonResult.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) return null;
+
+      const parsed = JSON.parse(rawText) as GeminiTopicClassification;
+      if (parsed && parsed.category && typeof parsed.requiresMap === 'boolean') {
+        return {
+          topic: cleanTopic,
+          category: parsed.category,
+          isGeographicalPlace: Boolean(parsed.isGeographicalPlace),
+          requiresMap: Boolean(parsed.requiresMap),
+          identifiedPlace: parsed.identifiedPlace || null,
+          confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.95,
+          reason: parsed.reason || 'Classified by Google Gemini semantic intelligence.',
+          isAmbiguous: Boolean(parsed.isAmbiguous),
+          ambiguityOptions: Array.isArray(parsed.ambiguityOptions) ? parsed.ambiguityOptions : undefined,
+        };
+      }
+      return null;
+    } catch (err) {
+      clearTimeout(timer);
+      console.warn(`[GeminiProvider] Gemini topic classification failed for "${cleanTopic}":`, err instanceof Error ? err.message : err);
+      return null;
+    }
   }
 
   public async generateStory(request: StoryGenerationRequest, timeoutMs: number = 45000): Promise<Story> {

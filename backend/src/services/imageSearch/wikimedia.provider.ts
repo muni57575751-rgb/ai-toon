@@ -424,6 +424,29 @@ export class WikimediaImageProvider implements IImageSearchProvider {
         break;
       }
 
+      case 'food': {
+        if (isPhoto) score += 12;
+        if (lowerTitle.includes('food') || lowerTitle.includes('dish') || lowerTitle.includes('recipe')) score += 12;
+        if (lowerTitle.includes('cuisine') || lowerTitle.includes('plate') || lowerTitle.includes('sweet')) score += 8;
+        if (isSvg) score -= 8;
+        break;
+      }
+
+      case 'animal': {
+        if (isPhoto) score += 12;
+        if (lowerTitle.includes('wildlife') || lowerTitle.includes('animal') || lowerTitle.includes('species')) score += 12;
+        if (lowerTitle.includes('nature') || lowerTitle.includes('wild') || lowerTitle.includes('bird')) score += 8;
+        if (isSvg) score -= 6;
+        break;
+      }
+
+      case 'history': {
+        if (isPhoto) score += 8;
+        if (lowerTitle.includes('historical') || lowerTitle.includes('archive') || lowerTitle.includes('vintage')) score += 12;
+        if (lowerTitle.includes('monument') || lowerTitle.includes('painting') || lowerTitle.includes('war')) score += 8;
+        break;
+      }
+
       default: {
         if (combined.includes('diagram') || combined.includes('illustration')) score += 4;
         break;

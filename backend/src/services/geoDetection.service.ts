@@ -1,5 +1,25 @@
 import type { LocationDetails, TopicCategory, TopicClassification } from '@ai-toon/shared';
 import { geoapifyService } from './geoapify.service.js';
+import { getAiProvider } from './ai/provider.factory.js';
+
+/**
+ * Known ambiguous single terms where map rendering must be suppressed
+ * unless the user clarifies the exact entity.
+ */
+const AMBIGUOUS_NAMES_DICT: Record<string, { reason: string; options: string[] }> = {
+  washington: {
+    reason: '"Washington" is ambiguous and can refer to George Washington, Washington D.C., or Washington State.',
+    options: ['George Washington (First US President)', 'Washington, D.C. (US Capital)', 'Washington State (US State)'],
+  },
+  jordan: {
+    reason: '"Jordan" is ambiguous and can refer to the country Jordan, Michael Jordan, or the Jordan River.',
+    options: ['Jordan (Hashemite Kingdom in Middle East)', 'Michael Jordan (Basketball Legend)', 'Jordan River (Middle Eastern River)'],
+  },
+  victoria: {
+    reason: '"Victoria" is ambiguous and can refer to Queen Victoria, Lake Victoria, Victoria State in Australia, or Victoria City in Canada.',
+    options: ['Queen Victoria (British Monarch)', 'Victoria (State in Australia)', 'Lake Victoria (African Great Lake)', 'Victoria, British Columbia (Canadian City)'],
+  },
+};
 
 /**
  * Pre-compiled dictionary of known birthplaces and origins for notable personalities.
@@ -560,23 +580,130 @@ const GEOGRAPHICAL_INDICATOR_PATTERNS = [
 ];
 
 export class GeoDetectionService {
+  private classificationCache: Map<string, TopicClassification> = new Map();
+
   /**
-   * Primary context-aware classification method.
-   * Categorizes the user's educational topic and determines whether a map is genuinely relevant.
+   * Primary context-aware classification method using Google Gemini semantic intelligence,
+   * backed by in-memory caching and a resilient local fallback classifier.
    */
-  public classifyTopic(rawTopic: string): TopicClassification {
+  public async classifyTopic(rawTopic: string): Promise<TopicClassification> {
     const topic = (rawTopic || '').trim();
     if (!topic || topic.length < 2) {
       return {
-        category: 'GENERAL_TOPIC',
-        confidence: 1.0,
+        topic: rawTopic,
+        category: 'GENERAL',
+        isGeographicalPlace: false,
         requiresMap: false,
+        identifiedPlace: null,
+        confidence: 1.0,
+        reason: 'Topic string is empty or insufficient.',
+        reasoning: 'Topic string is empty or insufficient.',
+      };
+    }
+
+    const cacheKey = topic.toLowerCase();
+    if (this.classificationCache.has(cacheKey)) {
+      return this.classificationCache.get(cacheKey)!;
+    }
+
+    // Fast-path ambiguity detection for bare names (Washington, Jordan, Victoria)
+    const cleanLower = topic.toLowerCase().replace(/[?!.,]+/g, '').trim();
+    if (AMBIGUOUS_NAMES_DICT[cleanLower]) {
+      const amb = AMBIGUOUS_NAMES_DICT[cleanLower];
+      const ambiguousResult: TopicClassification = {
+        topic,
+        category: 'GENERAL',
+        isGeographicalPlace: false,
+        requiresMap: false,
+        identifiedPlace: null,
+        confidence: 0.95,
+        reason: amb.reason,
+        reasoning: amb.reason,
+        isAmbiguous: true,
+        ambiguityOptions: amb.options,
+      };
+      this.classificationCache.set(cacheKey, ambiguousResult);
+      return ambiguousResult;
+    }
+
+    // 1. Primary: Use Gemini context-aware semantic topic classifier
+    try {
+      const aiProvider = getAiProvider();
+      if (aiProvider.isConfigured() && typeof aiProvider.classifyTopic === 'function') {
+        const geminiResult = await aiProvider.classifyTopic(topic, 6000);
+        if (geminiResult && geminiResult.category && typeof geminiResult.requiresMap === 'boolean') {
+          // If Gemini flagged ambiguity, ensure map is suppressed
+          const requiresMap = Boolean(geminiResult.requiresMap) && !geminiResult.isAmbiguous;
+          const isGeographicalPlace = Boolean(geminiResult.isGeographicalPlace) && !geminiResult.isAmbiguous;
+          const identifiedPlace = requiresMap ? (geminiResult.identifiedPlace || topic) : null;
+
+          const result: TopicClassification = {
+            topic: geminiResult.topic || topic,
+            category: geminiResult.category,
+            isGeographicalPlace,
+            requiresMap,
+            identifiedPlace,
+            confidence: geminiResult.confidence ?? 0.95,
+            reason: geminiResult.reason || 'Classified via Google Gemini semantic intelligence.',
+            reasoning: geminiResult.reason || 'Classified via Google Gemini semantic intelligence.',
+            resolvedLocationQuery: identifiedPlace,
+            isAmbiguous: Boolean(geminiResult.isAmbiguous),
+            ambiguityOptions: geminiResult.ambiguityOptions,
+          };
+
+          this.classificationCache.set(cacheKey, result);
+          return result;
+        }
+      }
+    } catch (err) {
+      console.warn(`[GeoDetection] Gemini semantic classification failed for "${topic}", using resilient local fallback:`, err);
+    }
+
+    // 2. Resilient local fallback classification (guarantees zero downtime and offline testing)
+    const fallback = this.classifyTopicLocally(topic);
+    this.classificationCache.set(cacheKey, fallback);
+    return fallback;
+  }
+
+  /**
+   * Resilient local fallback classification method.
+   * Categorizes the user's educational topic and determines whether a map is genuinely relevant
+   * using authoritative local rule-based intelligence.
+   */
+  public classifyTopicLocally(rawTopic: string): TopicClassification {
+    const topic = (rawTopic || '').trim();
+    if (!topic || topic.length < 2) {
+      return {
+        topic: rawTopic,
+        category: 'GENERAL',
+        isGeographicalPlace: false,
+        requiresMap: false,
+        identifiedPlace: null,
+        confidence: 1.0,
+        reason: 'Topic string is empty or insufficient.',
         reasoning: 'Topic string is empty or insufficient.',
       };
     }
 
     const lower = topic.toLowerCase();
     const cleanLower = lower.replace(/[?!.,]+/g, '').trim();
+
+    // Fast-path ambiguity detection for bare names
+    if (AMBIGUOUS_NAMES_DICT[cleanLower]) {
+      const amb = AMBIGUOUS_NAMES_DICT[cleanLower];
+      return {
+        topic,
+        category: 'GENERAL',
+        isGeographicalPlace: false,
+        requiresMap: false,
+        identifiedPlace: null,
+        confidence: 0.95,
+        reason: amb.reason,
+        reasoning: amb.reason,
+        isAmbiguous: true,
+        ambiguityOptions: amb.options,
+      };
+    }
 
     // =========================================================================
     // 1. EXPLICIT LOCATION QUESTIONS (e.g. "Birthplace of Virat Kohli", "Where is Virat Kohli from?")
@@ -587,10 +714,14 @@ export class GeoDetectionService {
         const resolvedPlace = KNOWN_ENTITY_LOCATIONS[extractedEntity.toLowerCase()] || extractedEntity;
 
         return {
-          category: 'PLACE',
+          topic,
+          category: 'GEOGRAPHICAL_PLACE',
+          isGeographicalPlace: true,
           confidence: 0.95,
           requiresMap: true,
+          identifiedPlace: resolvedPlace,
           resolvedLocationQuery: resolvedPlace,
+          reason: `User explicitly requested geographical origin or location of "${extractedEntity}". Map will display resolved place: "${resolvedPlace}".`,
           reasoning: `User explicitly requested geographical origin or location of "${extractedEntity}". Map will display resolved place: "${resolvedPlace}".`,
         };
       }
@@ -599,35 +730,44 @@ export class GeoDetectionService {
     // =========================================================================
     // 2. PERSON CLASSIFICATION (MUST HIDE MAP)
     // =========================================================================
-    // Check known people dictionary
     if (KNOWN_PEOPLE_LIST.has(cleanLower)) {
       return {
+        topic,
         category: 'PERSON',
+        isGeographicalPlace: false,
         confidence: 0.98,
         requiresMap: false,
+        identifiedPlace: null,
+        reason: `Topic "${topic}" represents an individual person. Biographical topics do not display maps.`,
         reasoning: `Topic "${topic}" represents an individual person. Biographical topics do not display maps.`,
       };
     }
 
-    // Check if topic begins or ends with known person name (e.g., "Virat Kohli career", "Albert Einstein biography")
     for (const person of KNOWN_PEOPLE_LIST) {
       if (cleanLower === person || cleanLower.startsWith(person + ' ') || cleanLower.endsWith(' ' + person)) {
         return {
+          topic,
           category: 'PERSON',
+          isGeographicalPlace: false,
           confidence: 0.95,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: `Topic contains reference to individual person "${person}". Geographical map is not relevant.`,
           reasoning: `Topic contains reference to individual person "${person}". Geographical map is not relevant.`,
         };
       }
     }
 
-    // Check person titles or descriptors
     for (const pat of PERSON_DESCRIPTOR_PATTERNS) {
       if (pat.test(topic)) {
         return {
+          topic,
           category: 'PERSON',
+          isGeographicalPlace: false,
           confidence: 0.85,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: 'Topic matches personal biographical or professional descriptor.',
           reasoning: 'Topic matches personal biographical or professional descriptor.',
         };
       }
@@ -639,9 +779,13 @@ export class GeoDetectionService {
     for (const pat of SCIENCE_PATTERNS) {
       if (pat.test(topic)) {
         return {
-          category: 'SCIENCE_CONCEPT',
+          topic,
+          category: 'SCIENCE',
+          isGeographicalPlace: false,
           confidence: 0.95,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: 'Topic represents a scientific, biological, or physical principle.',
           reasoning: 'Topic represents a scientific, biological, or physical principle.',
         };
       }
@@ -653,9 +797,13 @@ export class GeoDetectionService {
     for (const pat of TECHNOLOGY_PATTERNS) {
       if (pat.test(topic)) {
         return {
-          category: 'TECHNOLOGY_CONCEPT',
+          topic,
+          category: 'TECHNOLOGY',
+          isGeographicalPlace: false,
           confidence: 0.95,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: 'Topic represents a computer science, algorithm, or engineering concept.',
           reasoning: 'Topic represents a computer science, algorithm, or engineering concept.',
         };
       }
@@ -667,9 +815,13 @@ export class GeoDetectionService {
     for (const pat of FOOD_PATTERNS) {
       if (pat.test(topic)) {
         return {
+          topic,
           category: 'FOOD',
+          isGeographicalPlace: false,
           confidence: 0.95,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: 'Topic represents food, culinary preparations, or recipes.',
           reasoning: 'Topic represents food, culinary preparations, or recipes.',
         };
       }
@@ -681,9 +833,13 @@ export class GeoDetectionService {
     for (const pat of ANIMAL_PATTERNS) {
       if (pat.test(topic)) {
         return {
+          topic,
           category: 'ANIMAL',
+          isGeographicalPlace: false,
           confidence: 0.95,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: 'Topic represents wildlife, animals, or biological species.',
           reasoning: 'Topic represents wildlife, animals, or biological species.',
         };
       }
@@ -695,9 +851,13 @@ export class GeoDetectionService {
     for (const pat of HISTORICAL_EVENT_PATTERNS) {
       if (pat.test(topic)) {
         return {
-          category: 'HISTORICAL_EVENT',
+          topic,
+          category: 'HISTORY',
+          isGeographicalPlace: false,
           confidence: 0.9,
           requiresMap: false,
+          identifiedPlace: null,
+          reason: 'Topic represents a historical event or period.',
           reasoning: 'Topic represents a historical event or period.',
         };
       }
@@ -709,10 +869,14 @@ export class GeoDetectionService {
     for (const pat of INSTITUTION_PATTERNS) {
       if (pat.test(topic)) {
         return {
-          category: 'INSTITUTION',
+          topic,
+          category: 'GEOGRAPHICAL_PLACE',
+          isGeographicalPlace: true,
           confidence: 0.92,
           requiresMap: true,
+          identifiedPlace: topic,
           resolvedLocationQuery: topic,
+          reason: `Topic represents an academic institution where physical campus location is educational.`,
           reasoning: `Topic represents an academic institution where physical campus location is educational.`,
         };
       }
@@ -721,25 +885,31 @@ export class GeoDetectionService {
     // =========================================================================
     // 9. PLACE / GEOGRAPHICAL ENTITY (SHOW MAP)
     // =========================================================================
-    // Check known place seeds
     if (PLACE_SEEDS.has(cleanLower)) {
       return {
-        category: 'PLACE',
+        topic,
+        category: 'GEOGRAPHICAL_PLACE',
+        isGeographicalPlace: true,
         confidence: 0.98,
         requiresMap: true,
+        identifiedPlace: topic,
         resolvedLocationQuery: topic,
+        reason: `Topic "${topic}" is an authoritative known geographical place or physical landmark.`,
         reasoning: `Topic "${topic}" is an authoritative known geographical place or physical landmark.`,
       };
     }
 
-    // Check geographical indicator patterns (village, city, river, mountain, monument, etc.)
     for (const pat of GEOGRAPHICAL_INDICATOR_PATTERNS) {
       if (pat.test(topic)) {
         return {
-          category: 'PLACE',
+          topic,
+          category: 'GEOGRAPHICAL_PLACE',
+          isGeographicalPlace: true,
           confidence: 0.9,
           requiresMap: true,
+          identifiedPlace: topic,
           resolvedLocationQuery: topic,
+          reason: `Topic contains geographical descriptor matching ${pat}.`,
           reasoning: `Topic contains geographical descriptor matching ${pat}.`,
         };
       }
@@ -749,9 +919,13 @@ export class GeoDetectionService {
     // 10. GENERAL TOPIC (DEFAULT TO NO MAP TO PREVENT FALSE POSITIVES)
     // =========================================================================
     return {
-      category: 'GENERAL_TOPIC',
+      topic,
+      category: 'GENERAL',
+      isGeographicalPlace: false,
       confidence: 0.7,
       requiresMap: false,
+      identifiedPlace: null,
+      reason: 'Topic does not exhibit genuine geographical intent. Map is hidden by default.',
       reasoning: 'Topic does not exhibit genuine geographical intent. Map is hidden by default.',
     };
   }
@@ -765,9 +939,9 @@ export class GeoDetectionService {
     classification: TopicClassification;
     requiresMap: boolean;
   }> {
-    const classification = this.classifyTopic(topic);
+    const classification = await this.classifyTopic(topic);
 
-    // If classified as not requiring a map (Person, Science, Tech, Food, Animal, General):
+    // If classified as not requiring a map (Person, Science, Tech, Food, Animal, Ambiguous, General):
     // DO NOT query geocoding services. Returns location: null, requiresMap: false.
     if (!classification.requiresMap) {
       return {
@@ -777,8 +951,8 @@ export class GeoDetectionService {
       };
     }
 
-    // If classified as requiring a map (Place, Institution, or Explicit Location Request):
-    const targetQuery = (classification.resolvedLocationQuery || topic).trim();
+    // If classified as requiring a map (Geographical place, Institution, or Explicit Location Request):
+    const targetQuery = (classification.identifiedPlace || classification.resolvedLocationQuery || topic).trim();
     try {
       const location = await geoapifyService.geocodeLocation(targetQuery);
       if (location && location.isLocation) {

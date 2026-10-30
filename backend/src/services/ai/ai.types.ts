@@ -1,10 +1,11 @@
-import type { Story, StoryGenerationRequest } from '@ai-toon/shared';
+import type { Story, StoryGenerationRequest, GeminiTopicClassification } from '@ai-toon/shared';
 
 export interface IAiProvider {
   readonly name: string;
   readonly model: string;
   isConfigured(): boolean;
   generateStory(request: StoryGenerationRequest, timeoutMs?: number): Promise<Story>;
+  classifyTopic?(topic: string, timeoutMs?: number): Promise<GeminiTopicClassification | null>;
 }
 
 export interface GeneratedStorySchema {

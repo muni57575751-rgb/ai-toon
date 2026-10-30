@@ -91,7 +91,34 @@ export class ImageSearchService {
     }
 
     // 1. Classify the overall story topic
-    const classification: EntityClassification = entityClassifier.classify(story.topic);
+    let classification: EntityClassification = entityClassifier.classify(story.topic);
+
+    // If story already carries semantic category from Gemini / GeoDetection, harmonize it:
+    if (story.topicCategory) {
+      const topCat = story.topicCategory;
+      if (topCat === 'PERSON') {
+        classification = { category: 'person', confidence: 0.98, entityName: story.topic };
+      } else if (topCat === 'GEOGRAPHICAL_PLACE' || topCat === 'PLACE') {
+        classification = {
+          category: 'place',
+          confidence: 0.98,
+          entityName: story.locationDetails?.placeName || story.topic,
+        };
+      } else if (topCat === 'INSTITUTION') {
+        classification = { category: 'institution', confidence: 0.95, entityName: story.topic };
+      } else if (topCat === 'SCIENCE' || topCat === 'SCIENCE_CONCEPT') {
+        classification = { category: 'scientific', confidence: 0.95, entityName: story.topic };
+      } else if (topCat === 'TECHNOLOGY' || topCat === 'TECHNOLOGY_CONCEPT') {
+        classification = { category: 'technical', confidence: 0.95, entityName: story.topic };
+      } else if (topCat === 'FOOD') {
+        classification = { category: 'food', confidence: 0.95, entityName: story.topic };
+      } else if (topCat === 'ANIMAL') {
+        classification = { category: 'animal', confidence: 0.95, entityName: story.topic };
+      } else if (topCat === 'HISTORY' || topCat === 'HISTORICAL_EVENT') {
+        classification = { category: 'history', confidence: 0.95, entityName: story.topic };
+      }
+    }
+
     console.log(
       `[ImageSearchService] Classified topic "${story.topic}" as [${classification.category.toUpperCase()}] (confidence: ${classification.confidence}, entity: "${classification.entityName}")`
     );
@@ -269,6 +296,15 @@ export class ImageSearchService {
       if (headingHint.length > 2 && headingHint !== titleHint) {
         candidateQueries.push(`${classification.entityName} ${headingHint} diagram`);
       }
+    } else if (classification.category === 'food') {
+      candidateQueries.push(`${classification.entityName} authentic food photograph`);
+      candidateQueries.push(`${classification.entityName} dish`);
+    } else if (classification.category === 'animal') {
+      candidateQueries.push(`${classification.entityName} wildlife photograph`);
+      candidateQueries.push(`${classification.entityName} animal species`);
+    } else if (classification.category === 'history') {
+      candidateQueries.push(`${classification.entityName} historical photograph`);
+      candidateQueries.push(`${classification.entityName} archival artwork`);
     }
 
     // Clean up, normalize and deduplicate queries

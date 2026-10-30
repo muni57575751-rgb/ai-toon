@@ -164,6 +164,80 @@ const TECHNICAL_KEYWORDS = [
   'cloud computing',
 ];
 
+const FOOD_KEYWORDS = [
+  'biryani',
+  'jalebi',
+  'samosa',
+  'dosa',
+  'idli',
+  'gulab jamun',
+  'laddu',
+  'laddoo',
+  'pizza',
+  'burger',
+  'pasta',
+  'ice cream',
+  'chocolate',
+  'roti',
+  'naan',
+  'curry',
+  'sandwich',
+  'tacos',
+  'sushi',
+  'paneer',
+  'pulao',
+  'rasgulla',
+  'kheer',
+  'kebab',
+  'halwa',
+  'pav bhaji',
+  'vada pav',
+  'chole bhature',
+];
+
+const ANIMAL_KEYWORDS = [
+  'tiger',
+  'lion',
+  'elephant',
+  'peacock',
+  'cheetah',
+  'giraffe',
+  'zebra',
+  'kangaroo',
+  'panda',
+  'whale',
+  'dolphin',
+  'eagle',
+  'penguin',
+  'chameleon',
+  'octopus',
+  'koala',
+  'chimpanzee',
+  'gorilla',
+  'wolf',
+  'bear',
+  'crocodile',
+  'snake',
+  'shark',
+];
+
+const HISTORY_KEYWORDS = [
+  'world war',
+  'french revolution',
+  'industrial revolution',
+  'american civil war',
+  'cold war',
+  'd-day',
+  'quit india movement',
+  'dandi march',
+  'non-cooperation movement',
+  'battle of plassey',
+  'battle of panipat',
+  'sepoy mutiny',
+  'revolt of 1857',
+  'renaissance',
+];
+
 const KNOWN_PEOPLE = [
   'narendra modi',
   'modi',
@@ -319,7 +393,43 @@ export class EntityClassifier {
       }
     }
 
-    // 6. Heuristic: 2-3 capitalized words with no common concept verbs might be a person
+    // 6. Check Food
+    for (const food of FOOD_KEYWORDS) {
+      if (lower.includes(food) || rawLower.includes(food)) {
+        return {
+          category: 'food',
+          confidence: 0.92,
+          entityName: cleanName,
+          secondaryContext: context,
+        };
+      }
+    }
+
+    // 7. Check Animals
+    for (const animal of ANIMAL_KEYWORDS) {
+      if (lower.includes(animal) || rawLower.includes(animal)) {
+        return {
+          category: 'animal',
+          confidence: 0.92,
+          entityName: cleanName,
+          secondaryContext: context,
+        };
+      }
+    }
+
+    // 8. Check History
+    for (const hist of HISTORY_KEYWORDS) {
+      if (lower.includes(hist) || rawLower.includes(hist)) {
+        return {
+          category: 'history',
+          confidence: 0.9,
+          entityName: cleanName,
+          secondaryContext: context,
+        };
+      }
+    }
+
+    // 9. Heuristic: 2-3 capitalized words with no common concept verbs might be a person
     const words = cleanName.split(/\s+/).filter(Boolean);
     const isCapitalizedName =
       words.length >= 2 &&
@@ -503,6 +613,49 @@ export class EntityClassifier {
           queries.push(`${entityName} algorithm diagram`);
           queries.push(`${entityName} architecture diagram`);
           queries.push(`${entityName} diagram`);
+          queries.push(entityName);
+        }
+        break;
+      }
+
+      case 'food': {
+        if (slotIndex === 0) {
+          queries.push(`${entityName} food photograph`);
+          queries.push(`${entityName} dish`);
+          queries.push(`${entityName} cuisine`);
+          queries.push(entityName);
+        } else {
+          queries.push(`${entityName} recipe preparation`);
+          queries.push(`${entityName} plate`);
+          queries.push(`${entityName} sweet`);
+          queries.push(entityName);
+        }
+        break;
+      }
+
+      case 'animal': {
+        if (slotIndex === 0) {
+          queries.push(`${entityName} wildlife photograph`);
+          queries.push(`${entityName} animal`);
+          queries.push(`${entityName} in wild`);
+          queries.push(entityName);
+        } else {
+          queries.push(`${entityName} species photograph`);
+          queries.push(`${entityName} nature`);
+          queries.push(entityName);
+        }
+        break;
+      }
+
+      case 'history': {
+        if (slotIndex === 0) {
+          queries.push(`${entityName} historical photograph`);
+          queries.push(`${entityName} archival artwork`);
+          queries.push(`${entityName} history`);
+          queries.push(entityName);
+        } else {
+          queries.push(`${entityName} illustration`);
+          queries.push(`${entityName} monument`);
           queries.push(entityName);
         }
         break;

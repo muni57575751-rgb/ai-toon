@@ -4,6 +4,9 @@ export type EntityCategory =
   | 'place'
   | 'scientific'
   | 'technical'
+  | 'food'
+  | 'animal'
+  | 'history'
   | 'other';
 
 export interface ImageSearchResult {
