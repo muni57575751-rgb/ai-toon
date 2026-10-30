@@ -15,6 +15,7 @@ import type {
   Story,
   QuizAttemptRecord,
 } from '@ai-toon/shared';
+import { isAccountApproved } from '@ai-toon/shared';
 
 interface LessonRecord extends Story {
   userId: string;
@@ -71,8 +72,10 @@ export const AdminPage: React.FC = () => {
 
   // Filtering & Modal State
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'verified' | 'pending' | 'suspended'>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'verified' | 'pending' | 'suspended' | 'rejected'>('all');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'user' | 'admin'>('all');
+  const [userSortOrder, setUserSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
+  const [notifView, setNotifView] = useState<'pending' | 'all'>('pending');
   const [selectedUser, setSelectedUser] = useState<MemberRecord | null>(null);
   const [lessonSearch, setLessonSearch] = useState<string>('');
   const [quizSearch, setQuizSearch] = useState<string>('');
@@ -206,6 +209,54 @@ export const AdminPage: React.FC = () => {
   };
 
   // --- Member Actions ---
+  const handleApproveMember = async (id: string, targetRole: UserRole = 'user') => {
+    setActionLoadingId(id);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/admin/members/${id}/approve`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ role: targetRole }),
+      });
+      const parsed = await safeJsonParse(res);
+      if (parsed.ok && parsed.data?.success) {
+        showNotification('Student account approved successfully! Access granted.');
+        fetchData();
+      } else {
+        showNotification(parsed.error || parsed.data?.error?.message || 'Failed to approve member', true);
+      }
+    } catch {
+      showNotification('Network error approving member.', true);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRejectMember = async (id: string) => {
+    if (!window.confirm('Are you sure you want to reject this registration application?')) {
+      return;
+    }
+    setActionLoadingId(id);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/admin/members/${id}/reject`, {
+        method: 'POST',
+        headers,
+      });
+      const parsed = await safeJsonParse(res);
+      if (parsed.ok && parsed.data?.success) {
+        showNotification('Registration application rejected.');
+        fetchData();
+      } else {
+        showNotification(parsed.error || parsed.data?.error?.message || 'Failed to reject member', true);
+      }
+    } catch {
+      showNotification('Network error rejecting member.', true);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const handleVerify = async (id: string, verificationStatus: MemberVerificationStatus) => {
     setActionLoadingId(id);
     try {
@@ -428,23 +479,40 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  // Filtered lists
-  const filteredMembers = members.filter((m) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = !q || m.email.toLowerCase().includes(q) || m.fullName.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
-    const matchesStatus =
-      userStatusFilter === 'all'
-        ? true
-        : userStatusFilter === 'verified'
-        ? m.verificationStatus === 'verified'
-        : userStatusFilter === 'pending'
-        ? m.verificationStatus === 'pending'
-        : m.verificationStatus === 'suspended';
-    const matchesRole = userRoleFilter === 'all' ? true : m.role === userRoleFilter;
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  // Filtered and sorted lists
+  const filteredMembers = members
+    .filter((m) => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        m.email.toLowerCase().includes(q) ||
+        m.fullName.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q);
+      const matchesStatus =
+        userStatusFilter === 'all'
+          ? true
+          : userStatusFilter === 'verified'
+          ? isAccountApproved(m.verificationStatus)
+          : userStatusFilter === 'pending'
+          ? m.verificationStatus === 'pending'
+          : userStatusFilter === 'rejected'
+          ? m.verificationStatus === 'rejected'
+          : m.verificationStatus === 'suspended';
+      const matchesRole = userRoleFilter === 'all' ? true : m.role === userRoleFilter;
+      return matchesSearch && matchesStatus && matchesRole;
+    })
+    .sort((a, b) => {
+      if (userSortOrder === 'newest') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (userSortOrder === 'oldest') {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
 
   const pendingNotifs = notifications.filter((n) => n.status === 'pending');
+  const displayedNotifs = notifView === 'pending' ? pendingNotifs : notifications;
 
   const filteredLessons = lessons.filter((l) => {
     const q = lessonSearch.toLowerCase().trim();
@@ -1035,17 +1103,35 @@ export const AdminPage: React.FC = () => {
 
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {/* Status Tabs */}
-                      {(['all', 'verified', 'pending', 'suspended'] as const).map((st) => (
+                      {[
+                        { key: 'all', label: `All (${members.length})` },
+                        { key: 'verified', label: `Approved (${members.filter(m => isAccountApproved(m.verificationStatus)).length})` },
+                        { key: 'pending', label: `Pending (${members.filter(m => m.verificationStatus === 'pending').length})` },
+                        { key: 'rejected', label: `Rejected (${members.filter(m => m.verificationStatus === 'rejected').length})` },
+                        { key: 'suspended', label: `Suspended (${members.filter(m => m.verificationStatus === 'suspended').length})` },
+                      ].map(({ key, label }) => (
                         <button
-                          key={st}
+                          key={key}
                           type="button"
-                          onClick={() => setUserStatusFilter(st)}
-                          className={`admin-btn ${userStatusFilter === st ? 'admin-btn-primary' : 'admin-btn-secondary'}`}
-                          style={{ textTransform: 'capitalize' }}
+                          onClick={() => setUserStatusFilter(key as any)}
+                          className={`admin-btn ${userStatusFilter === key ? 'admin-btn-primary' : 'admin-btn-secondary'}`}
                         >
-                          {st}
+                          {label}
                         </button>
                       ))}
+
+                      {/* Sort Order Selector */}
+                      <select
+                        value={userSortOrder}
+                        onChange={(e) => setUserSortOrder(e.target.value as any)}
+                        className="admin-btn admin-btn-secondary"
+                        style={{ padding: '0.45rem 0.75rem', cursor: 'pointer', background: '#ffffff' }}
+                        aria-label="Sort users"
+                      >
+                        <option value="newest">📅 Newest First</option>
+                        <option value="oldest">📅 Oldest First</option>
+                        <option value="name">🔤 Name (A-Z)</option>
+                      </select>
 
                       {/* Role Tabs */}
                       {(['all', 'user', 'admin'] as const).map((rl) => (
@@ -1124,8 +1210,8 @@ export const AdminPage: React.FC = () => {
                                   </span>
                                 </td>
                                 <td>
-                                  <span className={`status-pill ${m.verificationStatus}`}>
-                                    {m.verificationStatus === 'verified' && '✅ Verified'}
+                                  <span className={`status-pill ${isAccountApproved(m.verificationStatus) ? 'verified' : m.verificationStatus}`}>
+                                    {isAccountApproved(m.verificationStatus) && '✅ Approved'}
                                     {m.verificationStatus === 'pending' && '⏳ Pending Review'}
                                     {m.verificationStatus === 'suspended' && '🚫 Suspended'}
                                     {m.verificationStatus === 'rejected' && '❌ Rejected'}
@@ -1163,9 +1249,32 @@ export const AdminPage: React.FC = () => {
                                     </button>
 
                                     {m.verificationStatus === 'pending' && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApproveMember(m.id)}
+                                          disabled={actionLoadingId === m.id}
+                                          className="admin-btn admin-btn-success"
+                                          style={{ padding: '0.35rem 0.6rem' }}
+                                        >
+                                          Approve
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRejectMember(m.id)}
+                                          disabled={actionLoadingId === m.id}
+                                          className="admin-btn admin-btn-secondary"
+                                          style={{ color: '#dc2626', padding: '0.35rem 0.6rem' }}
+                                        >
+                                          Reject
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {m.verificationStatus === 'rejected' && (
                                       <button
                                         type="button"
-                                        onClick={() => handleVerify(m.id, 'verified')}
+                                        onClick={() => handleApproveMember(m.id)}
                                         disabled={actionLoadingId === m.id}
                                         className="admin-btn admin-btn-success"
                                         style={{ padding: '0.35rem 0.6rem' }}
@@ -1174,7 +1283,7 @@ export const AdminPage: React.FC = () => {
                                       </button>
                                     )}
 
-                                    {!isMaster && m.verificationStatus === 'verified' && (
+                                    {!isMaster && isAccountApproved(m.verificationStatus) && (
                                       <button
                                         type="button"
                                         onClick={() => handleSuspend(m.id)}
@@ -1245,20 +1354,35 @@ export const AdminPage: React.FC = () => {
                         Review student registration requests before granting platform access
                       </p>
                     </div>
-                    <span className="status-pill pending">
-                      {pendingNotifs.length} pending review
-                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setNotifView('pending')}
+                        className={`admin-btn ${notifView === 'pending' ? 'admin-btn-primary' : 'admin-btn-secondary'}`}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
+                      >
+                        Pending Review ({pendingNotifs.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotifView('all')}
+                        className={`admin-btn ${notifView === 'all' ? 'admin-btn-primary' : 'admin-btn-secondary'}`}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
+                      >
+                        All History ({notifications.length})
+                      </button>
+                    </div>
                   </div>
 
-                  {pendingNotifs.length === 0 ? (
+                  {displayedNotifs.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: '#64748b' }}>
                       <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎉</div>
                       <h4 style={{ margin: '0 0 0.35rem 0', color: '#0f172a', fontWeight: 800 }}>Queue is all clear!</h4>
-                      <p style={{ margin: 0, fontSize: '0.9rem' }}>All student registrations have been reviewed and approved.</p>
+                      <p style={{ margin: 0, fontSize: '0.9rem' }}>No student registrations found for this view.</p>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      {pendingNotifs.map((n) => (
+                      {displayedNotifs.map((n) => (
                         <div
                           key={n.id}
                           style={{
@@ -1301,24 +1425,32 @@ export const AdminPage: React.FC = () => {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleApproveNotif(n.id, 'user')}
-                              disabled={actionLoadingId === n.id}
-                              className="admin-btn admin-btn-success"
-                              style={{ padding: '0.5rem 1rem' }}
-                            >
-                              Approve Student
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRejectNotif(n.id)}
-                              disabled={actionLoadingId === n.id}
-                              className="admin-btn admin-btn-danger"
-                              style={{ padding: '0.5rem 1rem' }}
-                            >
-                              Reject
-                            </button>
+                            {n.status === 'pending' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveNotif(n.id, 'user')}
+                                  disabled={actionLoadingId === n.id}
+                                  className="admin-btn admin-btn-success"
+                                  style={{ padding: '0.5rem 1rem' }}
+                                >
+                                  Approve Student
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectNotif(n.id)}
+                                  disabled={actionLoadingId === n.id}
+                                  className="admin-btn admin-btn-danger"
+                                  style={{ padding: '0.5rem 1rem' }}
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            ) : (
+                              <span className={`status-pill ${n.status === 'approved' ? 'verified' : n.status}`}>
+                                {n.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       ))}

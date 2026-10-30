@@ -95,23 +95,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const parsed = await safeJsonParse(res);
       if (parsed.ok && parsed.data?.success && parsed.data.data) {
         const d = parsed.data.data;
-        setProfile((prev) => {
-          if (!prev) return buildProfile(user, d);
-          return {
-            ...prev,
-            fullName: d.fullName || prev.fullName,
-            role: d.role,
-            verificationStatus: d.verificationStatus,
-            sessionStatus: d.sessionStatus,
-            lastActiveAt: d.lastActiveAt,
-            lastLoginAt: d.lastLoginAt,
-          };
-        });
+        const freshStatus = d.verificationStatus || d.profile?.verificationStatus || 'verified';
+        const freshRole = d.role || d.profile?.role || 'user';
+        const freshToken = d.token || token;
+        const freshExpiresAt = d.expiresAt || expiresAt;
+
+        const updatedProfile: UserProfile = {
+          id: user.id,
+          email: user.email || '',
+          fullName: d.fullName || d.profile?.fullName || user.user_metadata?.full_name || 'Member',
+          role: freshRole,
+          verificationStatus: freshStatus,
+          sessionStatus: d.sessionStatus || 'logged_in',
+          createdAt: d.createdAt || user.created_at || new Date().toISOString(),
+          lastLoginAt: d.lastLoginAt || new Date().toISOString(),
+          lastActiveAt: d.lastActiveAt || new Date().toISOString(),
+          preferredLanguage: 'en',
+          preferredTone: 'funny',
+        };
+
+        setProfile(updatedProfile);
+
+        if (freshToken) {
+          setToken(freshToken);
+          setExpiresAt(freshExpiresAt);
+          setSession({
+            access_token: freshToken,
+            expires_at: freshExpiresAt ? Math.floor(freshExpiresAt / 1000) : 0,
+            user,
+          } as unknown as Session);
+        }
+
+        // Persist fresh profile and token to localStorage so state survives page refresh
+        localStorage.setItem(
+          AUTH_STORAGE_KEY,
+          JSON.stringify({
+            user,
+            profile: updatedProfile,
+            token: freshToken,
+            expiresAt: freshExpiresAt,
+          })
+        );
       }
     } catch (err) {
       console.warn('[AuthContext] refreshProfile error:', err);
     }
-  }, [user, getAuthHeaders]);
+  }, [user, token, expiresAt, getAuthHeaders]);
 
   useEffect(() => {
     // Clean up any legacy demo keys
@@ -157,13 +186,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .then((parsedRes) => {
               if (parsedRes.ok && parsedRes.data?.success && parsedRes.data.data) {
                 const d = parsedRes.data.data;
-                if (d.verificationStatus === 'suspended') {
-                  setProfile((prev) => (prev ? { ...prev, verificationStatus: 'suspended' } : null));
-                } else if (d.verificationStatus === 'pending') {
-                  setProfile((prev) => (prev ? { ...prev, verificationStatus: 'pending' } : null));
-                } else {
-                  setProfile(buildProfile(parsed.user, d));
+                const freshStatus = d.verificationStatus || d.profile?.verificationStatus || 'verified';
+                const freshRole = d.role || d.profile?.role || parsed.profile?.role || 'user';
+                const freshToken = d.token || parsed.token;
+                const freshExpiresAt = d.expiresAt || parsed.expiresAt;
+
+                const updatedProfile: UserProfile = {
+                  ...(parsed.profile || buildProfile(parsed.user, d)),
+                  fullName: d.fullName || d.profile?.fullName || parsed.profile?.fullName || parsed.user.user_metadata?.full_name || 'Member',
+                  verificationStatus: freshStatus,
+                  role: freshRole,
+                  sessionStatus: d.sessionStatus || 'logged_in',
+                  lastActiveAt: d.lastActiveAt || new Date().toISOString(),
+                };
+
+                setProfile(updatedProfile);
+                if (freshToken) {
+                  setToken(freshToken);
+                  setExpiresAt(freshExpiresAt);
+                  setSession({
+                    access_token: freshToken,
+                    expires_at: freshExpiresAt ? Math.floor(freshExpiresAt / 1000) : 0,
+                    user: parsed.user,
+                  } as unknown as Session);
                 }
+
+                localStorage.setItem(
+                  AUTH_STORAGE_KEY,
+                  JSON.stringify({
+                    user: parsed.user,
+                    profile: updatedProfile,
+                    token: freshToken,
+                    expiresAt: freshExpiresAt,
+                  })
+                );
               }
             })
             .catch(() => {});

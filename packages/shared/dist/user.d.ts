@@ -1,6 +1,8 @@
 export type UserRole = 'user' | 'admin';
-export type MemberVerificationStatus = 'verified' | 'pending' | 'rejected' | 'suspended';
+export type MemberVerificationStatus = 'verified' | 'approved' | 'pending' | 'rejected' | 'suspended';
 export type MemberSessionStatus = 'logged_in' | 'logged_out';
+export declare const isAccountApproved: (status?: string | null) => boolean;
+export declare const normalizeVerificationStatus: (status?: string | null) => MemberVerificationStatus;
 export declare const MAX_ADMIN_LIMIT = 5;
 export interface AdminNotification {
     id: string;
@@ -54,6 +56,7 @@ export interface AdminStats {
     userCount: number;
     pendingCount: number;
     suspendedCount?: number;
+    rejectedCount?: number;
     unreadNotificationsCount?: number;
     totalLessonsGenerated?: number;
     totalQuizzesCompleted?: number;

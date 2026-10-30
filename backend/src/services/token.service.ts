@@ -123,3 +123,4 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
 
   return null;
 }
+

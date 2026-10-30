@@ -1,1 +1,80 @@
-[]
+[
+  {
+    "id": "admin_act_1793362617386_zad3",
+    "timestamp": "2026-10-30T12:16:57.386Z",
+    "adminId": "admin",
+    "adminEmail": "muni57575751@gmail.com",
+    "action": "APPROVE_ACCOUNT",
+    "targetId": "user-1793362617355-0z9ew",
+    "targetEmail": "bob_1793362617342@example.com",
+    "details": {
+      "role": "user",
+      "verifiedAt": "2026-10-30T12:16:57.385Z"
+    }
+  },
+  {
+    "id": "admin_act_1793362617382_mlmq",
+    "timestamp": "2026-10-30T12:16:57.382Z",
+    "adminId": "admin",
+    "adminEmail": "muni57575751@gmail.com",
+    "action": "APPROVE_ACCOUNT",
+    "targetId": "user-1793362617356-7gc62",
+    "targetEmail": "charlie_1793362617342@example.com",
+    "details": {
+      "role": "user",
+      "verifiedAt": "2026-10-30T12:16:57.380Z"
+    }
+  },
+  {
+    "id": "admin_act_1793362617350_g2lw",
+    "timestamp": "2026-10-30T12:16:57.350Z",
+    "adminId": "admin",
+    "adminEmail": "muni57575751@gmail.com",
+    "action": "APPROVE_ACCOUNT",
+    "targetId": "user-1793362617342-ru6el",
+    "targetEmail": "student_alice_1793362617342@example.com",
+    "details": {
+      "role": "user",
+      "verifiedAt": "2026-10-30T12:16:57.348Z"
+    }
+  },
+  {
+    "id": "admin_act_1793362551287_048d",
+    "timestamp": "2026-10-30T12:15:51.287Z",
+    "adminId": "admin",
+    "adminEmail": "muni57575751@gmail.com",
+    "action": "APPROVE_ACCOUNT",
+    "targetId": "user-1793362551256-3qt1m",
+    "targetEmail": "bob@example.com",
+    "details": {
+      "role": "user",
+      "verifiedAt": "2026-10-30T12:15:51.286Z"
+    }
+  },
+  {
+    "id": "admin_act_1793362551283_kvbz",
+    "timestamp": "2026-10-30T12:15:51.283Z",
+    "adminId": "admin",
+    "adminEmail": "muni57575751@gmail.com",
+    "action": "APPROVE_ACCOUNT",
+    "targetId": "user-1793362551258-zgmyz",
+    "targetEmail": "charlie@example.com",
+    "details": {
+      "role": "user",
+      "verifiedAt": "2026-10-30T12:15:51.281Z"
+    }
+  },
+  {
+    "id": "admin_act_1793362551251_cq9i",
+    "timestamp": "2026-10-30T12:15:51.251Z",
+    "adminId": "admin",
+    "adminEmail": "muni57575751@gmail.com",
+    "action": "APPROVE_ACCOUNT",
+    "targetId": "user-1793362551244-0g4eg",
+    "targetEmail": "student_alice@example.com",
+    "details": {
+      "role": "user",
+      "verifiedAt": "2026-10-30T12:15:51.249Z"
+    }
+  }
+]

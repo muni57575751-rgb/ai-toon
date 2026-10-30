@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth, MASTER_ADMIN_EMAIL } from '../../context/AuthContext';
+import { isAccountApproved } from '@ai-toon/shared';
 
 export const ProtectedRoute: React.FC = () => {
   const { user, profile, loading, refreshProfile, signOut } = useAuth();
   const location = useLocation();
   const [checking, setChecking] = useState(false);
+
+  // Auto-poll approval status every 4 seconds while awaiting review
+  useEffect(() => {
+    if (!user || !profile) return;
+    if (profile.verificationStatus === 'pending') {
+      const interval = setInterval(() => {
+        refreshProfile();
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [user, profile?.verificationStatus, refreshProfile]);
 
   if (loading) {
     return (
@@ -40,6 +52,16 @@ export const ProtectedRoute: React.FC = () => {
   if (!user) {
     // Redirect unauthenticated users to /login, remembering where they were trying to go
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Admins always have immediate access
+  if (profile?.role === 'admin' || user.email?.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase()) {
+    return <Outlet />;
+  }
+
+  // Approved users proceed to the requested route
+  if (isAccountApproved(profile?.verificationStatus)) {
+    return <Outlet />;
   }
 
   // Account Pending Approval Screen
@@ -144,6 +166,43 @@ export const ProtectedRoute: React.FC = () => {
             color: '#991b1b',
           }}>
             For assistance, please contact the administrator at <strong>{MASTER_ADMIN_EMAIL}</strong>.
+          </div>
+          <button
+            onClick={() => signOut()}
+            className="btn-neoclay-secondary"
+            style={{ padding: '0.65rem 1.5rem' }}
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Account Rejected Screen
+  if (profile?.verificationStatus === 'rejected') {
+    return (
+      <div className="auth-page-container" style={{ minHeight: '75vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+        <div className="auth-card" style={{ maxWidth: '500px', textAlign: 'center', padding: '2.5rem' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>
+            ❌
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#dc2626', marginBottom: '0.75rem' }}>
+            Registration Not Approved
+          </h2>
+          <p style={{ color: 'var(--navy-600)', lineHeight: 1.6, marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+            Your registration application was reviewed and not approved by the administrator.
+          </p>
+          <div style={{
+            background: '#fef2f2',
+            border: '1.5px solid #fecaca',
+            borderRadius: 'var(--radius-md)',
+            padding: '1rem',
+            marginBottom: '1.5rem',
+            fontSize: '0.9rem',
+            color: '#991b1b',
+          }}>
+            If you believe this was an error, please reach out to <strong>{MASTER_ADMIN_EMAIL}</strong>.
           </div>
           <button
             onClick={() => signOut()}

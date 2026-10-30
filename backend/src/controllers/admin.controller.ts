@@ -225,20 +225,20 @@ export const getNotifications = (_req: AuthenticatedAdminRequest, res: Response)
   });
 };
 
-export const approveNotification = (req: AuthenticatedAdminRequest, res: Response): void => {
+export const approveMember = (req: AuthenticatedAdminRequest, res: Response): void => {
   const id = getParamId(req.params.id);
   const { role } = req.body;
 
   if (!id) {
     res.status(400).json({
       success: false,
-      error: { code: 'MISSING_ID', message: 'Notification ID is required.' },
+      error: { code: 'MISSING_ID', message: 'Target member ID or notification ID is required.' },
     });
     return;
   }
 
   const targetRole = role === 'admin' ? 'admin' : 'user';
-  const result = memberService.approveNotification(id, targetRole, req.adminMember?.email);
+  const result = memberService.approveMember(id, targetRole, req.adminMember?.email);
 
   if (!result.success) {
     res.status(400).json({
@@ -268,18 +268,18 @@ export const approveNotification = (req: AuthenticatedAdminRequest, res: Respons
   });
 };
 
-export const rejectNotification = (req: AuthenticatedAdminRequest, res: Response): void => {
+export const rejectMember = (req: AuthenticatedAdminRequest, res: Response): void => {
   const id = getParamId(req.params.id);
 
   if (!id) {
     res.status(400).json({
       success: false,
-      error: { code: 'MISSING_ID', message: 'Notification ID is required.' },
+      error: { code: 'MISSING_ID', message: 'Target member ID or notification ID is required.' },
     });
     return;
   }
 
-  const result = memberService.rejectNotification(id, req.adminMember?.email);
+  const result = memberService.rejectMember(id, req.adminMember?.email);
 
   if (!result.success) {
     res.status(400).json({
@@ -287,6 +287,9 @@ export const rejectNotification = (req: AuthenticatedAdminRequest, res: Response
       error: {
         code: 'REJECTION_ERROR',
         message: result.error,
+      },
+      meta: {
+        stats: memberService.getStats(),
       },
     });
     return;
@@ -304,6 +307,14 @@ export const rejectNotification = (req: AuthenticatedAdminRequest, res: Response
       timestamp: new Date().toISOString(),
     },
   });
+};
+
+export const approveNotification = (req: AuthenticatedAdminRequest, res: Response): void => {
+  return approveMember(req, res);
+};
+
+export const rejectNotification = (req: AuthenticatedAdminRequest, res: Response): void => {
+  return rejectMember(req, res);
 };
 
 export const resetAllAccounts = (_req: AuthenticatedAdminRequest, res: Response): void => {

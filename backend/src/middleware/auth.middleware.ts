@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { memberService, MASTER_ADMIN_EMAIL } from '../services/member.service.js';
 import { verifyAuthToken } from '../services/token.service.js';
 import type { MemberRecord } from '@ai-toon/shared';
+import { isAccountApproved } from '@ai-toon/shared';
 
 export interface AuthenticatedUserRequest extends Request {
   user?: MemberRecord;
@@ -33,6 +34,12 @@ export function resolveUserFromRequest(req: Request): {
           statusCode: 401,
         },
       };
+    }
+
+    // Check database first to get authoritative live status instead of relying on token's potentially stale status
+    const dbMember = memberService.getMemberById(payload.id) || memberService.getMemberByEmail(payload.email);
+    if (dbMember) {
+      return { member: dbMember };
     }
 
     // Hydrate / synchronize member in current serverless container
@@ -126,6 +133,12 @@ export const requireApprovedUser = (
 
   // Administrators always have full access
   if (user.role === 'admin' || user.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase()) {
+    next();
+    return;
+  }
+
+  // If approved or verified, grant access immediately
+  if (isAccountApproved(user.verificationStatus)) {
     next();
     return;
   }

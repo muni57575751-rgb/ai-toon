@@ -5,6 +5,8 @@ import {
   getStats,
   updateMemberRole,
   verifyMember,
+  approveMember,
+  rejectMember,
   deleteMember,
   getNotifications,
   approveNotification,
@@ -31,6 +33,8 @@ adminRouter.get('/members', getMembers);
 adminRouter.get('/stats', getStats);
 adminRouter.patch('/members/:id/role', updateMemberRole);
 adminRouter.patch('/members/:id/verify', verifyMember);
+adminRouter.post('/members/:id/approve', approveMember);
+adminRouter.post('/members/:id/reject', rejectMember);
 adminRouter.post('/members/:id/suspend', suspendMember);
 adminRouter.post('/members/:id/reactivate', reactivateMember);
 adminRouter.delete('/members/:id', deleteMember);

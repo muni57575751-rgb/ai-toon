@@ -1,1 +1,100 @@
-[]
+[
+  {
+    "id": "notif-1793362551245-bg0s",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362551244-0g4eg",
+    "fullName": "Alice Student",
+    "email": "student_alice@example.com",
+    "createdAt": "2026-10-30T12:15:51.244Z",
+    "read": true,
+    "status": "approved",
+    "actionedAt": "2026-10-30T12:15:51.249Z",
+    "actionedBy": "muni57575751@gmail.com",
+    "approvedRole": "user"
+  },
+  {
+    "id": "notif-1793362551256-m5h5",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362551256-3qt1m",
+    "fullName": "Bob",
+    "email": "bob@example.com",
+    "createdAt": "2026-10-30T12:15:51.256Z",
+    "read": true,
+    "status": "approved",
+    "actionedAt": "2026-10-30T12:15:51.286Z",
+    "actionedBy": "muni57575751@gmail.com",
+    "approvedRole": "user"
+  },
+  {
+    "id": "notif-1793362551258-5zuz",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362551258-zgmyz",
+    "fullName": "Charlie",
+    "email": "charlie@example.com",
+    "createdAt": "2026-10-30T12:15:51.258Z",
+    "read": true,
+    "status": "approved",
+    "actionedAt": "2026-10-30T12:15:51.281Z",
+    "actionedBy": "muni57575751@gmail.com",
+    "approvedRole": "user"
+  },
+  {
+    "id": "notif-1793362551265-k8si",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362551264-kuy5x",
+    "fullName": "David",
+    "email": "david@example.com",
+    "createdAt": "2026-10-30T12:15:51.264Z",
+    "read": false,
+    "status": "pending"
+  },
+  {
+    "id": "notif-1793362617343-01rk",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362617342-ru6el",
+    "fullName": "Alice Student",
+    "email": "student_alice_1793362617342@example.com",
+    "createdAt": "2026-10-30T12:16:57.342Z",
+    "read": true,
+    "status": "approved",
+    "actionedAt": "2026-10-30T12:16:57.348Z",
+    "actionedBy": "muni57575751@gmail.com",
+    "approvedRole": "user"
+  },
+  {
+    "id": "notif-1793362617355-64p1",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362617355-0z9ew",
+    "fullName": "Bob",
+    "email": "bob_1793362617342@example.com",
+    "createdAt": "2026-10-30T12:16:57.355Z",
+    "read": true,
+    "status": "approved",
+    "actionedAt": "2026-10-30T12:16:57.385Z",
+    "actionedBy": "muni57575751@gmail.com",
+    "approvedRole": "user"
+  },
+  {
+    "id": "notif-1793362617357-uzta",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362617356-7gc62",
+    "fullName": "Charlie",
+    "email": "charlie_1793362617342@example.com",
+    "createdAt": "2026-10-30T12:16:57.356Z",
+    "read": true,
+    "status": "approved",
+    "actionedAt": "2026-10-30T12:16:57.380Z",
+    "actionedBy": "muni57575751@gmail.com",
+    "approvedRole": "user"
+  },
+  {
+    "id": "notif-1793362617364-smdi",
+    "type": "NEW_REGISTRATION",
+    "memberId": "user-1793362617363-5fnnr",
+    "fullName": "David",
+    "email": "david_1793362617342@example.com",
+    "createdAt": "2026-10-30T12:16:57.363Z",
+    "read": false,
+    "status": "pending"
+  }
+]

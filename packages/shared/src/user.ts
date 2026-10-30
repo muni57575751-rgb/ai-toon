@@ -1,6 +1,21 @@
 export type UserRole = 'user' | 'admin';
-export type MemberVerificationStatus = 'verified' | 'pending' | 'rejected' | 'suspended';
+export type MemberVerificationStatus = 'verified' | 'approved' | 'pending' | 'rejected' | 'suspended';
 export type MemberSessionStatus = 'logged_in' | 'logged_out';
+
+export const isAccountApproved = (status?: string | null): boolean => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === 'verified' || s === 'approved';
+};
+
+export const normalizeVerificationStatus = (status?: string | null): MemberVerificationStatus => {
+  if (!status) return 'pending';
+  const s = status.toLowerCase();
+  if (s === 'approved' || s === 'verified') return 'verified';
+  if (s === 'suspended') return 'suspended';
+  if (s === 'rejected') return 'rejected';
+  return 'pending';
+};
 
 export const MAX_ADMIN_LIMIT = 5;
 
@@ -59,6 +74,7 @@ export interface AdminStats {
   userCount: number;
   pendingCount: number;
   suspendedCount?: number;
+  rejectedCount?: number;
   unreadNotificationsCount?: number;
   totalLessonsGenerated?: number;
   totalQuizzesCompleted?: number;

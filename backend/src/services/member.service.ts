@@ -15,7 +15,10 @@ import {
   QuizAttemptRecord,
   Story,
   LearningProgress,
+  isAccountApproved,
+  normalizeVerificationStatus,
 } from '@ai-toon/shared';
+import { dbService } from './db.service.js';
 
 import os from 'os';
 
@@ -378,6 +381,7 @@ export class MemberService {
     let userCount = 0;
     let pendingCount = 0;
     let suspendedCount = 0;
+    let rejectedCount = 0;
     let unreadNotificationsCount = 0;
 
     for (const m of this.members.values()) {
@@ -388,7 +392,8 @@ export class MemberService {
       else userCount++;
 
       if (m.verificationStatus === 'pending') pendingCount++;
-      if (m.verificationStatus === 'suspended') suspendedCount++;
+      else if (m.verificationStatus === 'suspended') suspendedCount++;
+      else if (m.verificationStatus === 'rejected') rejectedCount++;
     }
 
     for (const n of this.notifications.values()) {
@@ -419,6 +424,7 @@ export class MemberService {
       userCount,
       pendingCount,
       suspendedCount,
+      rejectedCount,
       unreadNotificationsCount,
       totalLessonsGenerated,
       totalQuizzesCompleted,
@@ -662,6 +668,10 @@ export class MemberService {
     this.notifications.set(notification.id, notification);
     this.saveNotificationsToFile();
 
+    // Sync registration with Supabase
+    dbService.upsertMember(newMember).catch(() => {});
+    dbService.upsertNotification(notification).catch(() => {});
+
     return {
       success: true,
       pendingApproval: initialStatus === 'pending',
@@ -678,19 +688,25 @@ export class MemberService {
     );
   }
 
-  public approveNotification(
-    notificationId: string,
+  public approveMember(
+    identifier: string,
     role: UserRole = 'user',
     adminEmail: string = MASTER_ADMIN_EMAIL
   ): { success: boolean; member?: MemberRecord; notification?: AdminNotification; error?: string } {
-    const notif = this.notifications.get(notificationId);
-    if (!notif) {
-      return { success: false, error: 'Notification not found.' };
+    let member = this.getMemberById(identifier) || this.getMemberByEmail(identifier);
+    let matchedNotif: AdminNotification | undefined;
+
+    // Check if identifier is a notification ID
+    const directNotif = this.notifications.get(identifier);
+    if (directNotif) {
+      matchedNotif = directNotif;
+      if (!member) {
+        member = this.getMemberById(directNotif.memberId) || this.getMemberByEmail(directNotif.email);
+      }
     }
 
-    const member = this.getMemberById(notif.memberId) || this.getMemberByEmail(notif.email);
     if (!member) {
-      return { success: false, error: 'Corresponding member not found.' };
+      return { success: false, error: `Account with identifier "${identifier}" not found.` };
     }
 
     if (role === 'admin' && member.role !== 'admin') {
@@ -710,16 +726,29 @@ export class MemberService {
     member.verificationStatus = 'verified';
     member.verifiedAt = now;
     member.verifiedBy = adminEmail;
+    member.lastActiveAt = now;
     this.members.set(member.id, member);
     this.saveToFile();
 
-    notif.status = 'approved';
-    notif.read = true;
-    notif.actionedAt = now;
-    notif.actionedBy = adminEmail;
-    notif.approvedRole = member.role;
-    this.notifications.set(notif.id, notif);
+    // Synchronize all notifications associated with this member
+    for (const notif of this.notifications.values()) {
+      if (notif.memberId === member.id || notif.email.toLowerCase() === member.email.toLowerCase()) {
+        notif.status = 'approved';
+        notif.read = true;
+        notif.actionedAt = now;
+        notif.actionedBy = adminEmail;
+        notif.approvedRole = member.role;
+        this.notifications.set(notif.id, notif);
+        matchedNotif = notif;
+      }
+    }
     this.saveNotificationsToFile();
+
+    // Async sync to Supabase
+    dbService.updateMemberStatus(member.id, 'verified', member.role, adminEmail).catch(() => {});
+    if (matchedNotif) {
+      dbService.upsertNotification(matchedNotif).catch(() => {});
+    }
 
     this.recordAdminAction({
       adminId: 'admin',
@@ -727,45 +756,79 @@ export class MemberService {
       action: 'APPROVE_ACCOUNT',
       targetId: member.id,
       targetEmail: member.email,
-      details: { role: member.role },
+      details: { role: member.role, verifiedAt: now },
     });
 
-    return { success: true, member, notification: notif };
+    return { success: true, member, notification: matchedNotif };
+  }
+
+  public rejectMember(
+    identifier: string,
+    adminEmail: string = MASTER_ADMIN_EMAIL
+  ): { success: boolean; member?: MemberRecord; notification?: AdminNotification; error?: string } {
+    let member = this.getMemberById(identifier) || this.getMemberByEmail(identifier);
+    let matchedNotif: AdminNotification | undefined;
+
+    const directNotif = this.notifications.get(identifier);
+    if (directNotif) {
+      matchedNotif = directNotif;
+      if (!member) {
+        member = this.getMemberById(directNotif.memberId) || this.getMemberByEmail(directNotif.email);
+      }
+    }
+
+    if (!member) {
+      return { success: false, error: `Account with identifier "${identifier}" not found.` };
+    }
+
+    const now = new Date().toISOString();
+    member.verificationStatus = 'rejected';
+    member.lastActiveAt = now;
+    this.members.set(member.id, member);
+    this.saveToFile();
+
+    for (const notif of this.notifications.values()) {
+      if (notif.memberId === member.id || notif.email.toLowerCase() === member.email.toLowerCase()) {
+        notif.status = 'rejected';
+        notif.read = true;
+        notif.actionedAt = now;
+        notif.actionedBy = adminEmail;
+        this.notifications.set(notif.id, notif);
+        matchedNotif = notif;
+      }
+    }
+    this.saveNotificationsToFile();
+
+    dbService.updateMemberStatus(member.id, 'rejected', undefined, adminEmail).catch(() => {});
+    if (matchedNotif) {
+      dbService.upsertNotification(matchedNotif).catch(() => {});
+    }
+
+    this.recordAdminAction({
+      adminId: 'admin',
+      adminEmail,
+      action: 'REJECT_ACCOUNT',
+      targetId: member.id,
+      targetEmail: member.email,
+      details: { rejectedAt: now },
+    });
+
+    return { success: true, member, notification: matchedNotif };
+  }
+
+  public approveNotification(
+    notificationId: string,
+    role: UserRole = 'user',
+    adminEmail: string = MASTER_ADMIN_EMAIL
+  ): { success: boolean; member?: MemberRecord; notification?: AdminNotification; error?: string } {
+    return this.approveMember(notificationId, role, adminEmail);
   }
 
   public rejectNotification(
     notificationId: string,
     adminEmail: string = MASTER_ADMIN_EMAIL
   ): { success: boolean; member?: MemberRecord; notification?: AdminNotification; error?: string } {
-    const notif = this.notifications.get(notificationId);
-    if (!notif) {
-      return { success: false, error: 'Notification not found.' };
-    }
-
-    const member = this.getMemberById(notif.memberId) || this.getMemberByEmail(notif.email);
-    if (member) {
-      member.verificationStatus = 'rejected';
-      this.members.set(member.id, member);
-      this.saveToFile();
-    }
-
-    const now = new Date().toISOString();
-    notif.status = 'rejected';
-    notif.read = true;
-    notif.actionedAt = now;
-    notif.actionedBy = adminEmail;
-    this.notifications.set(notif.id, notif);
-    this.saveNotificationsToFile();
-
-    this.recordAdminAction({
-      adminId: 'admin',
-      adminEmail,
-      action: 'REJECT_ACCOUNT',
-      targetId: member?.id,
-      targetEmail: member?.email,
-    });
-
-    return { success: true, member, notification: notif };
+    return this.rejectMember(notificationId, adminEmail);
   }
 
   public markNotificationsRead(): void {
@@ -896,42 +959,27 @@ export class MemberService {
     newRole?: UserRole,
     performedBy: string = MASTER_ADMIN_EMAIL
   ): { success: boolean; member?: MemberRecord; error?: string } {
+    if (verificationStatus === 'verified' || verificationStatus === 'approved') {
+      const res = this.approveMember(targetId, newRole || 'user', performedBy);
+      return { success: res.success, member: res.member, error: res.error };
+    }
+    if (verificationStatus === 'rejected') {
+      const res = this.rejectMember(targetId, performedBy);
+      return { success: res.success, member: res.member, error: res.error };
+    }
+
     const target = this.getMemberById(targetId);
     if (!target) {
       return { success: false, error: `Member with id "${targetId}" not found.` };
     }
 
-    if (newRole === 'admin' && target.role !== 'admin') {
-      const currentAdmins = this.getAdminCount();
-      if (currentAdmins >= MAX_ADMIN_LIMIT) {
-        return {
-          success: false,
-          error: `Cannot set Admin role. Maximum limit of ${MAX_ADMIN_LIMIT} administrators has been reached (${currentAdmins}/${MAX_ADMIN_LIMIT}).`,
-        };
-      }
-      target.role = 'admin';
-    } else if (newRole && newRole !== target.role) {
-      if (target.role === 'admin' && newRole === 'user') {
-        const currentAdmins = this.getAdminCount();
-        if (currentAdmins <= 1) {
-          return {
-            success: false,
-            error: 'Cannot demote the last remaining administrator in the system.',
-          };
-        }
-      }
-      target.role = newRole;
-    }
-
     target.verificationStatus = verificationStatus;
-    if (verificationStatus === 'verified') {
-      target.verifiedAt = new Date().toISOString();
-      target.verifiedBy = performedBy;
-    }
     target.lastActiveAt = new Date().toISOString();
 
     this.members.set(target.id, target);
     this.saveToFile();
+
+    dbService.updateMemberStatus(target.id, verificationStatus, newRole, performedBy).catch(() => {});
 
     this.recordAdminAction({
       adminId: 'admin',
@@ -1157,13 +1205,31 @@ export class MemberService {
       return existing;
     }
 
+    // Check if there is an approved notification for this user across serverless containers
+    let inferredStatus: MemberVerificationStatus = payload.verificationStatus || 'pending';
+    if (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase()) {
+      inferredStatus = 'verified';
+    } else {
+      for (const notif of this.notifications.values()) {
+        if (notif.memberId === payload.id || notif.email.toLowerCase() === payload.email.toLowerCase()) {
+          if (notif.status === 'approved') {
+            inferredStatus = 'verified';
+            break;
+          } else if (notif.status === 'rejected') {
+            inferredStatus = 'rejected';
+            break;
+          }
+        }
+      }
+    }
+
     const newMember: MemberRecord = {
       id: payload.id,
       email: payload.email,
       fullName: payload.fullName || payload.email.split('@')[0],
       password: '',
       role: payload.role || (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? 'admin' : 'user'),
-      verificationStatus: payload.verificationStatus || (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? 'verified' : 'pending'),
+      verificationStatus: inferredStatus,
       sessionStatus: 'logged_in',
       lastActiveAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
