@@ -27,11 +27,30 @@ export const createApp = (): Express => {
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
 
+  // Support pre-parsed body from Vercel Serverless Function wrapper without hanging stream
+  app.use((req, _res, next) => {
+    if (req.body && typeof req.body === 'object') {
+      (req as any)._body = true;
+    }
+    next();
+  });
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
   // Restore original request URL when rewritten by serverless catch-all routing
   app.use((req, _res, next) => {
+    // 1. If Vercel catch-all passed path in req.query.path
+    if (req.query && req.query.path) {
+      const segments = Array.isArray(req.query.path)
+        ? req.query.path.join('/')
+        : String(req.query.path);
+      const qIdx = req.url ? req.url.indexOf('?') : -1;
+      const qStr = qIdx !== -1 ? req.url.slice(qIdx) : '';
+      req.url = `/api/${segments.replace(/^\/+/, '')}${qStr}`;
+    }
+
+    // 2. Check serverless headers
     const headerPath =
       (req.headers['x-matched-path'] as string) ||
       (req.headers['x-forwarded-uri'] as string) ||
@@ -39,7 +58,12 @@ export const createApp = (): Express => {
       (req.headers['x-invoke-path'] as string) ||
       (req.headers['x-rewrite-url'] as string);
 
-    if (headerPath && (headerPath.startsWith('/api') || headerPath === '/health' || headerPath.startsWith('/health')) && headerPath !== '/api' && headerPath !== '/api/') {
+    if (
+      headerPath &&
+      (headerPath.startsWith('/api') || headerPath === '/health' || headerPath.startsWith('/health')) &&
+      headerPath !== '/api' &&
+      headerPath !== '/api/'
+    ) {
       const qIdx = req.url.indexOf('?');
       const qStr = qIdx !== -1 ? req.url.slice(qIdx) : '';
       req.url = headerPath.split('?')[0] + qStr;

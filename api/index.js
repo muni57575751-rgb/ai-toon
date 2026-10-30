@@ -27996,9 +27996,21 @@ var createApp = () => {
   });
   app2.use(corsMiddleware);
   app2.options("*", corsMiddleware);
+  app2.use((req, _res, next) => {
+    if (req.body && typeof req.body === "object") {
+      req._body = true;
+    }
+    next();
+  });
   app2.use(import_express8.default.json());
   app2.use(import_express8.default.urlencoded({ extended: true }));
   app2.use((req, _res, next) => {
+    if (req.query && req.query.path) {
+      const segments = Array.isArray(req.query.path) ? req.query.path.join("/") : String(req.query.path);
+      const qIdx = req.url ? req.url.indexOf("?") : -1;
+      const qStr = qIdx !== -1 ? req.url.slice(qIdx) : "";
+      req.url = `/api/${segments.replace(/^\/+/, "")}${qStr}`;
+    }
     const headerPath = req.headers["x-matched-path"] || req.headers["x-forwarded-uri"] || req.headers["x-original-url"] || req.headers["x-invoke-path"] || req.headers["x-rewrite-url"];
     if (headerPath && (headerPath.startsWith("/api") || headerPath === "/health" || headerPath.startsWith("/health")) && headerPath !== "/api" && headerPath !== "/api/") {
       const qIdx = req.url.indexOf("?");
@@ -28043,6 +28055,12 @@ var createApp = () => {
 // backend/src/serverless.ts
 var app = createApp();
 function handler(req, res) {
+  if (req.query && req.query.path) {
+    const segments = Array.isArray(req.query.path) ? req.query.path.join("/") : String(req.query.path);
+    const qIdx = req.url ? req.url.indexOf("?") : -1;
+    const qStr = qIdx !== -1 ? req.url.slice(qIdx) : "";
+    req.url = `/api/${segments.replace(/^\/+/, "")}${qStr}`;
+  }
   return app(req, res);
 }
 export {

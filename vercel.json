@@ -6,19 +6,11 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/api",
-      "destination": "/api/index.js"
-    },
-    {
       "source": "/health",
-      "destination": "/api/index.js"
+      "destination": "/api/health"
     },
     {
-      "source": "/((?!assets/|favicon.ico|robots.txt|manifest.json).*)",
+      "source": "/((?!api/|api$|health|assets/|favicon\\.ico|favicon\\.svg|icons\\.svg|robots\\.txt|manifest\\.json).*)",
       "destination": "/index.html"
     }
   ],
