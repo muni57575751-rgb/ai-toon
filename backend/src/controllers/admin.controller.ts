@@ -406,3 +406,28 @@ export const exportReport = (_req: AuthenticatedAdminRequest, res: Response): vo
     meta: { timestamp: new Date().toISOString() },
   });
 };
+
+
+export const getAllLessons = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const lessons = memberService.getAllUserStories();
+  res.json({
+    success: true,
+    data: lessons,
+    meta: {
+      total: lessons.length,
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+export const getAllQuizzes = (_req: AuthenticatedAdminRequest, res: Response): void => {
+  const quizzes = memberService.getAllQuizAttempts();
+  res.json({
+    success: true,
+    data: quizzes,
+    meta: {
+      total: quizzes.length,
+      timestamp: new Date().toISOString(),
+    },
+  });
+};

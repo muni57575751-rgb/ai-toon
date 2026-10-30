@@ -10,7 +10,7 @@ interface StoryViewerProps {
 }
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
-  const { user } = useAuth();
+  const { user, getAuthHeaders } = useAuth();
 
   // Interactive Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -39,11 +39,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
     try {
       await fetch(`${API_BASE_URL}/stories/quiz/attempt`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-          'x-user-email': user.email || '',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           storyId: story.id,
           topic: story.topic,

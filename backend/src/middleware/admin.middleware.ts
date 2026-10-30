@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { memberService } from '../services/member.service.js';
+import { resolveUserFromRequest } from './auth.middleware.js';
+import { MASTER_ADMIN_EMAIL } from '../services/member.service.js';
 
 export interface AuthenticatedAdminRequest extends Request {
   adminMember?: {
@@ -15,54 +16,32 @@ export interface AuthenticatedAdminRequest extends Request {
  * Blocks unauthenticated users (401) and normal/non-admin users (403).
  */
 export const requireAdmin = (req: AuthenticatedAdminRequest, res: Response, next: NextFunction): void => {
-  const userId = (req.headers['x-user-id'] as string) || '';
-  const userEmail = (req.headers['x-user-email'] as string) || '';
-  const claimedRole = (req.headers['x-user-role'] as string) || '';
+  const resolved = resolveUserFromRequest(req);
 
-  if (!userId && !userEmail) {
-    res.status(401).json({
+  if (resolved.error) {
+    res.status(resolved.error.statusCode).json({
       success: false,
       error: {
-        code: 'UNAUTHORIZED',
+        code: resolved.error.code,
         message: 'Authentication required: You must be signed in to access admin resources.',
       },
-      meta: {
-        timestamp: new Date().toISOString(),
-      },
+      meta: { timestamp: new Date().toISOString() },
     });
     return;
   }
 
-  // Look up actual verified record in member service
-  const member = (userId ? memberService.getMemberById(userId) : undefined) ||
-                 (userEmail ? memberService.getMemberByEmail(userEmail) : undefined);
+  const member = resolved.member!;
 
-  if (!member) {
-    // If account not found in members store, check if client is claiming admin without record
+  // Strict check: only verified admins or master admin
+  const isMaster = member.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+  if (member.role !== 'admin' && !isMaster) {
     res.status(403).json({
       success: false,
       error: {
         code: 'FORBIDDEN_ADMIN_ONLY',
-        message: 'Access denied: Member profile not found in system or not authorized as administrator.',
+        message: 'Access denied: Administrator privileges required to access this portal.',
       },
-      meta: {
-        timestamp: new Date().toISOString(),
-      },
-    });
-    return;
-  }
-
-  // Strict role check against verified record
-  if (member.role !== 'admin' || (claimedRole && claimedRole !== 'admin')) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN_ADMIN_ONLY',
-        message: 'Access denied: Admin privileges required. Normal student/user accounts cannot access admin-only pages or APIs.',
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-      },
+      meta: { timestamp: new Date().toISOString() },
     });
     return;
   }
@@ -76,4 +55,3 @@ export const requireAdmin = (req: AuthenticatedAdminRequest, res: Response, next
 
   next();
 };
-

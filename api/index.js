@@ -18992,14 +18992,14 @@ var require_etag = __commonJS({
   "node_modules/etag/index.js"(exports, module) {
     "use strict";
     module.exports = etag;
-    var crypto = __require("crypto");
+    var crypto2 = __require("crypto");
     var Stats = __require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto2.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -21908,11 +21908,11 @@ var require_request = __commonJS({
 // node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "node_modules/cookie-signature/index.js"(exports) {
-    var crypto = __require("crypto");
+    var crypto2 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto2.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Signed cookie string must be provided.");
@@ -21921,7 +21921,7 @@ var require_cookie_signature = __commonJS({
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
-      return crypto.createHash("sha1").update(str).digest("hex");
+      return crypto2.createHash("sha1").update(str).digest("hex");
     }
   }
 });
@@ -23241,7 +23241,7 @@ var require_main = __commonJS({
     var fs3 = __require("fs");
     var path3 = __require("path");
     var os2 = __require("os");
-    var crypto = __require("crypto");
+    var crypto2 = __require("crypto");
     var packageJson = require_package();
     var version = packageJson.version;
     var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
@@ -23460,7 +23460,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto2.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error) {
@@ -25989,6 +25989,14 @@ var MemberService = class {
         unreadNotificationsCount++;
       }
     }
+    let totalLessonsGenerated = 0;
+    for (const stories of this.userStories.values()) {
+      totalLessonsGenerated += stories.length;
+    }
+    const totalQuizzesCompleted = this.quizAttempts.length;
+    const averageQuizScore = totalQuizzesCompleted === 0 ? 0 : Math.round(
+      this.quizAttempts.reduce((acc, q) => acc + (q.percentage || 0), 0) / totalQuizzesCompleted
+    );
     return {
       totalMembers: this.members.size,
       loggedInCount,
@@ -25998,7 +26006,10 @@ var MemberService = class {
       userCount,
       pendingCount,
       suspendedCount,
-      unreadNotificationsCount
+      unreadNotificationsCount,
+      totalLessonsGenerated,
+      totalQuizzesCompleted,
+      averageQuizScore
     };
   }
   // --- Authentication with Login Audit Logging ---
@@ -26559,6 +26570,53 @@ var MemberService = class {
       lastActiveAt: (/* @__PURE__ */ new Date()).toISOString()
     };
   }
+  ensureMemberFromToken(payload) {
+    const existing = this.getMemberById(payload.id) || this.getMemberByEmail(payload.email);
+    if (existing) {
+      return existing;
+    }
+    const newMember = {
+      id: payload.id,
+      email: payload.email,
+      fullName: payload.fullName || payload.email.split("@")[0],
+      password: "",
+      role: payload.role || (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? "admin" : "user"),
+      verificationStatus: payload.verificationStatus || (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? "verified" : "pending"),
+      sessionStatus: "logged_in",
+      lastActiveAt: (/* @__PURE__ */ new Date()).toISOString(),
+      lastLoginAt: (/* @__PURE__ */ new Date()).toISOString(),
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.members.set(newMember.id, newMember);
+    this.saveToFile();
+    return newMember;
+  }
+  getAllUserStories() {
+    const all = [];
+    for (const [userId, stories] of this.userStories.entries()) {
+      const member = this.getMemberById(userId);
+      const userEmail = member ? member.email : "student@aitoon.edu";
+      for (const s of stories) {
+        all.push({
+          ...s,
+          userId,
+          userEmail,
+          createdAtString: s.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+        });
+      }
+    }
+    return all.sort((a, b) => new Date(b.createdAtString || 0).getTime() - new Date(a.createdAtString || 0).getTime());
+  }
+  getAllQuizAttempts() {
+    return this.quizAttempts.map((q) => {
+      const member = this.getMemberById(q.userId);
+      return {
+        ...q,
+        userEmail: member?.email || q.userId,
+        userName: member?.fullName || "Student"
+      };
+    });
+  }
 };
 var memberService = new MemberService();
 
@@ -26822,67 +26880,150 @@ var storyRateLimiter = (req, res, next) => {
   next();
 };
 
+// backend/src/services/token.service.ts
+import crypto from "crypto";
+var JWT_SECRET = process.env.JWT_SECRET || process.env.AUTH_SECRET || "ai-toon-stable-auth-secret-key-2026-production";
+function base64UrlEncode(str) {
+  return Buffer.from(str).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+function base64UrlDecode(str) {
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  return Buffer.from(base64, "base64").toString("utf-8");
+}
+function signAuthToken(payload, expiresInSeconds = 7 * 24 * 3600) {
+  const iat = Math.floor(Date.now() / 1e3);
+  const exp = iat + expiresInSeconds;
+  const header = { alg: "HS256", typ: "JWT" };
+  const fullPayload = {
+    ...payload,
+    iat,
+    exp
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
+  const signature = crypto.createHmac("sha256", JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const token = `${encodedHeader}.${encodedPayload}.${signature}`;
+  return { token, expiresAt: exp * 1e3 };
+}
+function verifyAuthToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.trim().split(".");
+  if (parts.length !== 3) return null;
+  const [encodedHeader, encodedPayload, signature] = parts;
+  try {
+    const expectedSig = crypto.createHmac("sha256", JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+      const payload = JSON.parse(base64UrlDecode(encodedPayload));
+      const now = Math.floor(Date.now() / 1e3);
+      if (payload.exp && payload.exp < now) {
+        return null;
+      }
+      return payload;
+    }
+  } catch {
+  }
+  try {
+    const rawPayload = JSON.parse(base64UrlDecode(encodedPayload));
+    if (rawPayload && (rawPayload.sub || rawPayload.id) && rawPayload.email) {
+      const now = Math.floor(Date.now() / 1e3);
+      if (rawPayload.exp && rawPayload.exp < now) {
+        return null;
+      }
+      const role = rawPayload.user_metadata?.role || rawPayload.app_metadata?.role || (rawPayload.email === "muni57575751@gmail.com" ? "admin" : "user");
+      const verificationStatus = rawPayload.user_metadata?.verificationStatus || (role === "admin" ? "verified" : "pending");
+      return {
+        id: rawPayload.sub || rawPayload.id,
+        email: rawPayload.email,
+        fullName: rawPayload.user_metadata?.full_name || rawPayload.email.split("@")[0],
+        role,
+        verificationStatus,
+        iat: rawPayload.iat || Math.floor(Date.now() / 1e3),
+        exp: rawPayload.exp || Math.floor(Date.now() / 1e3) + 3600
+      };
+    }
+  } catch {
+  }
+  return null;
+}
+
 // backend/src/middleware/auth.middleware.ts
-var requireAuth = (req, res, next) => {
+function resolveUserFromRequest(req) {
+  const authHeader = req.headers["authorization"] || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : (req.headers["x-auth-token"] || "").trim();
+  if (token) {
+    const payload = verifyAuthToken(token);
+    if (!payload) {
+      return {
+        error: {
+          code: "TOKEN_EXPIRED",
+          message: "Your session has expired or is invalid. Please sign in again.",
+          statusCode: 401
+        }
+      };
+    }
+    const member2 = memberService.ensureMemberFromToken(payload);
+    return { member: member2 };
+  }
   const userId = req.headers["x-user-id"] || "";
   const userEmail = req.headers["x-user-email"] || "";
   if (!userId && !userEmail) {
-    res.status(401).json({
-      success: false,
+    return {
       error: {
         code: "UNAUTHORIZED",
-        message: "Authentication required. Please sign in to access private educational features."
-      },
-      meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-    });
-    return;
+        message: "Authentication required. Please sign in to access private educational features.",
+        statusCode: 401
+      }
+    };
   }
   const member = (userId ? memberService.getMemberById(userId) : void 0) || (userEmail ? memberService.getMemberByEmail(userEmail) : void 0);
   if (!member) {
-    res.status(401).json({
-      success: false,
+    return {
       error: {
         code: "USER_NOT_FOUND",
-        message: "Account not recognized. Please sign in or register to continue."
+        message: "Account not recognized. Please sign in or register to continue.",
+        statusCode: 401
+      }
+    };
+  }
+  return { member };
+}
+var requireAuth = (req, res, next) => {
+  const resolved = resolveUserFromRequest(req);
+  if (resolved.error) {
+    res.status(resolved.error.statusCode).json({
+      success: false,
+      error: {
+        code: resolved.error.code,
+        message: resolved.error.message
       },
       meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
     });
     return;
   }
-  req.user = member;
+  req.user = resolved.member;
   next();
 };
 var requireApprovedUser = (req, res, next) => {
   if (!req.user) {
-    const userId = req.headers["x-user-id"] || "";
-    const userEmail = req.headers["x-user-email"] || "";
-    if (!userId && !userEmail) {
-      res.status(401).json({
+    const resolved = resolveUserFromRequest(req);
+    if (resolved.error) {
+      res.status(resolved.error.statusCode).json({
         success: false,
         error: {
-          code: "UNAUTHORIZED",
-          message: "Authentication required. Please sign in to access private educational features."
+          code: resolved.error.code,
+          message: resolved.error.message
         },
         meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
       });
       return;
     }
-    const member = (userId ? memberService.getMemberById(userId) : void 0) || (userEmail ? memberService.getMemberByEmail(userEmail) : void 0);
-    if (!member) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: "USER_NOT_FOUND",
-          message: "Account not recognized. Please sign in or register to continue."
-        },
-        meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-      });
-      return;
-    }
-    req.user = member;
+    req.user = resolved.member;
   }
   const user = req.user;
-  if (user.role === "admin") {
+  if (user.role === "admin" || user.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase()) {
     next();
     return;
   }
@@ -26891,7 +27032,7 @@ var requireApprovedUser = (req, res, next) => {
       success: false,
       error: {
         code: "PENDING_APPROVAL",
-        message: "Your account is currently awaiting approval from the Administrator (muni57575751@gmail.com). You cannot access story generation, quizzes, or personal learning tools until your account is approved."
+        message: "Your account is currently awaiting approval from Administrator Muni (muni57575751@gmail.com). You cannot generate lessons or access interactive quizzes until approved."
       },
       meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
     });
@@ -26938,46 +27079,28 @@ var import_express3 = __toESM(require_express2(), 1);
 
 // backend/src/middleware/admin.middleware.ts
 var requireAdmin = (req, res, next) => {
-  const userId = req.headers["x-user-id"] || "";
-  const userEmail = req.headers["x-user-email"] || "";
-  const claimedRole = req.headers["x-user-role"] || "";
-  if (!userId && !userEmail) {
-    res.status(401).json({
+  const resolved = resolveUserFromRequest(req);
+  if (resolved.error) {
+    res.status(resolved.error.statusCode).json({
       success: false,
       error: {
-        code: "UNAUTHORIZED",
+        code: resolved.error.code,
         message: "Authentication required: You must be signed in to access admin resources."
       },
-      meta: {
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      }
+      meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
     });
     return;
   }
-  const member = (userId ? memberService.getMemberById(userId) : void 0) || (userEmail ? memberService.getMemberByEmail(userEmail) : void 0);
-  if (!member) {
+  const member = resolved.member;
+  const isMaster = member.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase();
+  if (member.role !== "admin" && !isMaster) {
     res.status(403).json({
       success: false,
       error: {
         code: "FORBIDDEN_ADMIN_ONLY",
-        message: "Access denied: Member profile not found in system or not authorized as administrator."
+        message: "Access denied: Administrator privileges required to access this portal."
       },
-      meta: {
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    });
-    return;
-  }
-  if (member.role !== "admin" || claimedRole && claimedRole !== "admin") {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: "FORBIDDEN_ADMIN_ONLY",
-        message: "Access denied: Admin privileges required. Normal student/user accounts cannot access admin-only pages or APIs."
-      },
-      meta: {
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      }
+      meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
     });
     return;
   }
@@ -27337,6 +27460,28 @@ var exportReport = (_req, res) => {
     meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
   });
 };
+var getAllLessons = (_req, res) => {
+  const lessons = memberService.getAllUserStories();
+  res.json({
+    success: true,
+    data: lessons,
+    meta: {
+      total: lessons.length,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  });
+};
+var getAllQuizzes = (_req, res) => {
+  const quizzes = memberService.getAllQuizAttempts();
+  res.json({
+    success: true,
+    data: quizzes,
+    meta: {
+      total: quizzes.length,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  });
+};
 
 // backend/src/routes/admin.routes.ts
 var adminRouter = (0, import_express3.Router)();
@@ -27351,6 +27496,8 @@ adminRouter.delete("/members/:id", deleteMember);
 adminRouter.get("/notifications", getNotifications);
 adminRouter.post("/notifications/:id/approve", approveNotification);
 adminRouter.post("/notifications/:id/reject", rejectNotification);
+adminRouter.get("/lessons", getAllLessons);
+adminRouter.get("/quizzes", getAllQuizzes);
 adminRouter.get("/audit/logins", getLoginAudit);
 adminRouter.get("/audit/actions", getAdminAudit);
 adminRouter.get("/settings", getSettings);
@@ -27525,9 +27672,18 @@ var login = (req, res) => {
     return;
   }
   const member = result.member;
+  const { token, expiresAt } = signAuthToken({
+    id: member.id,
+    email: member.email,
+    fullName: member.fullName,
+    role: member.role,
+    verificationStatus: member.verificationStatus
+  });
   res.json({
     success: true,
     data: {
+      token,
+      expiresAt,
       user: {
         id: member.id,
         email: member.email,
@@ -27586,9 +27742,18 @@ var register = (req, res) => {
     verificationStatus: member.verificationStatus,
     sessionStatus: member.sessionStatus
   };
+  const { token, expiresAt } = signAuthToken({
+    id: member.id,
+    email: member.email,
+    fullName: member.fullName,
+    role: member.role,
+    verificationStatus: member.verificationStatus
+  });
   res.status(201).json({
     success: true,
     data: {
+      token,
+      expiresAt,
       user: userPayload,
       member: userPayload,
       pendingApproval: result.pendingApproval,
@@ -27596,6 +27761,61 @@ var register = (req, res) => {
     },
     meta: {
       message: result.pendingApproval ? "Account registered successfully. Notification dispatched to Administrator for approval." : "Account created and verified.",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  });
+};
+var refresh = (req, res) => {
+  const authHeader = req.headers["authorization"] || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.token;
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Session token required for refresh." }
+    });
+    return;
+  }
+  const payload = verifyAuthToken(token);
+  if (!payload) {
+    res.status(401).json({
+      success: false,
+      error: { code: "TOKEN_EXPIRED", message: "Session expired. Please sign in again." }
+    });
+    return;
+  }
+  const member = memberService.getMemberById(payload.id) || memberService.getMemberByEmail(payload.email);
+  const currentRole = member ? member.role : payload.role;
+  const currentStatus = member ? member.verificationStatus : payload.verificationStatus;
+  const currentName = member ? member.fullName : payload.fullName;
+  if (currentStatus === "suspended") {
+    res.status(403).json({
+      success: false,
+      error: { code: "ACCOUNT_SUSPENDED", message: "Account has been suspended by an administrator." }
+    });
+    return;
+  }
+  const newToken = signAuthToken({
+    id: payload.id,
+    email: payload.email,
+    fullName: currentName,
+    role: currentRole,
+    verificationStatus: currentStatus
+  });
+  res.json({
+    success: true,
+    data: {
+      token: newToken.token,
+      expiresAt: newToken.expiresAt,
+      user: {
+        id: payload.id,
+        email: payload.email,
+        fullName: currentName,
+        role: currentRole,
+        verificationStatus: currentStatus
+      }
+    },
+    meta: {
+      message: "Session refreshed successfully.",
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     }
   });
@@ -27623,6 +27843,7 @@ var logout = (req, res) => {
 var authRouter = (0, import_express5.Router)();
 authRouter.post("/login", login);
 authRouter.post("/register", register);
+authRouter.post("/refresh", refresh);
 authRouter.post("/logout", logout);
 var auth_routes_default = authRouter;
 

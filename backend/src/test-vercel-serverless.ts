@@ -58,7 +58,11 @@ async function runVercelServerlessTests() {
       throw new Error(`Master Admin login failed: ${JSON.stringify(adminLoginJson)}`);
     }
     const adminId = adminLoginJson.data.user.id;
-    console.log('✅ Master Admin login succeeded (role: admin, email: muni57575751@gmail.com)');
+    const adminToken = adminLoginJson.data.token;
+    if (!adminToken || typeof adminToken !== 'string') {
+      throw new Error('Admin login did not return signed JWT token');
+    }
+    console.log('✅ Master Admin login succeeded with signed Bearer JWT token');
 
     // Register a new user
     const testEmail = `student_${Date.now()}@example.com`;
@@ -88,9 +92,10 @@ async function runVercelServerlessTests() {
     }
     console.log('✅ Unapproved user login blocked with 403 PENDING_APPROVAL as required');
 
-    // Admin approves the user
+    // Admin approves the user using Bearer token
     const notificationsRes = await fetch(`${baseUrl}/api/admin/notifications`, {
       headers: {
+        'Authorization': `Bearer ${adminToken}`,
         'x-user-id': adminId,
         'x-user-email': 'muni57575751@gmail.com',
         'x-user-role': 'admin',
@@ -104,13 +109,16 @@ async function runVercelServerlessTests() {
     const approveRes = await fetch(`${baseUrl}/api/admin/notifications/${targetNotif.id}/approve`, {
       method: 'POST',
       headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`,
         'x-user-id': adminId,
         'x-user-email': 'muni57575751@gmail.com',
         'x-user-role': 'admin',
       },
+      body: JSON.stringify({ role: 'user' }),
     });
     if (!approveRes.ok) throw new Error('Admin approval request failed');
-    console.log('✅ Admin successfully approved user via notification');
+    console.log('✅ Admin successfully approved user via Bearer-authenticated request');
 
     // Now user logs in
     const approvedLoginRes = await fetch(`${baseUrl}/api/auth/login`, {
@@ -123,18 +131,40 @@ async function runVercelServerlessTests() {
       throw new Error('Approved user failed to log in');
     }
     const userId = approvedLoginJson.data.user.id;
-    console.log('✅ Approved user successfully logged in with role "user"');
+    const userToken = approvedLoginJson.data.token;
+    if (!userToken) throw new Error('Approved user login did not return signed JWT');
+    console.log('✅ Approved user successfully logged in with signed Bearer JWT');
 
-    // 3. Dashboard Endpoints
-    console.log('\n--- 3. Testing Dashboard Endpoints ---');
+    // Test token refresh
+    const refreshRes = await fetch(`${baseUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${userToken}`,
+      },
+    });
+    const refreshJson = await refreshRes.json();
+    if (!refreshRes.ok || !refreshJson.data?.token) {
+      throw new Error(`Token refresh failed: ${JSON.stringify(refreshJson)}`);
+    }
+    const refreshedToken = refreshJson.data.token;
+    console.log('✅ Token refresh endpoint POST /api/auth/refresh succeeded');
+
+    // 3. Dashboard Endpoints with Bearer Token
+    console.log('\n--- 3. Testing Dashboard Endpoints with Bearer Token ---');
     const storiesRes = await fetch(`${baseUrl}/api/stories/my-stories`, {
-      headers: { 'x-user-id': userId },
+      headers: {
+        'Authorization': `Bearer ${refreshedToken}`,
+        'x-user-id': userId,
+      },
     });
     if (!storiesRes.ok) throw new Error(`GET /api/stories/my-stories failed: ${storiesRes.status}`);
     console.log('✅ GET /api/stories/my-stories returned 200 OK');
 
     const progressRes = await fetch(`${baseUrl}/api/stories/my-progress`, {
-      headers: { 'x-user-id': userId },
+      headers: {
+        'Authorization': `Bearer ${refreshedToken}`,
+        'x-user-id': userId,
+      },
     });
     if (!progressRes.ok) throw new Error(`GET /api/stories/my-progress failed: ${progressRes.status}`);
     console.log('✅ GET /api/stories/my-progress returned 200 OK');
@@ -152,14 +182,18 @@ async function runVercelServerlessTests() {
     console.log(`✅ Wikimedia image search returned ${searchJson.data.results.length} authentic results`);
 
     // 5. Educational Lesson Generation (with fallback or live Gemini)
-    console.log('\n--- 5. Testing Story & Lesson Generation ---');
+    console.log('\n--- 5. Testing Story & Lesson Generation with Bearer Token ---');
     const storyStatusRes = await fetch(`${baseUrl}/api/stories/status`);
     const statusJson = await storyStatusRes.json();
     console.log(`ℹ️ AI Provider status: ${statusJson.data?.provider || 'gemini'} (model: ${statusJson.data?.model || 'gemini-3.5-flash-lite'})`);
 
     const generateRes = await fetch(`${baseUrl}/api/stories/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${refreshedToken}`,
+        'x-user-id': userId,
+      },
       body: JSON.stringify({
         topic: 'Water Cycle',
         tone: 'comic',
@@ -179,10 +213,14 @@ async function runVercelServerlessTests() {
     console.log(`✅ Lesson generated: "${story.title}" (${story.keyPoints.length} points, ${story.illustrations?.length || 0} illustrations, ${story.quiz?.length || 0} quiz questions)`);
 
     // 6. Quiz Functionality
-    console.log('\n--- 6. Testing Quiz Submission ---');
+    console.log('\n--- 6. Testing Quiz Submission with Bearer Token ---');
     const quizAttemptRes = await fetch(`${baseUrl}/api/stories/quiz/attempt`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${refreshedToken}`,
+        'x-user-id': userId,
+      },
       body: JSON.stringify({
         storyId: story.id,
         score: 3,
@@ -195,6 +233,45 @@ async function runVercelServerlessTests() {
     const attemptJson = await quizAttemptRes.json();
     if (!attemptJson.success) throw new Error('Quiz attempt failed to record');
     console.log('✅ Quiz attempt recorded successfully in learning progress');
+
+    // 7. Admin Synchronization (Lessons & Quizzes)
+    console.log('\n--- 7. Testing Admin Synchronization of Lessons & Quizzes ---');
+    const adminLessonsRes = await fetch(`${baseUrl}/api/admin/lessons`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'x-user-id': adminId,
+        'x-user-role': 'admin',
+      },
+    });
+    if (!adminLessonsRes.ok) throw new Error(`GET /api/admin/lessons failed: ${adminLessonsRes.status}`);
+    const adminLessonsJson = await adminLessonsRes.json();
+    const hasLesson = adminLessonsJson.data?.some((l: any) => l.id === story.id || l.title === story.title);
+    if (!hasLesson) throw new Error('Generated lesson not found in Admin lessons list');
+    console.log(`✅ Admin lessons sync verified: found story "${story.title}"`);
+
+    const adminQuizzesRes = await fetch(`${baseUrl}/api/admin/quizzes`, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'x-user-id': adminId,
+        'x-user-role': 'admin',
+      },
+    });
+    if (!adminQuizzesRes.ok) throw new Error(`GET /api/admin/quizzes failed: ${adminQuizzesRes.status}`);
+    const adminQuizzesJson = await adminQuizzesRes.json();
+    const hasQuiz = adminQuizzesJson.data?.some((q: any) => q.storyId === story.id);
+    if (!hasQuiz) throw new Error('Submitted quiz attempt not found in Admin quizzes list');
+    console.log(`✅ Admin quizzes sync verified: found attempt for story ID "${story.id}"`);
+
+    // Clean up test student
+    await fetch(`${baseUrl}/api/members/delete-account`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${refreshedToken}`,
+        'x-user-id': userId,
+      },
+    });
+    console.log('🧹 Cleaned up test student account');
 
     console.log('\n========================================================================');
     console.log('🎉 ALL 7 VERCEL SERVERLESS FUNCTION VERIFICATION CHECKS PASSED!');

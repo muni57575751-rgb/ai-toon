@@ -316,7 +316,7 @@ async function runComprehensiveSuite() {
       assert(Boolean(exportBody.data.members && exportBody.data.stats && exportBody.data.settings), 'Export contains members, stats, and settings');
     }
 
-    // SCENARIO 16 & 17: Profile Update & Non-Escalation
+    // SCENARIO 16 & 17: User Profile Update & Non-Escalation
     console.log('\n--- SCENARIO 16 & 17: User Profile Update & Non-Escalation ---');
     {
       const updateRes = await fetch(`${baseUrl}/members/profile`, {
@@ -352,6 +352,84 @@ async function runComprehensiveSuite() {
 
       const memberAfter = memberService.getMemberById(testUserId);
       assert(!memberAfter, 'Member record permanently removed from database');
+    }
+
+    // SCENARIO 19: Bearer Token Lifecycle & Rejection
+    console.log('\n--- SCENARIO 19: Cryptographic Bearer Token Validation & Refresh ---');
+    {
+      const loginRes = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: MASTER_ADMIN_EMAIL,
+          password: MASTER_ADMIN_PASSWORD,
+        }),
+      });
+      const loginBody = await loginRes.json() as any;
+      const token = loginBody.data.token;
+      assert(typeof token === 'string' && token.split('.').length === 3, 'Login issues valid 3-segment signed JWT');
+
+      // Refresh token
+      const refreshRes = await fetch(`${baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const refreshBody = await refreshRes.json() as any;
+      assert(refreshRes.status === 200 && Boolean(refreshBody.data.token), 'Token refresh returns new valid JWT');
+      const refreshedToken = refreshBody.data.token;
+
+      // Access protected endpoint with Bearer token
+      const statsRes = await fetch(`${baseUrl}/admin/stats`, {
+        headers: { 'Authorization': `Bearer ${refreshedToken}` },
+      });
+      assert(statsRes.status === 200, 'Bearer token grants authorized access to protected admin route');
+
+      // Access with invalid/tampered token is rejected with 401
+      const badTokenRes = await fetch(`${baseUrl}/admin/stats`, {
+        headers: { 'Authorization': 'Bearer invalid.tampered.token' },
+      });
+      assert(badTokenRes.status === 401, 'Tampered Bearer token immediately rejected with HTTP 401');
+    }
+
+    // SCENARIO 20: Admin Content Management & Synchronization
+    console.log('\n--- SCENARIO 20: Admin Content Management (Lessons & Quizzes) ---');
+    {
+      const adminLoginRes = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: MASTER_ADMIN_EMAIL,
+          password: MASTER_ADMIN_PASSWORD,
+        }),
+      });
+      const adminLoginBody = await adminLoginRes.json() as any;
+      const adminToken = adminLoginBody.data.token;
+
+      // 1. Fetch all lessons
+      const lessonsRes = await fetch(`${baseUrl}/admin/lessons`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+      });
+      const lessonsBody = await lessonsRes.json() as any;
+      assert(lessonsRes.status === 200, 'Admin can fetch all system lessons (GET /admin/lessons)');
+      assert(Array.isArray(lessonsBody.data), 'Lessons response contains data array');
+
+      // 2. Fetch all quizzes
+      const quizzesRes = await fetch(`${baseUrl}/admin/quizzes`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+      });
+      const quizzesBody = await quizzesRes.json() as any;
+      assert(quizzesRes.status === 200, 'Admin can fetch all quiz attempts (GET /admin/quizzes)');
+      assert(Array.isArray(quizzesBody.data), 'Quizzes response contains data array');
+
+      // 3. Admin stats include enriched metrics
+      const statsRes = await fetch(`${baseUrl}/admin/stats`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+      });
+      const statsBody = await statsRes.json() as any;
+      assert(statsRes.status === 200, 'Admin stats endpoint returns HTTP 200');
+      assert(typeof statsBody.data.totalLessonsGenerated === 'number', 'Stats include totalLessonsGenerated metric');
+      assert(typeof statsBody.data.totalQuizzesCompleted === 'number', 'Stats include totalQuizzesCompleted metric');
+      assert(typeof statsBody.data.averageQuizScore === 'number', 'Stats include averageQuizScore metric');
     }
 
     console.log('\n========================================================================');

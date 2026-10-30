@@ -397,6 +397,19 @@ export class MemberService {
       }
     }
 
+    let totalLessonsGenerated = 0;
+    for (const stories of this.userStories.values()) {
+      totalLessonsGenerated += stories.length;
+    }
+    const totalQuizzesCompleted = this.quizAttempts.length;
+    const averageQuizScore =
+      totalQuizzesCompleted === 0
+        ? 0
+        : Math.round(
+            this.quizAttempts.reduce((acc, q) => acc + (q.percentage || 0), 0) /
+              totalQuizzesCompleted
+          );
+
     return {
       totalMembers: this.members.size,
       loggedInCount,
@@ -407,6 +420,9 @@ export class MemberService {
       pendingCount,
       suspendedCount,
       unreadNotificationsCount,
+      totalLessonsGenerated,
+      totalQuizzesCompleted,
+      averageQuizScore,
     };
   }
 
@@ -1128,6 +1144,63 @@ export class MemberService {
       favoriteStoryIds: userStories.filter((s) => s.isFavorite).map((s) => s.id),
       lastActiveAt: new Date().toISOString(),
     };
+  }
+  public ensureMemberFromToken(payload: {
+    id: string;
+    email: string;
+    fullName?: string;
+    role?: UserRole;
+    verificationStatus?: MemberVerificationStatus;
+  }): MemberRecord {
+    const existing = this.getMemberById(payload.id) || this.getMemberByEmail(payload.email);
+    if (existing) {
+      return existing;
+    }
+
+    const newMember: MemberRecord = {
+      id: payload.id,
+      email: payload.email,
+      fullName: payload.fullName || payload.email.split('@')[0],
+      password: '',
+      role: payload.role || (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? 'admin' : 'user'),
+      verificationStatus: payload.verificationStatus || (payload.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase() ? 'verified' : 'pending'),
+      sessionStatus: 'logged_in',
+      lastActiveAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    this.members.set(newMember.id, newMember);
+    this.saveToFile();
+    return newMember;
+  }
+
+  public getAllUserStories(): (Story & { userEmail?: string; userId: string; createdAtString?: string })[] {
+    const all: (Story & { userEmail?: string; userId: string; createdAtString?: string })[] = [];
+    for (const [userId, stories] of this.userStories.entries()) {
+      const member = this.getMemberById(userId);
+      const userEmail = member ? member.email : 'student@aitoon.edu';
+      for (const s of stories) {
+        all.push({
+          ...s,
+          userId,
+          userEmail,
+          createdAtString: s.createdAt || new Date().toISOString(),
+        });
+      }
+    }
+    return all.sort((a, b) => new Date(b.createdAtString || 0).getTime() - new Date(a.createdAtString || 0).getTime());
+  }
+
+  public getAllQuizAttempts(): (QuizAttemptRecord & { userEmail?: string; userName?: string })[] {
+    return this.quizAttempts.map((q) => {
+      const member = this.getMemberById(q.userId);
+      return {
+        ...q,
+        userEmail: member?.email || q.userId,
+        userName: member?.fullName || 'Student',
+      };
+    });
   }
 }
 

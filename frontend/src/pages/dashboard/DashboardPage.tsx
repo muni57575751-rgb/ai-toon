@@ -15,7 +15,7 @@ interface UserProgressData {
 }
 
 export const DashboardPage: React.FC = () => {
-  const { user, profile, signOut, updateProfile, deleteAccount } = useAuth();
+  const { user, profile, signOut, updateProfile, deleteAccount, getAuthHeaders } = useAuth();
   const navigate = useNavigate();
 
   // Stories & Progress State
@@ -37,10 +37,7 @@ export const DashboardPage: React.FC = () => {
     const fetchData = async () => {
       setLoadingData(true);
       try {
-        const headers = {
-          'x-user-id': user.id,
-          'x-user-email': user.email || '',
-        };
+        const headers = getAuthHeaders();
 
         const [storiesRes, progressRes] = await Promise.all([
           fetch(`${API_BASE_URL}/stories/my-stories`, { headers }),

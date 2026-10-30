@@ -17,6 +17,8 @@ import {
   getSettings,
   updateSettings,
   exportReport,
+  getAllLessons,
+  getAllQuizzes,
 } from '../controllers/admin.controller.js';
 
 const adminRouter = Router();
@@ -37,6 +39,10 @@ adminRouter.delete('/members/:id', deleteMember);
 adminRouter.get('/notifications', getNotifications);
 adminRouter.post('/notifications/:id/approve', approveNotification);
 adminRouter.post('/notifications/:id/reject', rejectNotification);
+
+// Content & Learning Management
+adminRouter.get('/lessons', getAllLessons);
+adminRouter.get('/quizzes', getAllQuizzes);
 
 // System Audit Trails
 adminRouter.get('/audit/logins', getLoginAudit);

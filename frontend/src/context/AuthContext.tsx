@@ -10,8 +10,11 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
+  token: string | null;
+  expiresAt: number | null;
   loading: boolean;
   isConfigured: boolean;
+  getAuthHeaders: () => Record<string, string>;
   signUp: (
     name: string,
     email: string,
@@ -33,6 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Helper to build UserProfile
@@ -64,15 +69,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
+  /**
+   * Generates reliable authentication headers for all API requests.
+   * Includes Authorization: Bearer <token> alongside x-user-id / x-user-email.
+   */
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (user) {
+      headers['x-user-id'] = user.id;
+      headers['x-user-email'] = user.email || '';
+    }
+    return headers;
+  }, [token, user]);
+
   const refreshProfile = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/members/me`, {
-        headers: {
-          'x-user-id': user.id,
-          'x-user-email': user.email || '',
-        },
-      });
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/members/me`, { headers });
       const parsed = await safeJsonParse(res);
       if (parsed.ok && parsed.data?.success && parsed.data.data) {
         const d = parsed.data.data;
@@ -80,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!prev) return buildProfile(user, d);
           return {
             ...prev,
+            fullName: d.fullName || prev.fullName,
             role: d.role,
             verificationStatus: d.verificationStatus,
             sessionStatus: d.sessionStatus,
@@ -91,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.warn('[AuthContext] refreshProfile error:', err);
     }
-  }, [user]);
+  }, [user, getAuthHeaders]);
 
   useEffect(() => {
     // Clean up any legacy demo keys
@@ -101,34 +121,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedAuth) {
       try {
         const parsed = JSON.parse(savedAuth);
-        setUser(parsed.user);
-        setProfile(parsed.profile);
+        // Check if token has expired
+        if (parsed.expiresAt && Date.now() >= parsed.expiresAt) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          setUser(null);
+          setProfile(null);
+          setToken(null);
+          setSession(null);
+        } else {
+          setUser(parsed.user);
+          setProfile(parsed.profile);
+          setToken(parsed.token || null);
+          setExpiresAt(parsed.expiresAt || null);
 
-        // Verify session status with backend safely
-        fetch(`${API_BASE_URL}/members/me`, {
-          headers: {
+          if (parsed.token) {
+            setSession({
+              access_token: parsed.token,
+              expires_at: parsed.expiresAt ? Math.floor(parsed.expiresAt / 1000) : 0,
+              user: parsed.user,
+            } as unknown as Session);
+          }
+
+          // Verify session status with backend in background without clearing state on network drop
+          const verifyHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
             'x-user-id': parsed.user.id,
             'x-user-email': parsed.user.email,
-          },
-        })
-          .then((res) => safeJsonParse(res))
-          .then((parsedRes) => {
-            if (parsedRes.ok && parsedRes.data?.success && parsedRes.data.data) {
-              const d = parsedRes.data.data;
-              if (
-                d.verificationStatus === 'pending' ||
-                d.verificationStatus === 'rejected'
-              ) {
-                // If account has been revoked or pending, clear session
-                localStorage.removeItem(AUTH_STORAGE_KEY);
-                setUser(null);
-                setProfile(null);
-              } else {
-                setProfile(buildProfile(parsed.user, d));
+          };
+          if (parsed.token) {
+            verifyHeaders['Authorization'] = `Bearer ${parsed.token}`;
+          }
+
+          fetch(`${API_BASE_URL}/members/me`, { headers: verifyHeaders })
+            .then((res) => safeJsonParse(res))
+            .then((parsedRes) => {
+              if (parsedRes.ok && parsedRes.data?.success && parsedRes.data.data) {
+                const d = parsedRes.data.data;
+                if (d.verificationStatus === 'suspended') {
+                  setProfile((prev) => (prev ? { ...prev, verificationStatus: 'suspended' } : null));
+                } else if (d.verificationStatus === 'pending') {
+                  setProfile((prev) => (prev ? { ...prev, verificationStatus: 'pending' } : null));
+                } else {
+                  setProfile(buildProfile(parsed.user, d));
+                }
               }
-            }
-          })
-          .catch(() => {});
+            })
+            .catch(() => {});
+        }
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY);
       }
@@ -155,7 +194,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
-      return { error: null, needsAdminApproval: true };
+      const returnedToken = parsed.data.data?.token;
+      const returnedExpiresAt = parsed.data.data?.expiresAt;
+      const userData = parsed.data.data?.user;
+
+      if (userData) {
+        const userObj = {
+          id: userData.id,
+          email: userData.email,
+          user_metadata: { full_name: userData.fullName, role: userData.role },
+          app_metadata: { role: userData.role },
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+        } as unknown as User;
+
+        const fullProfile: UserProfile = {
+          id: userData.id,
+          email: userData.email,
+          fullName: userData.fullName,
+          role: userData.role,
+          verificationStatus: userData.verificationStatus,
+          sessionStatus: 'logged_in',
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+          preferredLanguage: 'en',
+          preferredTone: 'funny',
+        };
+
+        if (returnedToken) {
+          localStorage.setItem(
+            AUTH_STORAGE_KEY,
+            JSON.stringify({
+              user: userObj,
+              profile: fullProfile,
+              token: returnedToken,
+              expiresAt: returnedExpiresAt,
+            })
+          );
+          setUser(userObj);
+          setProfile(fullProfile);
+          setToken(returnedToken);
+          setExpiresAt(returnedExpiresAt);
+          setSession({
+            access_token: returnedToken,
+            expires_at: returnedExpiresAt ? Math.floor(returnedExpiresAt / 1000) : 0,
+            user: userObj,
+          } as unknown as Session);
+        }
+      }
+
+      return { error: null, needsAdminApproval: parsed.data.data?.pendingApproval !== false };
     } catch (err) {
       return {
         error: err instanceof Error ? err : new Error('Network error during registration.'),
@@ -183,6 +272,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userData = parsed.data.data.user;
       const profileData = parsed.data.data.profile || {};
+      const returnedToken = parsed.data.data.token || null;
+      const returnedExpiresAt = parsed.data.data.expiresAt || null;
 
       const userObj = {
         id: userData.id,
@@ -209,10 +300,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       localStorage.setItem(
         AUTH_STORAGE_KEY,
-        JSON.stringify({ user: userObj, profile: fullProfile })
+        JSON.stringify({
+          user: userObj,
+          profile: fullProfile,
+          token: returnedToken,
+          expiresAt: returnedExpiresAt,
+        })
       );
       setUser(userObj);
       setProfile(fullProfile);
+      setToken(returnedToken);
+      setExpiresAt(returnedExpiresAt);
+
+      if (returnedToken) {
+        setSession({
+          access_token: returnedToken,
+          expires_at: returnedExpiresAt ? Math.floor(returnedExpiresAt / 1000) : 0,
+          user: userObj,
+        } as unknown as Session);
+      }
 
       return { error: null };
     } catch (err) {
@@ -223,29 +329,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (user) {
+    if (user || token) {
+      const headers = getAuthHeaders();
       await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, email: user.email }),
+        headers,
+        body: JSON.stringify({ userId: user?.id, email: user?.email }),
       }).catch(() => {});
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
     setSession(null);
     setUser(null);
     setProfile(null);
+    setToken(null);
+    setExpiresAt(null);
   };
 
   const updateProfile = async (fullName: string): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not logged in.' };
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`${API_BASE_URL}/members/profile`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-          'x-user-email': user.email || '',
-        },
+        headers,
         body: JSON.stringify({ fullName }),
       });
       const parsed = await safeJsonParse(res, 'Failed to update profile.');
@@ -271,13 +377,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not logged in.' };
     try {
+      const headers = getAuthHeaders();
       const res = await fetch(`${API_BASE_URL}/members/delete-account`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-          'x-user-email': user.email || '',
-        },
+        headers,
       });
       const parsed = await safeJsonParse(res, 'Failed to delete account.');
       if (!parsed.ok || !parsed.data?.success) {
@@ -301,8 +404,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         profile,
+        token,
+        expiresAt,
         loading,
         isConfigured: true,
+        getAuthHeaders,
         signUp,
         signIn,
         signOut,

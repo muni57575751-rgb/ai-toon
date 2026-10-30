@@ -60,6 +60,9 @@ export interface AdminStats {
   pendingCount: number;
   suspendedCount?: number;
   unreadNotificationsCount?: number;
+  totalLessonsGenerated?: number;
+  totalQuizzesCompleted?: number;
+  averageQuizScore?: number;
 }
 
 export interface LearningProgress {

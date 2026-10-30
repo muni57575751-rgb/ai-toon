@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { memberService } from '../services/member.service.js';
+import { memberService, MASTER_ADMIN_EMAIL } from '../services/member.service.js';
+import { signAuthToken, verifyAuthToken } from '../services/token.service.js';
 
 export const login = (req: Request, res: Response): void => {
   const { email, password } = req.body;
@@ -47,9 +48,19 @@ export const login = (req: Request, res: Response): void => {
   }
 
   const member = result.member!;
+  const { token, expiresAt } = signAuthToken({
+    id: member.id,
+    email: member.email,
+    fullName: member.fullName,
+    role: member.role,
+    verificationStatus: member.verificationStatus,
+  });
+
   res.json({
     success: true,
     data: {
+      token,
+      expiresAt,
       user: {
         id: member.id,
         email: member.email,
@@ -114,9 +125,19 @@ export const register = (req: Request, res: Response): void => {
     sessionStatus: member.sessionStatus,
   };
 
+  const { token, expiresAt } = signAuthToken({
+    id: member.id,
+    email: member.email,
+    fullName: member.fullName,
+    role: member.role,
+    verificationStatus: member.verificationStatus,
+  });
+
   res.status(201).json({
     success: true,
     data: {
+      token,
+      expiresAt,
       user: userPayload,
       member: userPayload,
       pendingApproval: result.pendingApproval,
@@ -126,6 +147,70 @@ export const register = (req: Request, res: Response): void => {
       message: result.pendingApproval
         ? 'Account registered successfully. Notification dispatched to Administrator for approval.'
         : 'Account created and verified.',
+      timestamp: new Date().toISOString(),
+    },
+  });
+};
+
+export const refresh = (req: Request, res: Response): void => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.body?.token as string);
+
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Session token required for refresh.' },
+    });
+    return;
+  }
+
+  const payload = verifyAuthToken(token);
+  if (!payload) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'TOKEN_EXPIRED', message: 'Session expired. Please sign in again.' },
+    });
+    return;
+  }
+
+  // Retrieve current live member record to sync any status changes
+  const member = memberService.getMemberById(payload.id) || memberService.getMemberByEmail(payload.email);
+  const currentRole = member ? member.role : payload.role;
+  const currentStatus = member ? member.verificationStatus : payload.verificationStatus;
+  const currentName = member ? member.fullName : payload.fullName;
+
+  // If account has been suspended or rejected, block refresh
+  if (currentStatus === 'suspended') {
+    res.status(403).json({
+      success: false,
+      error: { code: 'ACCOUNT_SUSPENDED', message: 'Account has been suspended by an administrator.' },
+    });
+    return;
+  }
+
+  const newToken = signAuthToken({
+    id: payload.id,
+    email: payload.email,
+    fullName: currentName,
+    role: currentRole,
+    verificationStatus: currentStatus,
+  });
+
+  res.json({
+    success: true,
+    data: {
+      token: newToken.token,
+      expiresAt: newToken.expiresAt,
+      user: {
+        id: payload.id,
+        email: payload.email,
+        fullName: currentName,
+        role: currentRole,
+        verificationStatus: currentStatus,
+      },
+    },
+    meta: {
+      message: 'Session refreshed successfully.',
       timestamp: new Date().toISOString(),
     },
   });

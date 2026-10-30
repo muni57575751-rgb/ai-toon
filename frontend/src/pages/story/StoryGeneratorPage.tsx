@@ -16,7 +16,7 @@ interface ProviderStatus {
 
 export const StoryGeneratorPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading, getAuthHeaders } = useAuth();
 
   // Form State
   const initialTopic = searchParams.get('topic') || '';
@@ -104,6 +104,16 @@ export const StoryGeneratorPage: React.FC = () => {
     if (e) e.preventDefault();
     setErrorMsg(null);
 
+    if (loading) {
+      setErrorMsg('Initializing your session, please wait a moment...');
+      return;
+    }
+
+    if (!user) {
+      setErrorMsg('Please sign in or register to generate and save your interactive lessons.');
+      return;
+    }
+
     const trimmed = topic.trim();
     if (!trimmed) {
       setErrorMsg('Please enter a topic or person (e.g. Narendra Modi, Vignan University, Photosynthesis, Binary Search).');
@@ -119,13 +129,7 @@ export const StoryGeneratorPage: React.FC = () => {
     setGeneratedStory(null);
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (user) {
-        headers['x-user-id'] = user.id;
-        headers['x-user-email'] = user.email || '';
-      }
+      const headers = getAuthHeaders();
 
       const res = await fetch(`${API_BASE_URL}/stories/generate`, {
         method: 'POST',
@@ -141,7 +145,18 @@ export const StoryGeneratorPage: React.FC = () => {
       const parsed = await safeJsonParse<ApiResponse<Story>>(res, 'Failed to generate visual lesson.');
 
       if (!parsed.ok || !parsed.data?.success || !parsed.data?.data) {
-        throw new Error(parsed.error || parsed.data?.error?.message || 'Failed to generate visual lesson.');
+        const errCode = parsed.data?.error?.code;
+        const errMsg = parsed.error || parsed.data?.error?.message;
+        if (errCode === 'TOKEN_EXPIRED') {
+          throw new Error('Your session has expired. Please sign in again.');
+        } else if (errCode === 'PENDING_APPROVAL') {
+          throw new Error('Your account is awaiting approval from Administrator Muni (muni57575751@gmail.com).');
+        } else if (errCode === 'ACCOUNT_SUSPENDED') {
+          throw new Error('Your account has been suspended by an administrator.');
+        } else if (errCode === 'UNAUTHORIZED' || errCode === 'USER_NOT_FOUND') {
+          throw new Error('Please sign in or register to generate and save your interactive lessons.');
+        }
+        throw new Error(errMsg || 'Failed to generate visual lesson.');
       }
 
       setGeneratedStory(parsed.data.data);

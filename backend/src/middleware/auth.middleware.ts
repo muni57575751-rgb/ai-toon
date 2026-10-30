@@ -1,9 +1,74 @@
 import { Request, Response, NextFunction } from 'express';
-import { memberService } from '../services/member.service.js';
+import { memberService, MASTER_ADMIN_EMAIL } from '../services/member.service.js';
+import { verifyAuthToken } from '../services/token.service.js';
 import type { MemberRecord } from '@ai-toon/shared';
 
 export interface AuthenticatedUserRequest extends Request {
   user?: MemberRecord;
+}
+
+/**
+ * Extracts and resolves the authenticated member from either:
+ * 1. Authorization: Bearer <JWT>
+ * 2. x-auth-token header
+ * 3. x-user-id / x-user-email headers (fallback / compatibility)
+ */
+export function resolveUserFromRequest(req: Request): {
+  member?: MemberRecord;
+  error?: { code: string; message: string; statusCode: number };
+} {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : ((req.headers['x-auth-token'] as string) || '').trim();
+
+  // 1. Bearer Token Authentication
+  if (token) {
+    const payload = verifyAuthToken(token);
+    if (!payload) {
+      return {
+        error: {
+          code: 'TOKEN_EXPIRED',
+          message: 'Your session has expired or is invalid. Please sign in again.',
+          statusCode: 401,
+        },
+      };
+    }
+
+    // Hydrate / synchronize member in current serverless container
+    const member = memberService.ensureMemberFromToken(payload);
+    return { member };
+  }
+
+  // 2. Direct Header Authentication (Fallback)
+  const userId = (req.headers['x-user-id'] as string) || '';
+  const userEmail = (req.headers['x-user-email'] as string) || '';
+
+  if (!userId && !userEmail) {
+    return {
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required. Please sign in to access private educational features.',
+        statusCode: 401,
+      },
+    };
+  }
+
+  const member =
+    (userId ? memberService.getMemberById(userId) : undefined) ||
+    (userEmail ? memberService.getMemberByEmail(userEmail) : undefined);
+
+  if (!member) {
+    return {
+      error: {
+        code: 'USER_NOT_FOUND',
+        message: 'Account not recognized. Please sign in or register to continue.',
+        statusCode: 401,
+      },
+    };
+  }
+
+  return { member };
 }
 
 /**
@@ -15,38 +80,20 @@ export const requireAuth = (
   res: Response,
   next: NextFunction
 ): void => {
-  const userId = (req.headers['x-user-id'] as string) || '';
-  const userEmail = (req.headers['x-user-email'] as string) || '';
-
-  if (!userId && !userEmail) {
-    res.status(401).json({
+  const resolved = resolveUserFromRequest(req);
+  if (resolved.error) {
+    res.status(resolved.error.statusCode).json({
       success: false,
       error: {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required. Please sign in to access private educational features.',
+        code: resolved.error.code,
+        message: resolved.error.message,
       },
       meta: { timestamp: new Date().toISOString() },
     });
     return;
   }
 
-  const member =
-    (userId ? memberService.getMemberById(userId) : undefined) ||
-    (userEmail ? memberService.getMemberByEmail(userEmail) : undefined);
-
-  if (!member) {
-    res.status(401).json({
-      success: false,
-      error: {
-        code: 'USER_NOT_FOUND',
-        message: 'Account not recognized. Please sign in or register to continue.',
-      },
-      meta: { timestamp: new Date().toISOString() },
-    });
-    return;
-  }
-
-  req.user = member;
+  req.user = resolved.member;
   next();
 };
 
@@ -59,46 +106,26 @@ export const requireApprovedUser = (
   res: Response,
   next: NextFunction
 ): void => {
-  // If requireAuth has not already run, run the check
   if (!req.user) {
-    const userId = (req.headers['x-user-id'] as string) || '';
-    const userEmail = (req.headers['x-user-email'] as string) || '';
-
-    if (!userId && !userEmail) {
-      res.status(401).json({
+    const resolved = resolveUserFromRequest(req);
+    if (resolved.error) {
+      res.status(resolved.error.statusCode).json({
         success: false,
         error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required. Please sign in to access private educational features.',
+          code: resolved.error.code,
+          message: resolved.error.message,
         },
         meta: { timestamp: new Date().toISOString() },
       });
       return;
     }
-
-    const member =
-      (userId ? memberService.getMemberById(userId) : undefined) ||
-      (userEmail ? memberService.getMemberByEmail(userEmail) : undefined);
-
-    if (!member) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'USER_NOT_FOUND',
-          message: 'Account not recognized. Please sign in or register to continue.',
-        },
-        meta: { timestamp: new Date().toISOString() },
-      });
-      return;
-    }
-
-    req.user = member;
+    req.user = resolved.member;
   }
 
-  const user = req.user;
+  const user = req.user!;
 
   // Administrators always have full access
-  if (user.role === 'admin') {
+  if (user.role === 'admin' || user.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase()) {
     next();
     return;
   }
@@ -110,7 +137,7 @@ export const requireApprovedUser = (
       error: {
         code: 'PENDING_APPROVAL',
         message:
-          'Your account is currently awaiting approval from the Administrator (muni57575751@gmail.com). You cannot access story generation, quizzes, or personal learning tools until your account is approved.',
+          'Your account is currently awaiting approval from Administrator Muni (muni57575751@gmail.com). You cannot generate lessons or access interactive quizzes until approved.',
       },
       meta: { timestamp: new Date().toISOString() },
     });
@@ -143,4 +170,3 @@ export const requireApprovedUser = (
 
   next();
 };
-
