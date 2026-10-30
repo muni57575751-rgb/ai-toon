@@ -178,28 +178,8 @@ async function runVercelServerlessTests() {
     }
     console.log(`✅ Lesson generated: "${story.title}" (${story.keyPoints.length} points, ${story.illustrations?.length || 0} illustrations, ${story.quiz?.length || 0} quiz questions)`);
 
-    // 6. Educational Q&A Chatbot with separate Gemini API key support
-    console.log('\n--- 6. Testing Q&A Educational Chatbot ---');
-    const qaRes = await fetch(`${baseUrl}/api/stories/qa`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': userId,
-        'x-user-email': testEmail,
-      },
-      body: JSON.stringify({
-        question: 'Why does it rain after evaporation?',
-        topic: 'Water Cycle',
-        storyContext: story.keyPoints.map((k: any) => k.title + ': ' + k.explanation).join('\n'),
-      }),
-    });
-    if (!qaRes.ok) throw new Error(`POST /api/stories/qa failed with status ${qaRes.status}`);
-    const qaJson = await qaRes.json();
-    if (!qaJson.data?.answer) throw new Error('Q&A response missing answer field');
-    console.log(`✅ Chatbot Q&A response received: "${qaJson.data.answer.slice(0, 80)}..."`);
-
-    // 7. Quiz Functionality
-    console.log('\n--- 7. Testing Quiz Submission ---');
+    // 6. Quiz Functionality
+    console.log('\n--- 6. Testing Quiz Submission ---');
     const quizAttemptRes = await fetch(`${baseUrl}/api/stories/quiz/attempt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
@@ -217,7 +197,7 @@ async function runVercelServerlessTests() {
     console.log('✅ Quiz attempt recorded successfully in learning progress');
 
     console.log('\n========================================================================');
-    console.log('🎉 ALL 8 VERCEL SERVERLESS FUNCTION VERIFICATION CHECKS PASSED!');
+    console.log('🎉 ALL 7 VERCEL SERVERLESS FUNCTION VERIFICATION CHECKS PASSED!');
     console.log('========================================================================\n');
   } finally {
     server.close();

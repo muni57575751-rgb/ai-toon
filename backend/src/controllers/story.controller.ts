@@ -2,7 +2,6 @@ import { Response } from 'express';
 import type { ApiResponse, Story, StoryGenerationRequest, StoryTone, SupportedLanguage, StoryDifficulty } from '@ai-toon/shared';
 import { storyService } from '../services/story.service.js';
 import { memberService } from '../services/member.service.js';
-import { qaService } from '../services/qa/qa.service.js';
 import type { AuthenticatedUserRequest } from '../middleware/auth.middleware.js';
 
 export const generateStoryController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
@@ -197,25 +196,6 @@ export const getStatusController = (_req: AuthenticatedUserRequest, res: Respons
   });
 };
 
-export const askQuestionController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
-  try {
-    const response = await qaService.answerQuestion(req.body);
-    res.status(200).json({
-      success: true,
-      data: response,
-      meta: { timestamp: new Date().toISOString() },
-    });
-  } catch (err: any) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: 'QA_ERROR',
-        message: err.message || 'Failed to process educational question.',
-      },
-      meta: { timestamp: new Date().toISOString() },
-    });
-  }
-};
 
 export const saveQuizAttemptController = async (req: AuthenticatedUserRequest, res: Response): Promise<void> => {
   try {

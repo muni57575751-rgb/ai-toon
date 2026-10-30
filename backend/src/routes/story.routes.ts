@@ -4,7 +4,6 @@ import {
   getExamplesController,
   getExampleByIdController,
   getStatusController,
-  askQuestionController,
   saveQuizAttemptController,
   getUserStoriesController,
   getUserProgressController,
@@ -21,7 +20,6 @@ router.get('/status', getStatusController);
 
 // Protected learning features (Requires authentication and approved account status)
 router.post('/generate', requireApprovedUser, storyRateLimiter, generateStoryController);
-router.post('/qa', requireApprovedUser, askQuestionController);
 router.post('/quiz/attempt', requireApprovedUser, saveQuizAttemptController);
 
 // Private authenticated user content (Requirement: "Users must sign in to access their private dashboard, personal stories, saved quizzes")

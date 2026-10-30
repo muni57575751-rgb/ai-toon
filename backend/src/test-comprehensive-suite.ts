@@ -174,27 +174,6 @@ async function runComprehensiveSuite() {
       assert(Boolean(firstResult.title && firstResult.url && firstResult.domain), 'Result contains title, url, and domain');
     }
 
-    // SCENARIO 8: Grounded Q&A with real citations
-    {
-      const qaRes = await fetch(`${baseUrl}/stories/qa`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': testUserId,
-          'x-user-email': testEmail,
-        },
-        body: JSON.stringify({
-          topic: 'Photosynthesis',
-          question: 'Why do leaves appear green?',
-        }),
-      });
-      const qaBody = await qaRes.json() as any;
-      assert(qaRes.status === 200, 'Q&A endpoint returns HTTP 200');
-      assert(Boolean(qaBody.data.answer || qaBody.data.directAnswer), 'Q&A returns direct answer');
-      assert(Boolean(qaBody.data.explanation), 'Q&A returns detailed explanation');
-      assert(Array.isArray(qaBody.data.sources) && qaBody.data.sources.length > 0, 'Q&A returns verified citations');
-    }
-
     // SCENARIO 9: Quiz Attempt & Progress Tracking
     console.log('\n--- SCENARIO 9: Quiz Scoring & Student Progress ---');
     {

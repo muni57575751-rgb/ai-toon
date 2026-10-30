@@ -26562,254 +26562,6 @@ var MemberService = class {
 };
 var memberService = new MemberService();
 
-// backend/src/services/webSearch/webSearch.service.ts
-var WebSearchService = class {
-  userAgent = "AIToonEducationalApp/1.0 (https://github.com/ai-toon; contact: educational-app@example.com)";
-  /**
-   * Submits a live query to indexed web and educational encyclopedic sources
-   */
-  async search(query, page = 1, limit = 8) {
-    const cleanQuery = query.trim();
-    if (!cleanQuery) {
-      return { query: "", results: [], total: 0, provider: "AI Toon Web Index" };
-    }
-    const collectedResults = [];
-    try {
-      const wikiEndpoint = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
-        cleanQuery
-      )}&gsrlimit=15&prop=extracts|info&exintro=1&explaintext=1&exchars=400&inprop=url&format=json`;
-      const wikiRes = await fetch(wikiEndpoint, {
-        headers: { "User-Agent": this.userAgent, Accept: "application/json" },
-        signal: AbortSignal.timeout(6e3)
-      });
-      if (wikiRes.ok) {
-        const wikiData = await wikiRes.json();
-        const pages = Object.values(wikiData.query?.pages || {});
-        for (const p of pages) {
-          if (!p.fullurl || !p.title) continue;
-          const snippet = (p.extract || "").replace(/\s+/g, " ").trim();
-          if (!snippet) continue;
-          let domain = "en.wikipedia.org";
-          try {
-            domain = new URL(p.fullurl).hostname;
-          } catch {
-          }
-          collectedResults.push({
-            title: p.title,
-            url: p.fullurl,
-            snippet: snippet.slice(0, 320) + (snippet.length > 320 ? "..." : ""),
-            domain,
-            publishedDate: p.touched ? p.touched.split("T")[0] : void 0,
-            sourceType: "encyclopedic"
-          });
-        }
-      }
-    } catch (err) {
-      console.warn(`[WebSearchService] Wikipedia search provider error for "${cleanQuery}":`, err);
-    }
-    try {
-      const ddgEndpoint = `https://api.duckduckgo.com/?q=${encodeURIComponent(
-        cleanQuery
-      )}&format=json&no_html=1&skip_disambig=1`;
-      const ddgRes = await fetch(ddgEndpoint, {
-        headers: { "User-Agent": this.userAgent, Accept: "application/json" },
-        signal: AbortSignal.timeout(6e3)
-      });
-      if (ddgRes.ok) {
-        const ddgData = await ddgRes.json();
-        if (ddgData.AbstractText && ddgData.AbstractURL) {
-          let domain = "duckduckgo.com";
-          try {
-            domain = new URL(ddgData.AbstractURL).hostname;
-          } catch {
-          }
-          collectedResults.unshift({
-            title: ddgData.Heading || cleanQuery,
-            url: ddgData.AbstractURL,
-            snippet: ddgData.AbstractText.slice(0, 320),
-            domain,
-            sourceType: "web"
-          });
-        }
-        if (Array.isArray(ddgData.RelatedTopics)) {
-          for (const item of ddgData.RelatedTopics) {
-            const topic = item.Topics ? item.Topics[0] : item;
-            if (topic?.FirstURL && topic?.Text) {
-              let domain = "web";
-              try {
-                domain = new URL(topic.FirstURL).hostname;
-              } catch {
-              }
-              const parts = topic.Text.split(" - ");
-              const title = parts[0]?.trim() || cleanQuery;
-              const snippet = parts[1]?.trim() || topic.Text;
-              collectedResults.push({
-                title,
-                url: topic.FirstURL,
-                snippet: snippet.slice(0, 280),
-                domain,
-                sourceType: "web"
-              });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn(`[WebSearchService] DuckDuckGo search provider error for "${cleanQuery}":`, err);
-    }
-    const seenUrls = /* @__PURE__ */ new Set();
-    const deduplicated = [];
-    for (const item of collectedResults) {
-      const norm = item.url.toLowerCase().split("#")[0].replace(/\/+$/, "");
-      if (!seenUrls.has(norm)) {
-        seenUrls.add(norm);
-        deduplicated.push(item);
-      }
-    }
-    const qLower = cleanQuery.toLowerCase();
-    const queryTokens = qLower.split(/\s+/).filter((w) => w.length > 2);
-    deduplicated.sort((a, b) => {
-      let scoreA = 0;
-      let scoreB = 0;
-      const titleA = a.title.toLowerCase();
-      const titleB = b.title.toLowerCase();
-      if (titleA === qLower) scoreA += 20;
-      if (titleB === qLower) scoreB += 20;
-      for (const tok of queryTokens) {
-        if (titleA.includes(tok)) scoreA += 5;
-        if (titleB.includes(tok)) scoreB += 5;
-        if (a.snippet.toLowerCase().includes(tok)) scoreA += 2;
-        if (b.snippet.toLowerCase().includes(tok)) scoreB += 2;
-      }
-      if (a.domain.includes("wikipedia") || a.domain.includes(".edu") || a.domain.includes(".org")) scoreA += 3;
-      if (b.domain.includes("wikipedia") || b.domain.includes(".edu") || b.domain.includes(".org")) scoreB += 3;
-      return scoreB - scoreA;
-    });
-    const offset = Math.max(0, (page - 1) * limit);
-    const paginated = deduplicated.slice(offset, offset + limit);
-    return {
-      query: cleanQuery,
-      results: paginated,
-      total: deduplicated.length,
-      provider: "Verified Educational Search Index (Wikipedia & Web)"
-    };
-  }
-};
-var webSearchService = new WebSearchService();
-
-// backend/src/services/qa/qa.service.ts
-var QaService = class {
-  /**
-   * Responds to educational questions using story context and verified web citations
-   */
-  async answerQuestion(request) {
-    const question = request.question?.trim();
-    if (!question) {
-      throw new Error("Please provide an educational question.");
-    }
-    const searchQuery = request.topic ? `${request.topic} ${question}` : question;
-    const searchResponse = await webSearchService.search(searchQuery, 1, 4);
-    const verifiedSources = searchResponse.results.slice(0, 3).map((r) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.snippet
-    }));
-    const storyContextText = request.storyContext ? `
-Lesson Context:
-${request.storyContext}
-` : "";
-    const sourceContextText = verifiedSources.length > 0 ? `
-Verified Web Research Evidence:
-${verifiedSources.map((s, idx) => `[Source ${idx + 1}: ${s.title}] (${s.url})
-${s.snippet}`).join("\n\n")}
-` : "";
-    const aiProvider = getAiProvider();
-    if (aiProvider.isConfigured()) {
-      try {
-        const prompt = `You are AI Toon Educational Tutor, a friendly, accurate teacher for students.
-Answer the following student question accurately, clearly, and engagingly.
-
-Student Question: "${question}"
-Target Language: ${request.language || "en"}
-Target Learning Level: ${request.difficulty || "intermediate"}
-${storyContextText}
-${sourceContextText}
-
-Instructions:
-1. Provide a direct, factual answer first (1-2 clear sentences).
-2. Follow with a concise, easy-to-understand explanation.
-3. Provide a helpful real-world example or memorable analogy.
-4. If using external facts, only cite the provided verified sources. Never invent URLs or facts.
-5. If uncertain or evidence is insufficient, honestly state the uncertainty.
-
-Required JSON format:
-{
-  "answer": "Direct factual answer to the question.",
-  "explanation": "Clear educational breakdown of why this happens.",
-  "example": "A relatable real-world example or analogy."
-}
-Return ONLY valid JSON.`;
-        const chatbotApiKey = process.env.GEMINI_CHATBOT_API_KEY || process.env.CHATBOT_API_KEY || config.aiApiKey;
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${aiProvider.model}:generateContent?key=${chatbotApiKey}`;
-        const aiRes = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.3,
-              // low temperature for high factual accuracy
-              responseMimeType: "application/json"
-            }
-          }),
-          signal: AbortSignal.timeout(12e3)
-        });
-        if (aiRes.ok) {
-          const json = await aiRes.json();
-          const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            const cleanText = text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
-            const parsed = JSON.parse(cleanText);
-            return {
-              question,
-              answer: parsed.answer || "Here is the verified explanation for your question.",
-              explanation: parsed.explanation || "",
-              example: parsed.example || "",
-              sources: verifiedSources.map((s) => ({ title: s.title, url: s.url }))
-            };
-          }
-        }
-      } catch (err) {
-        console.warn("[QaService] AI generation error, falling back to grounded search synthesis:", err);
-      }
-    }
-    let directAnswer = "";
-    let explanation = "";
-    let example = "";
-    if (verifiedSources.length > 0) {
-      directAnswer = verifiedSources[0].snippet.split(".")[0] + ".";
-      explanation = verifiedSources[0].snippet;
-      example = `For example, in ${verifiedSources[0].title}, this principle can be observed in action.`;
-    } else if (request.storyContext) {
-      directAnswer = `Based on your lesson, here is the key concept:`;
-      explanation = request.storyContext.slice(0, 300) + "...";
-      example = "Review the educational diagrams and points above for a step-by-step walkthrough.";
-    } else {
-      directAnswer = `Educational guide for: "${question}"`;
-      explanation = "Consult your lesson points and verified reference links for in-depth educational coverage.";
-      example = "Try searching with specific terms for more detailed references.";
-    }
-    return {
-      question,
-      answer: directAnswer,
-      explanation,
-      example,
-      sources: verifiedSources.map((s) => ({ title: s.title, url: s.url }))
-    };
-  }
-};
-var qaService = new QaService();
-
 // backend/src/controllers/story.controller.ts
 var generateStoryController = async (req, res) => {
   try {
@@ -26958,25 +26710,6 @@ var getStatusController = (_req, res) => {
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     }
   });
-};
-var askQuestionController = async (req, res) => {
-  try {
-    const response = await qaService.answerQuestion(req.body);
-    res.status(200).json({
-      success: true,
-      data: response,
-      meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-    });
-  } catch (err) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: "QA_ERROR",
-        message: err.message || "Failed to process educational question."
-      },
-      meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-    });
-  }
 };
 var saveQuizAttemptController = async (req, res) => {
   try {
@@ -27195,7 +26928,6 @@ router2.get("/examples", getExamplesController);
 router2.get("/examples/:id", getExampleByIdController);
 router2.get("/status", getStatusController);
 router2.post("/generate", requireApprovedUser, storyRateLimiter, generateStoryController);
-router2.post("/qa", requireApprovedUser, askQuestionController);
 router2.post("/quiz/attempt", requireApprovedUser, saveQuizAttemptController);
 router2.get("/my-stories", requireAuth, getUserStoriesController);
 router2.get("/my-progress", requireAuth, getUserProgressController);
@@ -27896,6 +27628,141 @@ var auth_routes_default = authRouter;
 
 // backend/src/routes/search.routes.ts
 var import_express6 = __toESM(require_express2(), 1);
+
+// backend/src/services/webSearch/webSearch.service.ts
+var WebSearchService = class {
+  userAgent = "AIToonEducationalApp/1.0 (https://github.com/ai-toon; contact: educational-app@example.com)";
+  /**
+   * Submits a live query to indexed web and educational encyclopedic sources
+   */
+  async search(query, page = 1, limit = 8) {
+    const cleanQuery = query.trim();
+    if (!cleanQuery) {
+      return { query: "", results: [], total: 0, provider: "AI Toon Web Index" };
+    }
+    const collectedResults = [];
+    try {
+      const wikiEndpoint = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
+        cleanQuery
+      )}&gsrlimit=15&prop=extracts|info&exintro=1&explaintext=1&exchars=400&inprop=url&format=json`;
+      const wikiRes = await fetch(wikiEndpoint, {
+        headers: { "User-Agent": this.userAgent, Accept: "application/json" },
+        signal: AbortSignal.timeout(6e3)
+      });
+      if (wikiRes.ok) {
+        const wikiData = await wikiRes.json();
+        const pages = Object.values(wikiData.query?.pages || {});
+        for (const p of pages) {
+          if (!p.fullurl || !p.title) continue;
+          const snippet = (p.extract || "").replace(/\s+/g, " ").trim();
+          if (!snippet) continue;
+          let domain = "en.wikipedia.org";
+          try {
+            domain = new URL(p.fullurl).hostname;
+          } catch {
+          }
+          collectedResults.push({
+            title: p.title,
+            url: p.fullurl,
+            snippet: snippet.slice(0, 320) + (snippet.length > 320 ? "..." : ""),
+            domain,
+            publishedDate: p.touched ? p.touched.split("T")[0] : void 0,
+            sourceType: "encyclopedic"
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`[WebSearchService] Wikipedia search provider error for "${cleanQuery}":`, err);
+    }
+    try {
+      const ddgEndpoint = `https://api.duckduckgo.com/?q=${encodeURIComponent(
+        cleanQuery
+      )}&format=json&no_html=1&skip_disambig=1`;
+      const ddgRes = await fetch(ddgEndpoint, {
+        headers: { "User-Agent": this.userAgent, Accept: "application/json" },
+        signal: AbortSignal.timeout(6e3)
+      });
+      if (ddgRes.ok) {
+        const ddgData = await ddgRes.json();
+        if (ddgData.AbstractText && ddgData.AbstractURL) {
+          let domain = "duckduckgo.com";
+          try {
+            domain = new URL(ddgData.AbstractURL).hostname;
+          } catch {
+          }
+          collectedResults.unshift({
+            title: ddgData.Heading || cleanQuery,
+            url: ddgData.AbstractURL,
+            snippet: ddgData.AbstractText.slice(0, 320),
+            domain,
+            sourceType: "web"
+          });
+        }
+        if (Array.isArray(ddgData.RelatedTopics)) {
+          for (const item of ddgData.RelatedTopics) {
+            const topic = item.Topics ? item.Topics[0] : item;
+            if (topic?.FirstURL && topic?.Text) {
+              let domain = "web";
+              try {
+                domain = new URL(topic.FirstURL).hostname;
+              } catch {
+              }
+              const parts = topic.Text.split(" - ");
+              const title = parts[0]?.trim() || cleanQuery;
+              const snippet = parts[1]?.trim() || topic.Text;
+              collectedResults.push({
+                title,
+                url: topic.FirstURL,
+                snippet: snippet.slice(0, 280),
+                domain,
+                sourceType: "web"
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[WebSearchService] DuckDuckGo search provider error for "${cleanQuery}":`, err);
+    }
+    const seenUrls = /* @__PURE__ */ new Set();
+    const deduplicated = [];
+    for (const item of collectedResults) {
+      const norm = item.url.toLowerCase().split("#")[0].replace(/\/+$/, "");
+      if (!seenUrls.has(norm)) {
+        seenUrls.add(norm);
+        deduplicated.push(item);
+      }
+    }
+    const qLower = cleanQuery.toLowerCase();
+    const queryTokens = qLower.split(/\s+/).filter((w) => w.length > 2);
+    deduplicated.sort((a, b) => {
+      let scoreA = 0;
+      let scoreB = 0;
+      const titleA = a.title.toLowerCase();
+      const titleB = b.title.toLowerCase();
+      if (titleA === qLower) scoreA += 20;
+      if (titleB === qLower) scoreB += 20;
+      for (const tok of queryTokens) {
+        if (titleA.includes(tok)) scoreA += 5;
+        if (titleB.includes(tok)) scoreB += 5;
+        if (a.snippet.toLowerCase().includes(tok)) scoreA += 2;
+        if (b.snippet.toLowerCase().includes(tok)) scoreB += 2;
+      }
+      if (a.domain.includes("wikipedia") || a.domain.includes(".edu") || a.domain.includes(".org")) scoreA += 3;
+      if (b.domain.includes("wikipedia") || b.domain.includes(".edu") || b.domain.includes(".org")) scoreB += 3;
+      return scoreB - scoreA;
+    });
+    const offset = Math.max(0, (page - 1) * limit);
+    const paginated = deduplicated.slice(offset, offset + limit);
+    return {
+      query: cleanQuery,
+      results: paginated,
+      total: deduplicated.length,
+      provider: "Verified Educational Search Index (Wikipedia & Web)"
+    };
+  }
+};
+var webSearchService = new WebSearchService();
 
 // backend/src/controllers/search.controller.ts
 var webSearchController = async (req, res) => {
