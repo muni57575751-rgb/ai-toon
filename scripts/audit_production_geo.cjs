@@ -90,56 +90,75 @@ async function testGeoEndpoints() {
 
 async function testStoryGeneration(token, topic) {
   console.log(`\n[AUDIT CHECK 4] Testing Live Lesson Generation for: "${topic}"...`);
-  const start = Date.now();
-  const res = await fetch(`${BASE_URL}/api/stories/generate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      topic,
-      tone: 'funny',
-      language: 'en',
-      difficulty: 'intermediate',
-    }),
-  });
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const start = Date.now();
+    try {
+      const res = await fetch(`${BASE_URL}/api/stories/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          topic,
+          tone: 'funny',
+          language: 'en',
+          difficulty: 'intermediate',
+        }),
+      });
 
-  const elapsed = ((Date.now() - start) / 1000).toFixed(1);
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Generation returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(`Generation returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
+      }
+
+      if (res.status === 503 || res.status === 429) {
+        if (attempt < maxAttempts) {
+          console.log(`   ⏳ AI provider temporarily busy (HTTP ${res.status}). Waiting 6s before retry ${attempt + 1}...`);
+          await new Promise((r) => setTimeout(r, 6000));
+          continue;
+        }
+      }
+
+      const story = json.data?.story || json.story || (json.data && json.data.title ? json.data : null);
+      if (!res.ok || !story) {
+        throw new Error(`Generation failed (HTTP ${res.status}): ${json.message || text}`);
+      }
+      console.log(`   ✅ Lesson generated in ${elapsed}s! Title: "${story.title}"`);
+      console.log(`      Key Points count: ${story.keyPoints?.length || 0}`);
+      console.log(`      Has locationDetails: ${Boolean(story.locationDetails)}`);
+
+      if (story.locationDetails) {
+        const loc = story.locationDetails;
+        console.log(`      📍 Location: ${loc.placeName} (${loc.category})`);
+        console.log(`      📍 Coordinates: Lat ${loc.latitude}, Lon ${loc.longitude}`);
+        console.log(`      📍 Admin: ${loc.district || ''}, ${loc.state || ''}, ${loc.country || ''}`);
+        console.log(`      📍 PIN: ${loc.postalCode || 'None'} (Verified: ${loc.postalCodeVerified})`);
+      }
+
+      if (Array.isArray(story.illustrations)) {
+        console.log(`      🖼️ Illustrations (${story.illustrations.length}):`);
+        story.illustrations.forEach((ill, i) => {
+          console.log(`         [${i + 1}] "${ill.title}": ${ill.imageUrl ? ill.imageUrl.slice(0, 75) + '...' : 'SVG fallback'}`);
+          console.log(`             SearchQuery: "${ill.searchQuery || ''}"`);
+          console.log(`             Source: ${ill.sourceType || 'svg'} | License: ${ill.license || 'N/A'}`);
+        });
+      }
+
+      // Add spacing between stories to respect free-tier RPM
+      await new Promise((r) => setTimeout(r, 3000));
+      return story;
+    } catch (err) {
+      if (attempt >= maxAttempts) throw err;
+      console.log(`   ⏳ Retry after error: ${err.message}. Waiting 6s...`);
+      await new Promise((r) => setTimeout(r, 6000));
+    }
   }
-
-  const story = json.data?.story || json.story || (json.data && json.data.title ? json.data : null);
-  if (!res.ok || !story) {
-    throw new Error(`Generation failed (HTTP ${res.status}): ${json.message || text}`);
-  }
-  console.log(`   ✅ Lesson generated in ${elapsed}s! Title: "${story.title}"`);
-  console.log(`      Key Points count: ${story.keyPoints?.length || 0}`);
-  console.log(`      Has locationDetails: ${Boolean(story.locationDetails)}`);
-
-  if (story.locationDetails) {
-    const loc = story.locationDetails;
-    console.log(`      📍 Location: ${loc.placeName} (${loc.category})`);
-    console.log(`      📍 Coordinates: Lat ${loc.latitude}, Lon ${loc.longitude}`);
-    console.log(`      📍 Admin: ${loc.district || ''}, ${loc.state || ''}, ${loc.country || ''}`);
-    console.log(`      📍 PIN: ${loc.postalCode || 'None'} (Verified: ${loc.postalCodeVerified})`);
-  }
-
-  if (Array.isArray(story.illustrations)) {
-    console.log(`      🖼️ Illustrations (${story.illustrations.length}):`);
-    story.illustrations.forEach((ill, i) => {
-      console.log(`         [${i + 1}] "${ill.title}": ${ill.imageUrl ? ill.imageUrl.slice(0, 75) + '...' : 'SVG fallback'}`);
-      console.log(`             SearchQuery: "${ill.searchQuery || ''}"`);
-      console.log(`             Source: ${ill.sourceType || 'svg'} | License: ${ill.license || 'N/A'}`);
-    });
-  }
-
-  return story;
 }
 
 async function testMapTileAvailability() {
