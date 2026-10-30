@@ -469,18 +469,17 @@ export class EntityClassifier {
 
     switch (category) {
       case 'person': {
-        // For people, prioritize actual photographic portraits and official photos
+        // For people, prioritize direct entity name and authentic photograph searches
         if (slotIndex === 0) {
+          queries.push(entityName);
+          queries.push(`${entityName} photograph`);
           queries.push(`${entityName} official portrait`);
           queries.push(`${entityName} portrait`);
-          queries.push(`${entityName} photograph`);
-          queries.push(entityName);
         } else {
           // Second illustration: search for action/speech/event photograph or alternative portrait
+          queries.push(`${entityName} photograph`);
           queries.push(`${entityName} speech photograph`);
           queries.push(`${entityName} official photograph`);
-          queries.push(`${entityName} photograph`);
-          queries.push(`${entityName} portrait`);
           queries.push(entityName);
         }
         break;

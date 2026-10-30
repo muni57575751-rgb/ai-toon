@@ -1,6 +1,7 @@
 import type { Story, TopicIllustration, KeyPoint, LocationDetails } from '@ai-toon/shared';
 import type { IImageSearchProvider, ImageSearchOptions, ImageSearchResult } from './imageSearch.types.js';
 import { wikimediaProvider } from './wikimedia.provider.js';
+import { wikipediaProvider } from './wikipedia.provider.js';
 import { imageSearchCache } from './imageSearch.cache.js';
 import { entityClassifier, type EntityClassification } from './entityClassifier.js';
 import {
@@ -11,7 +12,10 @@ import {
 } from './imageDeduplicator.js';
 
 export class ImageSearchService {
-  constructor(private readonly provider: IImageSearchProvider = wikimediaProvider) {}
+  constructor(
+    private readonly primaryProvider: IImageSearchProvider = wikimediaProvider,
+    private readonly secondaryProvider: IImageSearchProvider = wikipediaProvider
+  ) {}
 
   /**
    * Retrieves a ranked list of candidate images for a query, using cache and in-flight deduplication
@@ -33,11 +37,11 @@ export class ImageSearchService {
           `[ImageSearchService] Fetching candidates for: "${cleanQuery}" (Entity: ${options.entityCategory || 'auto'}, Name: "${options.entityName || ''}")`
         );
 
-        if (typeof this.provider.searchImages === 'function') {
-          return await this.provider.searchImages(cleanQuery, options, limit);
+        if (typeof this.primaryProvider.searchImages === 'function') {
+          return await this.primaryProvider.searchImages(cleanQuery, options, limit);
         }
 
-        const single = await this.provider.searchImage(cleanQuery, options);
+        const single = await this.primaryProvider.searchImage(cleanQuery, options);
         return single ? [single] : [];
       },
       options
@@ -63,12 +67,22 @@ export class ImageSearchService {
           `[ImageSearchService] Searching image for: "${cleanQuery}" (Entity: ${options.entityCategory || 'auto'}, Name: "${options.entityName || ''}")`
         );
 
-        const result = await this.provider.searchImage(cleanQuery, options);
+        const result = await this.primaryProvider.searchImage(cleanQuery, options);
         if (result) {
           console.log(
-            `[ImageSearchService] Found image for "${cleanQuery}": "${result.title}" (${result.license}) [MIME: ${result.mime || 'unknown'}]`
+            `[ImageSearchService] Found primary image for "${cleanQuery}": "${result.title}" (${result.license}) [Score: ${result.score || 'N/A'}]`
           );
           return result;
+        }
+
+        if (options.allowFallbackProvider !== false) {
+          const secondary = await this.secondaryProvider.searchImage(cleanQuery, options);
+          if (secondary) {
+            console.log(
+              `[ImageSearchService] Found secondary image for "${cleanQuery}": "${secondary.title}" (${secondary.license}) [Score: ${secondary.score || 'N/A'}]`
+            );
+            return secondary;
+          }
         }
 
         return null;
@@ -81,9 +95,10 @@ export class ImageSearchService {
    * Enhances all illustrations in an educational lesson with entity-aware authentic public media.
    * Guarantees:
    * 1. No duplicate images within the lesson (canonical identifier, page ID, and normalized URL tracking).
-   * 2. Distinct candidate selection for different concepts/slots.
-   * 3. Graceful SVG fallback if fewer than 2 distinct suitable images exist without duplicating or choosing unrelated images.
+   * 2. Strict minimum relevance threshold: never forces an unrelated image.
+   * 3. Distinct candidate selection for different concepts/slots.
    * 4. Multi-candidate caching and fallback URLs for frontend retry.
+   * 5. Graceful SVG fallback if fewer than 2 distinct suitable images exist above threshold.
    */
   public async enhanceStoryIllustrations(story: Story): Promise<Story> {
     if (!Array.isArray(story.illustrations) || story.illustrations.length === 0) {
@@ -152,13 +167,14 @@ export class ImageSearchService {
           (isGeoStory && (story.locationDetails?.district || story.locationDetails?.state)) ||
           classification.secondaryContext,
         excludeIdentifiers: Array.from(usedIdentifiers),
+        minScoreThreshold: 25,
       };
 
       let chosenCandidate: ImageSearchResult | null = null;
       let successfulQuery = '';
       const backupCandidateUrls: string[] = [];
 
-      // Try queries until suitable unused candidates are discovered
+      // 1. Try prioritized queries against Primary Provider (Wikimedia Commons API)
       for (const candidateQuery of queries) {
         try {
           const candidates = await this.findEducationalCandidates(candidateQuery, searchOptions, 6);
@@ -167,25 +183,50 @@ export class ImageSearchService {
           const unusedCandidates = deduplicateCandidates(candidates, usedIdentifiers);
 
           if (unusedCandidates.length > 0) {
-            if (!chosenCandidate) {
-              chosenCandidate = unusedCandidates[0];
-              successfulQuery = candidateQuery;
-              // Register chosen image in used set immediately
-              registerUsedImage(chosenCandidate, usedIdentifiers);
+            chosenCandidate = unusedCandidates[0];
+            successfulQuery = candidateQuery;
+            // Register chosen image in used set immediately
+            registerUsedImage(chosenCandidate, usedIdentifiers);
 
-              // Collect backup alternative URLs for this concept
-              for (let cIdx = 1; cIdx < unusedCandidates.length; cIdx++) {
-                const alt = unusedCandidates[cIdx];
-                const altUrl = alt.thumbnailUrl || alt.imageUrl;
-                if (altUrl && !backupCandidateUrls.includes(altUrl)) {
-                  backupCandidateUrls.push(altUrl);
-                }
+            // Collect backup alternative URLs for this concept
+            for (let cIdx = 1; cIdx < unusedCandidates.length; cIdx++) {
+              const alt = unusedCandidates[cIdx];
+              const altUrl = alt.thumbnailUrl || alt.imageUrl;
+              if (altUrl && !backupCandidateUrls.includes(altUrl)) {
+                backupCandidateUrls.push(altUrl);
               }
-              break;
             }
+            break;
           }
         } catch (err) {
-          console.warn(`[ImageSearchService] Query "${candidateQuery}" failed:`, err);
+          console.warn(`[ImageSearchService] Primary query "${candidateQuery}" failed:`, err);
+        }
+      }
+
+      // 2. If no candidate met threshold from Wikimedia Commons, consult Secondary Provider (Wikipedia REST API)
+      if (!chosenCandidate) {
+        try {
+          const targetTerm = searchOptions.entityName || queries[0] || story.topic;
+          console.log(
+            `[ImageSearchService] Consulting secondary provider (Wikipedia REST API) for "${targetTerm}" (slot ${idx + 1})...`
+          );
+          const wikiCandidates = await this.secondaryProvider.searchImages!(
+            targetTerm,
+            searchOptions,
+            2
+          );
+
+          const unusedWiki = deduplicateCandidates(wikiCandidates, usedIdentifiers);
+          if (unusedWiki.length > 0) {
+            chosenCandidate = unusedWiki[0];
+            successfulQuery = targetTerm;
+            registerUsedImage(chosenCandidate, usedIdentifiers);
+            console.log(
+              `[ImageSearchService] Found verified secondary image for "${story.topic}": "${chosenCandidate.title}"`
+            );
+          }
+        } catch (wikiErr) {
+          console.warn('[ImageSearchService] Secondary provider error:', wikiErr);
         }
       }
 
@@ -202,7 +243,7 @@ export class ImageSearchService {
           attribution: chosenCandidate.attribution,
           width: chosenCandidate.width,
           height: chosenCandidate.height,
-          sourceType: 'wikimedia',
+          sourceType: chosenCandidate.sourceType || 'wikimedia',
           alternativeUrls: backupCandidateUrls.slice(0, 3),
         });
       } else {
@@ -259,7 +300,12 @@ export class ImageSearchService {
   ): string[] {
     const candidateQueries: string[] = [];
 
-    // Geographical entity query specialization (Phase 7: photograph priority & regional context)
+    // 1. If explicit, high-quality searchQuery was generated by Gemini AI, place it at top priority
+    if (ill.searchQuery && ill.searchQuery.trim().length >= 6 && !ill.searchQuery.toLowerCase().includes('undefined')) {
+      candidateQueries.push(ill.searchQuery.trim());
+    }
+
+    // Geographical entity query specialization (photograph priority & regional context)
     if (locationDetails && locationDetails.isLocation && locationDetails.requiresMap !== false) {
       const place = locationDetails.placeName;
       const district = locationDetails.district ? ` ${locationDetails.district}` : '';
@@ -272,23 +318,18 @@ export class ImageSearchService {
       candidateQueries.push(place);
     }
 
-    // 1. Concept hint from title and paired key point
+    // Concept hint from title and paired key point
     const titleHint = (ill.title || '').replace(/illustration|figure|\d+/gi, '').trim();
     const headingHint = pairedKeyPoint?.heading ? pairedKeyPoint.heading.trim() : '';
     const extraHint = titleHint || headingHint;
 
-    // 2. Query tailored by entityClassifier with slotIndex differentiation
+    // Queries tailored by entityClassifier with slotIndex differentiation
     const entityQueries = entityClassifier.generateQueries(classification, extraHint, illustrationIndex);
     for (const eq of entityQueries) {
       candidateQueries.push(eq);
     }
 
-    // 3. If explicit searchQuery was provided by AI and isn't generic, include it
-    if (ill.searchQuery && ill.searchQuery.trim().length >= 8 && !ill.searchQuery.toLowerCase().includes('undefined')) {
-      candidateQueries.push(ill.searchQuery.trim());
-    }
-
-    // 4. For technical & scientific concepts, add focused combinations of entityName + concept
+    // Category-specific precision combinations
     if (classification.category === 'scientific' || classification.category === 'technical') {
       if (titleHint.length > 2) {
         candidateQueries.push(`${classification.entityName} ${titleHint} diagram`);

@@ -429,6 +429,9 @@ CRITICAL INSTRUCTIONS:
     - If the topic is a PLACE or LANDMARK (e.g. Taj Mahal, India Gate): query MUST search for landmark architecture photographs (e.g. "Taj Mahal landmark photograph").
     - If the topic is an EDUCATIONAL/SCIENTIFIC concept (e.g. photosynthesis, human heart): query MUST search for labeled scientific diagrams (e.g. "photosynthesis labeled scientific diagram", "human heart labeled anatomy blood flow diagram").
     - If the topic is a TECHNICAL concept (e.g. binary search, neural networks): query MUST search for technical diagrams (e.g. "binary search sorted array middle element diagram").
+    - If the topic is FOOD or CUISINE (e.g. Biryani, Jalebi, Samosa): query MUST search for authentic food photographs (e.g. "Biryani authentic Indian cuisine dish photograph", "Hyderabadi Biryani dum"). NEVER search for clip art or drawings of food.
+    - If the topic is an ANIMAL or WILDLIFE SPECIES (e.g. Bengal Tiger, Peacock): query MUST search for wildlife species photography in natural habitat (e.g. "Bengal tiger Panthera tigris wildlife photograph", "Indian peacock Pavo cristatus plumage photo").
+    - If the topic is a HISTORICAL EVENT (e.g. Quit India Movement, Dandi March): query MUST search for authentic archival photographs or historical monuments (e.g. "Quit India Movement 1942 archival photograph", "Quit India memorial monument").
   * positionIndex: After which point to display it (e.g. 2, 4)
 - Quiz: Exactly 3 quick multiple-choice quiz questions with 4 options ('a', 'b', 'c', 'd'), the correct option ID, and a brief explanation.
 

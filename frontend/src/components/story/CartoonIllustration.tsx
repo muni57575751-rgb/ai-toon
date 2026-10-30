@@ -15,7 +15,7 @@ interface CartoonIllustrationProps {
   attribution?: string;
   width?: number;
   height?: number;
-  sourceType?: 'wikimedia' | 'openverse' | 'svg_fallback';
+  sourceType?: 'wikimedia' | 'openverse' | 'wikipedia' | 'svg_fallback';
   alternativeUrls?: string[];
 }
 
@@ -840,10 +840,20 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
                   style={{ color: 'var(--accent-cyan-hover)', textDecoration: 'underline', fontWeight: 700 }}
                   title="View original image on Wikimedia Commons"
                 >
-                  {sourceType === 'wikimedia' ? 'Wikimedia Commons ↗' : 'Public Media ↗'}
+                  {sourceType === 'wikimedia'
+                    ? 'Wikimedia Commons ↗'
+                    : sourceType === 'wikipedia'
+                    ? 'Wikipedia / Wikimedia ↗'
+                    : 'Public Media ↗'}
                 </a>
               ) : (
-                <span>{sourceType === 'wikimedia' ? 'Wikimedia Commons' : 'Public Media'}</span>
+                <span>
+                  {sourceType === 'wikimedia'
+                    ? 'Wikimedia Commons'
+                    : sourceType === 'wikipedia'
+                    ? 'Wikipedia / Wikimedia'
+                    : 'Public Media'}
+                </span>
               )}
               {author && <span>• <strong>Author:</strong> {author}</span>}
               {attribution && attribution !== author && <span>• <strong>Credit:</strong> {attribution}</span>}

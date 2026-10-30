@@ -22,8 +22,11 @@ export interface ImageSearchResult {
   width?: number;
   height?: number;
   mime?: string;
-  sourceType: 'wikimedia' | 'openverse';
+  sourceType: 'wikimedia' | 'openverse' | 'wikipedia' | 'svg_fallback';
   entityCategory?: EntityCategory;
+  score?: number;
+  categories?: string[];
+  rejectionReason?: string;
 }
 
 export interface ImageSearchOptions {
@@ -32,6 +35,8 @@ export interface ImageSearchOptions {
   secondaryContext?: string;
   timeoutMs?: number;
   excludeIdentifiers?: string[];
+  minScoreThreshold?: number;
+  allowFallbackProvider?: boolean;
 }
 
 export interface IImageSearchProvider {

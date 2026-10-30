@@ -37,7 +37,7 @@ export interface TopicIllustration {
   attribution?: string;
   width?: number;
   height?: number;
-  sourceType?: 'wikimedia' | 'openverse' | 'svg_fallback';
+  sourceType?: 'wikimedia' | 'openverse' | 'wikipedia' | 'svg_fallback';
   alternativeUrls?: string[];
 }
 

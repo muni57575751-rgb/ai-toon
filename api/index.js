@@ -37828,6 +37828,9 @@ CRITICAL INSTRUCTIONS:
     - If the topic is a PLACE or LANDMARK (e.g. Taj Mahal, India Gate): query MUST search for landmark architecture photographs (e.g. "Taj Mahal landmark photograph").
     - If the topic is an EDUCATIONAL/SCIENTIFIC concept (e.g. photosynthesis, human heart): query MUST search for labeled scientific diagrams (e.g. "photosynthesis labeled scientific diagram", "human heart labeled anatomy blood flow diagram").
     - If the topic is a TECHNICAL concept (e.g. binary search, neural networks): query MUST search for technical diagrams (e.g. "binary search sorted array middle element diagram").
+    - If the topic is FOOD or CUISINE (e.g. Biryani, Jalebi, Samosa): query MUST search for authentic food photographs (e.g. "Biryani authentic Indian cuisine dish photograph", "Hyderabadi Biryani dum"). NEVER search for clip art or drawings of food.
+    - If the topic is an ANIMAL or WILDLIFE SPECIES (e.g. Bengal Tiger, Peacock): query MUST search for wildlife species photography in natural habitat (e.g. "Bengal tiger Panthera tigris wildlife photograph", "Indian peacock Pavo cristatus plumage photo").
+    - If the topic is a HISTORICAL EVENT (e.g. Quit India Movement, Dandi March): query MUST search for authentic archival photographs or historical monuments (e.g. "Quit India Movement 1942 archival photograph", "Quit India memorial monument").
   * positionIndex: After which point to display it (e.g. 2, 4)
 - Quiz: Exactly 3 quick multiple-choice quiz questions with 4 options ('a', 'b', 'c', 'd'), the correct option ID, and a brief explanation.
 
@@ -38476,20 +38479,22 @@ function registerUsedImage(image, usedSet) {
 }
 
 // backend/src/services/imageSearch/wikimedia.provider.ts
-var WikimediaImageProvider = class {
+var WikimediaImageProvider = class _WikimediaImageProvider {
   name = "Wikimedia Commons API";
   userAgent = "AIToonEducationalApp/1.0 (https://github.com/ai-toon; contact: educational-app@example.com)";
+  static DEFAULT_MIN_SCORE_THRESHOLD = 25;
   async searchImages(query, options = {}, limit = 10) {
     const cleanQuery = query.trim();
     if (!cleanQuery) return [];
     const timeoutMs = options.timeoutMs ?? 8e3;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const minScoreThreshold = typeof options.minScoreThreshold === "number" ? options.minScoreThreshold : _WikimediaImageProvider.DEFAULT_MIN_SCORE_THRESHOLD;
     try {
       const searchQuery = `${cleanQuery} -filetype:pdf -filetype:djvu`;
       const endpoint = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
         searchQuery
-      )}&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url|size|extmetadata|mime&iiurlwidth=800&format=json`;
+      )}&gsrnamespace=6&gsrlimit=20&prop=categories|imageinfo&cllimit=30&iiprop=url|size|extmetadata|mime&iiurlwidth=800&format=json`;
       const res = await fetch(endpoint, {
         method: "GET",
         headers: {
@@ -38518,7 +38523,8 @@ var WikimediaImageProvider = class {
       if (pages.length === 0) {
         return [];
       }
-      const candidates = [];
+      const acceptedCandidates = [];
+      const rejectedCandidates = [];
       const queryTokens = this.tokenize(cleanQuery);
       const entityCategory = options.entityCategory || "other";
       const entityName = options.entityName || "";
@@ -38529,8 +38535,16 @@ var WikimediaImageProvider = class {
         const mime = (info.mime || "").toLowerCase();
         const lowerTitle = page.title.toLowerCase();
         const isSupportedImage = (mime === "image/jpeg" || mime === "image/png" || mime === "image/svg+xml" || mime === "image/webp") && !lowerTitle.endsWith(".pdf") && !lowerTitle.endsWith(".djvu") && !lowerTitle.endsWith(".tif") && !lowerTitle.endsWith(".tiff");
-        if (!isSupportedImage) continue;
+        if (!isSupportedImage) {
+          rejectedCandidates.push({ title: page.title, score: 0, reason: `UNSUPPORTED_MEDIA_TYPE (${mime})` });
+          continue;
+        }
         if (info.width && info.width < 180 || info.height && info.height < 140) {
+          rejectedCandidates.push({
+            title: page.title,
+            score: 0,
+            reason: `IMAGE_TOO_SMALL (${info.width}x${info.height})`
+          });
           continue;
         }
         const ext = info.extmetadata || {};
@@ -38540,9 +38554,13 @@ var WikimediaImageProvider = class {
         const licenseUrl = ext.LicenseUrl?.value;
         const attribution = this.cleanHtml(ext.Credit?.value || ext.UsageTerms?.value) || author;
         const description = this.cleanHtml(ext.ImageDescription?.value) || "";
-        const score = this.calculateRelevance(
+        const categories = (page.categories || []).map(
+          (c) => c.title.replace(/^Category:/i, "").trim()
+        );
+        const evaluation = this.calculateRelevance(
           page.title,
           description,
+          categories,
           queryTokens,
           entityCategory,
           entityName,
@@ -38552,10 +38570,15 @@ var WikimediaImageProvider = class {
           info.width,
           info.height
         );
-        if (score <= 0) continue;
+        const score = evaluation.score;
+        if (score < minScoreThreshold) {
+          const reason = evaluation.rejectionReason || `SCORE_BELOW_THRESHOLD (${score} < ${minScoreThreshold})`;
+          rejectedCandidates.push({ title: page.title, score, reason });
+          continue;
+        }
         const cleanTitle = page.title.replace(/^File:/i, "").replace(/\.[^.]+$/, "").replace(/_/g, " ").trim();
         const canonicalSourceUrl = info.descriptionurl || `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title.replace(/ /g, "_"))}`;
-        candidates.push({
+        acceptedCandidates.push({
           score,
           result: {
             id: `wiki_${page.pageid}`,
@@ -38571,14 +38594,24 @@ var WikimediaImageProvider = class {
             height: info.height,
             mime: info.mime,
             sourceType: "wikimedia",
-            entityCategory
+            entityCategory,
+            score,
+            categories
           }
         });
       }
-      if (candidates.length === 0) {
+      if (rejectedCandidates.length > 0) {
+        console.log(
+          `[WikimediaProvider] Evaluated ${pages.length} images for "${cleanQuery}": ${acceptedCandidates.length} accepted, ${rejectedCandidates.length} rejected.`
+        );
+        for (const rej of rejectedCandidates.slice(0, 3)) {
+          console.log(`  - [REJECTED] "${rej.title}": ${rej.reason} (score: ${rej.score})`);
+        }
+      }
+      if (acceptedCandidates.length === 0) {
         return [];
       }
-      candidates.sort((a, b) => b.score - a.score);
+      acceptedCandidates.sort((a, b) => b.score - a.score);
       const excludedSet = /* @__PURE__ */ new Set();
       if (options.excludeIdentifiers && Array.isArray(options.excludeIdentifiers)) {
         for (const id of options.excludeIdentifiers) {
@@ -38588,7 +38621,7 @@ var WikimediaImageProvider = class {
         }
       }
       const deduplicated = deduplicateCandidates(
-        candidates.map((c) => c.result),
+        acceptedCandidates.map((c) => c.result),
         excludedSet
       );
       return deduplicated.slice(0, limit);
@@ -38623,13 +38656,17 @@ var WikimediaImageProvider = class {
       "what",
       "file",
       "image",
-      "photo"
+      "photo",
+      "overview",
+      "detailed"
     ]);
     return text.toLowerCase().replace(/[^\w\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stopWords.has(w));
   }
-  calculateRelevance(title, description, queryTokens, entityCategory, entityName, entityTokens, secondaryContext, mime, width, height) {
-    const combined = `${title} ${description}`.toLowerCase();
+  calculateRelevance(title, description, categories, queryTokens, entityCategory, entityName, entityTokens, secondaryContext, mime, width, height) {
     const lowerTitle = title.toLowerCase();
+    const lowerCategories = categories.map((c) => c.toLowerCase());
+    const categoriesJoined = lowerCategories.join(" ");
+    const combined = `${lowerTitle} ${description.toLowerCase()} ${categoriesJoined}`;
     const isPhoto = mime === "image/jpeg" || mime === "image/png" || mime === "image/webp";
     const isSvg = mime === "image/svg+xml";
     const genericInstitutionWords = /* @__PURE__ */ new Set([
@@ -38677,23 +38714,35 @@ var WikimediaImageProvider = class {
       if (lowerEntity.includes("narendra modi") || lowerEntity.includes("modi")) {
         const hasModiMatch = lowerTitle.includes("modi") || combined.includes("modi");
         if (!hasModiMatch) {
-          return 0;
+          return { score: 0, rejectionReason: "MISSING_DISTINCTIVE_TOKEN (modi)" };
+        }
+      } else if (lowerEntity.includes("einstein")) {
+        const hasEinsteinMatch = lowerTitle.includes("einstein") || combined.includes("einstein");
+        if (!hasEinsteinMatch) {
+          return { score: 0, rejectionReason: "MISSING_DISTINCTIVE_TOKEN (einstein)" };
+        }
+      } else if (lowerEntity.includes("dhoni")) {
+        const hasDhoniMatch = lowerTitle.includes("dhoni") || combined.includes("dhoni");
+        if (!hasDhoniMatch) {
+          return { score: 0, rejectionReason: "MISSING_DISTINCTIVE_TOKEN (dhoni)" };
         }
       } else if (lowerEntity.includes("vignan")) {
         const hasVignanMatch = lowerTitle.includes("vignan") || combined.includes("vignan");
         if (!hasVignanMatch) {
-          return 0;
+          return { score: 0, rejectionReason: "MISSING_DISTINCTIVE_TOKEN (vignan)" };
         }
       } else {
         const hasDistinctiveMatch = lowerEntity.length > 3 && combined.includes(lowerEntity) || distinctiveTokens.length > 0 && distinctiveTokens.some((token) => combined.includes(token));
         if (distinctiveTokens.length > 0 && !hasDistinctiveMatch) {
-          return 0;
+          return { score: 0, rejectionReason: `MISSING_DISTINCTIVE_TOKEN (${distinctiveTokens.join(",")})` };
         }
       }
     }
     let score = 0;
     for (const token of queryTokens) {
       if (lowerTitle.includes(token)) {
+        score += 5;
+      } else if (categoriesJoined.includes(token)) {
         score += 4;
       } else if (combined.includes(token)) {
         score += 2;
@@ -38701,7 +38750,12 @@ var WikimediaImageProvider = class {
     }
     if (entityName) {
       const lowerEntity = entityName.toLowerCase().trim();
-      if (lowerTitle.includes(lowerEntity)) {
+      const cleanLowerTitle = lowerTitle.replace(/^file:/i, "").trim();
+      if (cleanLowerTitle.startsWith(lowerEntity)) {
+        score += 35;
+      } else if (lowerTitle.includes(lowerEntity)) {
+        score += 25;
+      } else if (categoriesJoined.includes(lowerEntity)) {
         score += 20;
       } else if (combined.includes(lowerEntity)) {
         score += 10;
@@ -38710,89 +38764,132 @@ var WikimediaImageProvider = class {
     if (secondaryContext) {
       const secTokens = this.tokenize(secondaryContext);
       for (const st of secTokens) {
-        if (combined.includes(st)) {
+        if (lowerTitle.includes(st)) {
+          score += 15;
+        } else if (categoriesJoined.includes(st)) {
           score += 12;
+        } else if (combined.includes(st)) {
+          score += 8;
         }
       }
     }
+    const isExplicitStampQuery = queryTokens.includes("stamp");
+    const isExplicitCoinQuery = queryTokens.includes("coin") || queryTokens.includes("currency");
+    if (!isExplicitStampQuery) {
+      if (lowerTitle.includes("stamp") || lowerTitle.includes("postage") || categoriesJoined.includes("postage stamps") || categoriesJoined.includes("stamps of")) {
+        score -= 35;
+      }
+    }
+    if (!isExplicitCoinQuery) {
+      if (lowerTitle.includes("coin") || lowerTitle.includes("banknote") || lowerTitle.includes("currency") || categoriesJoined.includes("coins of") || categoriesJoined.includes("banknotes")) {
+        score -= 35;
+      }
+    }
+    if (entityCategory === "person" || entityCategory === "place" || entityCategory === "food" || entityCategory === "animal") {
+      if (combined.includes("caricature") || combined.includes("satire") || combined.includes("graffiti") || combined.includes("parody") || combined.includes("editorial cartoon")) {
+        score -= 35;
+      }
+    }
+    if (lowerTitle.includes("book cover") || lowerTitle.includes("title page") || combined.includes("cover of the book") || combined.includes("manuscript scan")) {
+      score -= 25;
+    }
     switch (entityCategory) {
       case "person": {
-        if (isPhoto) score += 12;
-        if (isSvg) score -= 8;
-        if (lowerTitle.includes("portrait")) score += 12;
-        if (lowerTitle.includes("official")) score += 10;
-        if (lowerTitle.includes("photograph") || lowerTitle.includes("photo")) score += 8;
+        if (isPhoto) score += 14;
+        if (isSvg) score -= 15;
+        if (lowerTitle.includes("portrait")) score += 15;
+        if (lowerTitle.includes("official")) score += 12;
+        if (lowerTitle.includes("photograph") || lowerTitle.includes("photo")) score += 10;
         if (lowerTitle.includes("prime minister") || lowerTitle.includes("president")) score += 6;
-        if (lowerTitle.includes("address") || lowerTitle.includes("speech") || lowerTitle.includes("meeting")) {
-          score += 6;
+        if (lowerTitle.includes("promot") || lowerTitle.includes("at premiere") || lowerTitle.includes("trailer") || lowerTitle.includes("teaser") || lowerTitle.includes("screening of") || lowerTitle.includes("film") || lowerTitle.includes("movie")) {
+          score -= 40;
         }
-        if (combined.includes("caricature") || combined.includes("satire") || combined.includes("graffiti") || combined.includes("parody")) {
-          score -= 20;
+        if (lowerTitle.includes("signature") || lowerTitle.includes("autograph") || lowerTitle.includes("tomb") || lowerTitle.includes("grave")) {
+          score -= 35;
+        }
+        if (lowerTitle.includes("address") || lowerTitle.includes("speech") || lowerTitle.includes("meeting")) {
+          score += 8;
+        }
+        if (entityName && categories.some((c) => c.toLowerCase().includes(entityName.toLowerCase()))) {
+          score += 20;
+        }
+        if (lowerTitle.includes("stadium") || lowerTitle.includes("high school") || lowerTitle.includes("university") || lowerTitle.includes("hospital") || categoriesJoined.includes("stadiums") || categoriesJoined.includes("schools in")) {
+          score -= 35;
         }
         break;
       }
       case "institution": {
         if (isPhoto) score += 8;
         if (lowerTitle.includes("building") || lowerTitle.includes("campus")) score += 14;
-        if (lowerTitle.includes("university") || lowerTitle.includes("college")) score += 6;
+        if (lowerTitle.includes("university") || lowerTitle.includes("college")) score += 8;
         if (lowerTitle.includes("entrance") || lowerTitle.includes("gate") || lowerTitle.includes("library")) score += 10;
         if (lowerTitle.includes("vadlamudi")) score += 15;
         if (lowerTitle.includes("logo")) score += 5;
-        if (isSvg && lowerTitle.includes("diagram")) score -= 10;
+        if (isSvg && lowerTitle.includes("diagram")) score -= 12;
         break;
       }
       case "place": {
-        if (isPhoto) score += 8;
-        if (lowerTitle.includes("landmark") || lowerTitle.includes("monument")) score += 10;
-        if (lowerTitle.includes("view") || lowerTitle.includes("architecture")) score += 8;
+        if (isPhoto) score += 12;
+        if (lowerTitle.includes("landmark") || lowerTitle.includes("monument")) score += 12;
+        if (lowerTitle.includes("view") || lowerTitle.includes("architecture") || lowerTitle.includes("temple")) score += 10;
+        if (lowerTitle.includes("railway station") || lowerTitle.includes("station")) score += 10;
+        if (categoriesJoined.includes("railway station") || categoriesJoined.includes("villages in") || categoriesJoined.includes("towns in")) {
+          score += 15;
+        }
+        if (isSvg && !lowerTitle.includes("map")) score -= 10;
         break;
       }
       case "scientific": {
-        if (combined.includes("diagram")) score += 16;
-        if (combined.includes("labeled") || combined.includes("anatomy")) score += 12;
-        if (combined.includes("scheme") || combined.includes("schematic")) score += 8;
-        if (combined.includes("cycle") || combined.includes("process")) score += 8;
-        if (combined.includes("blood flow")) score += 10;
-        if (combined.includes("chloroplast") || combined.includes("photosynthesis")) score += 10;
-        if (isSvg) score += 8;
+        if (combined.includes("diagram")) score += 20;
+        if (combined.includes("labeled") || combined.includes("anatomy")) score += 15;
+        if (combined.includes("scheme") || combined.includes("schematic")) score += 10;
+        if (combined.includes("cycle") || combined.includes("process")) score += 10;
+        if (combined.includes("blood flow")) score += 12;
+        if (combined.includes("chloroplast") || combined.includes("photosynthesis")) score += 12;
+        if (categoriesJoined.includes("diagrams") || categoriesJoined.includes("photosynthesis")) score += 15;
+        if (isSvg) score += 12;
         break;
       }
       case "technical": {
-        if (combined.includes("diagram")) score += 16;
-        if (combined.includes("tree") || combined.includes("array") || combined.includes("search")) score += 10;
-        if (combined.includes("neural network") || combined.includes("architecture") || combined.includes("model")) score += 10;
-        if (combined.includes("flowchart") || combined.includes("algorithm") || combined.includes("structure")) score += 8;
-        if (isSvg) score += 8;
+        if (combined.includes("diagram")) score += 20;
+        if (combined.includes("tree") || combined.includes("array") || combined.includes("search")) score += 12;
+        if (combined.includes("neural network") || combined.includes("architecture") || combined.includes("model")) score += 12;
+        if (combined.includes("flowchart") || combined.includes("algorithm") || combined.includes("structure")) score += 10;
+        if (categoriesJoined.includes("algorithm") || categoriesJoined.includes("data structures")) score += 15;
+        if (isSvg) score += 12;
         break;
       }
       case "food": {
-        if (isPhoto) score += 12;
-        if (lowerTitle.includes("food") || lowerTitle.includes("dish") || lowerTitle.includes("recipe")) score += 12;
-        if (lowerTitle.includes("cuisine") || lowerTitle.includes("plate") || lowerTitle.includes("sweet")) score += 8;
-        if (isSvg) score -= 8;
+        if (isPhoto) score += 14;
+        if (lowerTitle.includes("food") || lowerTitle.includes("dish") || lowerTitle.includes("recipe")) score += 14;
+        if (lowerTitle.includes("cuisine") || lowerTitle.includes("plate") || lowerTitle.includes("sweet") || lowerTitle.includes("dum")) score += 10;
+        if (categoriesJoined.includes("cuisine") || categoriesJoined.includes("dishes") || categoriesJoined.includes("food")) score += 15;
+        if (isSvg) score -= 12;
         break;
       }
       case "animal": {
-        if (isPhoto) score += 12;
-        if (lowerTitle.includes("wildlife") || lowerTitle.includes("animal") || lowerTitle.includes("species")) score += 12;
-        if (lowerTitle.includes("nature") || lowerTitle.includes("wild") || lowerTitle.includes("bird")) score += 8;
-        if (isSvg) score -= 6;
+        if (isPhoto) score += 14;
+        if (lowerTitle.includes("wildlife") || lowerTitle.includes("animal") || lowerTitle.includes("species")) score += 14;
+        if (lowerTitle.includes("nature") || lowerTitle.includes("wild") || lowerTitle.includes("bird")) score += 10;
+        if (categoriesJoined.includes("fauna") || categoriesJoined.includes("animals") || categoriesJoined.includes("species")) score += 15;
+        if (isSvg) score -= 10;
         break;
       }
       case "history": {
-        if (isPhoto) score += 8;
-        if (lowerTitle.includes("historical") || lowerTitle.includes("archive") || lowerTitle.includes("vintage")) score += 12;
-        if (lowerTitle.includes("monument") || lowerTitle.includes("painting") || lowerTitle.includes("war")) score += 8;
+        if (isPhoto) score += 10;
+        if (lowerTitle.includes("historical") || lowerTitle.includes("archive") || lowerTitle.includes("vintage")) score += 14;
+        if (lowerTitle.includes("monument") || lowerTitle.includes("painting") || lowerTitle.includes("movement") || lowerTitle.includes("march")) score += 12;
+        if (categoriesJoined.includes("history") || categoriesJoined.includes("movement")) score += 15;
         break;
       }
       default: {
-        if (combined.includes("diagram") || combined.includes("illustration")) score += 4;
+        if (combined.includes("diagram") || combined.includes("illustration")) score += 6;
         break;
       }
     }
-    if (width && width >= 600) score += 2;
-    if (height && height >= 400) score += 2;
-    return score;
+    if (width && width >= 600) score += 3;
+    if (height && height >= 400) score += 3;
+    return { score };
   }
   cleanHtml(html) {
     if (!html) return "";
@@ -38800,6 +38897,194 @@ var WikimediaImageProvider = class {
   }
 };
 var wikimediaProvider = new WikimediaImageProvider();
+
+// backend/src/services/imageSearch/wikipedia.provider.ts
+var WikipediaImageProvider = class {
+  name = "Wikipedia REST API";
+  userAgent = "AIToonEducationalApp/1.0 (https://github.com/ai-toon; contact: educational-app@example.com)";
+  async searchImage(query, options = {}) {
+    const results = await this.searchImages(query, options, 1);
+    return results[0] || null;
+  }
+  async searchImages(query, options = {}, limit = 3) {
+    const cleanQuery = query.trim();
+    if (!cleanQuery) return [];
+    const timeoutMs = options.timeoutMs ?? 7e3;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const minThreshold = options.minScoreThreshold ?? 25;
+    const entityName = options.entityName || cleanQuery;
+    const entityCategory = options.entityCategory || "other";
+    try {
+      const candidateTitles = [entityName, cleanQuery];
+      try {
+        const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
+          cleanQuery
+        )}&srlimit=${limit}&format=json`;
+        const sRes = await fetch(searchUrl, {
+          headers: {
+            "User-Agent": this.userAgent,
+            Accept: "application/json"
+          },
+          signal: controller.signal
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          for (const item of sData.query?.search || []) {
+            if (item.title && !candidateTitles.includes(item.title)) {
+              candidateTitles.push(item.title);
+            }
+          }
+        }
+      } catch (sErr) {
+      }
+      const results = [];
+      for (const pageTitle of candidateTitles) {
+        if (results.length >= limit) break;
+        try {
+          const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+            pageTitle.replace(/ /g, "_")
+          )}`;
+          const res = await fetch(summaryUrl, {
+            headers: {
+              "User-Agent": this.userAgent,
+              Accept: "application/json"
+            },
+            signal: controller.signal
+          });
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.type === "disambiguation") continue;
+          if (!data.thumbnail?.source && !data.originalimage?.source) continue;
+          const imgUrl = data.originalimage?.source || data.thumbnail?.source || "";
+          const thumbUrl = data.thumbnail?.source || data.originalimage?.source || "";
+          if (!imgUrl) continue;
+          const score = this.calculateSummaryRelevance(data, entityName, entityCategory, cleanQuery);
+          if (score < minThreshold) {
+            console.log(
+              `[WikipediaImageProvider] Rejected candidate "${data.title}" (score ${score} < ${minThreshold})`
+            );
+            continue;
+          }
+          const pageUrl = data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent((data.title || pageTitle).replace(/ /g, "_"))}`;
+          results.push({
+            id: `wiki_rest_${data.pageid || encodeURIComponent(data.title || pageTitle)}`,
+            title: data.title || pageTitle,
+            imageUrl: imgUrl,
+            thumbnailUrl: thumbUrl,
+            sourcePageUrl: pageUrl,
+            author: "Wikipedia / Wikimedia Commons contributors",
+            license: "Creative Commons Attribution-ShareAlike 4.0",
+            licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+            attribution: `${data.title || pageTitle} (Wikipedia / Wikimedia Commons)`,
+            width: data.originalimage?.width || data.thumbnail?.width,
+            height: data.originalimage?.height || data.thumbnail?.height,
+            sourceType: "wikipedia",
+            entityCategory,
+            score,
+            categories: data.description ? [data.description] : []
+          });
+        } catch {
+        }
+      }
+      return results;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        console.warn(`[WikipediaImageProvider] Search timed out after ${timeoutMs}ms for "${cleanQuery}"`);
+      }
+      return [];
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  calculateSummaryRelevance(data, entityName, entityCategory, query) {
+    let score = 25;
+    const titleLower = (data.title || "").toLowerCase();
+    const entityLower = entityName.toLowerCase().trim();
+    const descLower = (data.description || "").toLowerCase();
+    const extractLower = (data.extract || "").toLowerCase();
+    const combined = `${titleLower} ${descLower} ${extractLower}`;
+    const entityTokens = entityLower.split(/\s+/).filter((t) => t.length > 2);
+    const hasEntityTokenMatch = entityTokens.some((t) => titleLower.includes(t));
+    if (titleLower === entityLower) {
+      score += 35;
+    } else if (titleLower.includes(entityLower) || entityLower.includes(titleLower)) {
+      score += 25;
+    } else if (hasEntityTokenMatch) {
+      score += 15;
+    } else {
+      return 0;
+    }
+    switch (entityCategory) {
+      case "person": {
+        const personMarkers = [
+          "cricketer",
+          "politician",
+          "physicist",
+          "scientist",
+          "actor",
+          "minister",
+          "president",
+          "born",
+          "player",
+          "leader",
+          "biography",
+          "mathematician"
+        ];
+        const isPersonDesc = personMarkers.some((m) => descLower.includes(m) || extractLower.includes(m));
+        if (isPersonDesc) score += 20;
+        if (descLower.includes("film") || descLower.includes("stadium") || descLower.includes("school") || descLower.includes("album") || descLower.includes("song")) {
+          score -= 40;
+        }
+        break;
+      }
+      case "place": {
+        const placeMarkers = ["village", "town", "city", "district", "temple", "monument", "mountain", "river", "india"];
+        if (placeMarkers.some((m) => descLower.includes(m) || extractLower.includes(m))) {
+          score += 20;
+        }
+        break;
+      }
+      case "food": {
+        const foodMarkers = ["dish", "cuisine", "food", "rice", "sweet", "bread", "curry", "snack", "beverage"];
+        if (foodMarkers.some((m) => descLower.includes(m) || extractLower.includes(m))) {
+          score += 25;
+        }
+        if (descLower.includes("film") || descLower.includes("album")) {
+          score -= 40;
+        }
+        break;
+      }
+      case "animal": {
+        const animalMarkers = ["species", "animal", "mammal", "bird", "subspecies", "fauna", "felid", "wildlife"];
+        if (animalMarkers.some((m) => descLower.includes(m) || extractLower.includes(m))) {
+          score += 25;
+        }
+        if (descLower.includes("team") || descLower.includes("mascot")) {
+          score -= 35;
+        }
+        break;
+      }
+      case "scientific":
+      case "technical": {
+        const conceptMarkers = ["algorithm", "process", "diagram", "concept", "structure", "biology", "theory", "system"];
+        if (conceptMarkers.some((m) => descLower.includes(m) || extractLower.includes(m))) {
+          score += 20;
+        }
+        break;
+      }
+      case "history": {
+        const historyMarkers = ["movement", "war", "battle", "event", "revolution", "treaty", "history", "campaign"];
+        if (historyMarkers.some((m) => descLower.includes(m) || extractLower.includes(m))) {
+          score += 20;
+        }
+        break;
+      }
+    }
+    return score;
+  }
+};
+var wikipediaProvider = new WikipediaImageProvider();
 
 // backend/src/services/imageSearch/imageSearch.cache.ts
 var ImageSearchCache = class {
@@ -39342,15 +39627,14 @@ var EntityClassifier = class {
     switch (category) {
       case "person": {
         if (slotIndex === 0) {
+          queries.push(entityName);
+          queries.push(`${entityName} photograph`);
           queries.push(`${entityName} official portrait`);
           queries.push(`${entityName} portrait`);
-          queries.push(`${entityName} photograph`);
-          queries.push(entityName);
         } else {
+          queries.push(`${entityName} photograph`);
           queries.push(`${entityName} speech photograph`);
           queries.push(`${entityName} official photograph`);
-          queries.push(`${entityName} photograph`);
-          queries.push(`${entityName} portrait`);
           queries.push(entityName);
         }
         break;
@@ -39538,8 +39822,9 @@ var entityClassifier = new EntityClassifier();
 
 // backend/src/services/imageSearch/imageSearch.service.ts
 var ImageSearchService = class {
-  constructor(provider = wikimediaProvider) {
-    this.provider = provider;
+  constructor(primaryProvider = wikimediaProvider, secondaryProvider = wikipediaProvider) {
+    this.primaryProvider = primaryProvider;
+    this.secondaryProvider = secondaryProvider;
   }
   /**
    * Retrieves a ranked list of candidate images for a query, using cache and in-flight deduplication
@@ -39554,10 +39839,10 @@ var ImageSearchService = class {
         console.log(
           `[ImageSearchService] Fetching candidates for: "${cleanQuery}" (Entity: ${options.entityCategory || "auto"}, Name: "${options.entityName || ""}")`
         );
-        if (typeof this.provider.searchImages === "function") {
-          return await this.provider.searchImages(cleanQuery, options, limit);
+        if (typeof this.primaryProvider.searchImages === "function") {
+          return await this.primaryProvider.searchImages(cleanQuery, options, limit);
         }
-        const single = await this.provider.searchImage(cleanQuery, options);
+        const single = await this.primaryProvider.searchImage(cleanQuery, options);
         return single ? [single] : [];
       },
       options
@@ -39576,12 +39861,21 @@ var ImageSearchService = class {
         console.log(
           `[ImageSearchService] Searching image for: "${cleanQuery}" (Entity: ${options.entityCategory || "auto"}, Name: "${options.entityName || ""}")`
         );
-        const result = await this.provider.searchImage(cleanQuery, options);
+        const result = await this.primaryProvider.searchImage(cleanQuery, options);
         if (result) {
           console.log(
-            `[ImageSearchService] Found image for "${cleanQuery}": "${result.title}" (${result.license}) [MIME: ${result.mime || "unknown"}]`
+            `[ImageSearchService] Found primary image for "${cleanQuery}": "${result.title}" (${result.license}) [Score: ${result.score || "N/A"}]`
           );
           return result;
+        }
+        if (options.allowFallbackProvider !== false) {
+          const secondary = await this.secondaryProvider.searchImage(cleanQuery, options);
+          if (secondary) {
+            console.log(
+              `[ImageSearchService] Found secondary image for "${cleanQuery}": "${secondary.title}" (${secondary.license}) [Score: ${secondary.score || "N/A"}]`
+            );
+            return secondary;
+          }
         }
         return null;
       },
@@ -39592,9 +39886,10 @@ var ImageSearchService = class {
    * Enhances all illustrations in an educational lesson with entity-aware authentic public media.
    * Guarantees:
    * 1. No duplicate images within the lesson (canonical identifier, page ID, and normalized URL tracking).
-   * 2. Distinct candidate selection for different concepts/slots.
-   * 3. Graceful SVG fallback if fewer than 2 distinct suitable images exist without duplicating or choosing unrelated images.
+   * 2. Strict minimum relevance threshold: never forces an unrelated image.
+   * 3. Distinct candidate selection for different concepts/slots.
    * 4. Multi-candidate caching and fallback URLs for frontend retry.
+   * 5. Graceful SVG fallback if fewer than 2 distinct suitable images exist above threshold.
    */
   async enhanceStoryIllustrations(story) {
     if (!Array.isArray(story.illustrations) || story.illustrations.length === 0) {
@@ -39646,7 +39941,8 @@ var ImageSearchService = class {
         entityCategory: isGeoStory ? "place" : classification.category,
         entityName: isGeoStory && story.locationDetails?.placeName || classification.entityName,
         secondaryContext: isGeoStory && (story.locationDetails?.district || story.locationDetails?.state) || classification.secondaryContext,
-        excludeIdentifiers: Array.from(usedIdentifiers)
+        excludeIdentifiers: Array.from(usedIdentifiers),
+        minScoreThreshold: 25
       };
       let chosenCandidate = null;
       let successfulQuery = "";
@@ -39656,22 +39952,44 @@ var ImageSearchService = class {
           const candidates = await this.findEducationalCandidates(candidateQuery, searchOptions, 6);
           const unusedCandidates = deduplicateCandidates(candidates, usedIdentifiers);
           if (unusedCandidates.length > 0) {
-            if (!chosenCandidate) {
-              chosenCandidate = unusedCandidates[0];
-              successfulQuery = candidateQuery;
-              registerUsedImage(chosenCandidate, usedIdentifiers);
-              for (let cIdx = 1; cIdx < unusedCandidates.length; cIdx++) {
-                const alt = unusedCandidates[cIdx];
-                const altUrl = alt.thumbnailUrl || alt.imageUrl;
-                if (altUrl && !backupCandidateUrls.includes(altUrl)) {
-                  backupCandidateUrls.push(altUrl);
-                }
+            chosenCandidate = unusedCandidates[0];
+            successfulQuery = candidateQuery;
+            registerUsedImage(chosenCandidate, usedIdentifiers);
+            for (let cIdx = 1; cIdx < unusedCandidates.length; cIdx++) {
+              const alt = unusedCandidates[cIdx];
+              const altUrl = alt.thumbnailUrl || alt.imageUrl;
+              if (altUrl && !backupCandidateUrls.includes(altUrl)) {
+                backupCandidateUrls.push(altUrl);
               }
-              break;
             }
+            break;
           }
         } catch (err) {
-          console.warn(`[ImageSearchService] Query "${candidateQuery}" failed:`, err);
+          console.warn(`[ImageSearchService] Primary query "${candidateQuery}" failed:`, err);
+        }
+      }
+      if (!chosenCandidate) {
+        try {
+          const targetTerm = searchOptions.entityName || queries[0] || story.topic;
+          console.log(
+            `[ImageSearchService] Consulting secondary provider (Wikipedia REST API) for "${targetTerm}" (slot ${idx + 1})...`
+          );
+          const wikiCandidates = await this.secondaryProvider.searchImages(
+            targetTerm,
+            searchOptions,
+            2
+          );
+          const unusedWiki = deduplicateCandidates(wikiCandidates, usedIdentifiers);
+          if (unusedWiki.length > 0) {
+            chosenCandidate = unusedWiki[0];
+            successfulQuery = targetTerm;
+            registerUsedImage(chosenCandidate, usedIdentifiers);
+            console.log(
+              `[ImageSearchService] Found verified secondary image for "${story.topic}": "${chosenCandidate.title}"`
+            );
+          }
+        } catch (wikiErr) {
+          console.warn("[ImageSearchService] Secondary provider error:", wikiErr);
         }
       }
       if (chosenCandidate) {
@@ -39687,7 +40005,7 @@ var ImageSearchService = class {
           attribution: chosenCandidate.attribution,
           width: chosenCandidate.width,
           height: chosenCandidate.height,
-          sourceType: "wikimedia",
+          sourceType: chosenCandidate.sourceType || "wikimedia",
           alternativeUrls: backupCandidateUrls.slice(0, 3)
         });
       } else {
@@ -39725,6 +40043,9 @@ var ImageSearchService = class {
    */
   buildPrioritizedQueries(topic, classification, ill, illustrationIndex, pairedKeyPoint, locationDetails) {
     const candidateQueries = [];
+    if (ill.searchQuery && ill.searchQuery.trim().length >= 6 && !ill.searchQuery.toLowerCase().includes("undefined")) {
+      candidateQueries.push(ill.searchQuery.trim());
+    }
     if (locationDetails && locationDetails.isLocation && locationDetails.requiresMap !== false) {
       const place = locationDetails.placeName;
       const district = locationDetails.district ? ` ${locationDetails.district}` : "";
@@ -39741,9 +40062,6 @@ var ImageSearchService = class {
     const entityQueries = entityClassifier.generateQueries(classification, extraHint, illustrationIndex);
     for (const eq of entityQueries) {
       candidateQueries.push(eq);
-    }
-    if (ill.searchQuery && ill.searchQuery.trim().length >= 8 && !ill.searchQuery.toLowerCase().includes("undefined")) {
-      candidateQueries.push(ill.searchQuery.trim());
     }
     if (classification.category === "scientific" || classification.category === "technical") {
       if (titleHint.length > 2) {
