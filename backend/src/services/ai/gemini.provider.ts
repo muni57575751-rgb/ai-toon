@@ -258,7 +258,7 @@ export class GeminiProvider implements IAiProvider {
 
     const loc = request.locationDetails;
     let geoPromptSection = '';
-    if (loc && loc.isLocation) {
+    if (request.requiresMap && loc && loc.isLocation) {
       geoPromptSection = `
 GEOGRAPHICAL LOCATION INTELLIGENCE (VERIFIED DATA):
 The educational topic is an identifiable geographical place: "${loc.placeName}".

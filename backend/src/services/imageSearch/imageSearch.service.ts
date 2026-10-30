@@ -117,10 +117,13 @@ export class ImageSearchService {
         story.locationDetails
       );
 
+      const isGeoStory = Boolean(story.requiresMap && story.locationDetails?.isLocation);
       const searchOptions: ImageSearchOptions = {
-        entityCategory: story.locationDetails?.isLocation ? 'place' : classification.category,
-        entityName: story.locationDetails?.placeName || classification.entityName,
-        secondaryContext: story.locationDetails?.district || story.locationDetails?.state || classification.secondaryContext,
+        entityCategory: isGeoStory ? 'place' : classification.category,
+        entityName: (isGeoStory && story.locationDetails?.placeName) || classification.entityName,
+        secondaryContext:
+          (isGeoStory && (story.locationDetails?.district || story.locationDetails?.state)) ||
+          classification.secondaryContext,
         excludeIdentifiers: Array.from(usedIdentifiers),
       };
 
@@ -230,7 +233,7 @@ export class ImageSearchService {
     const candidateQueries: string[] = [];
 
     // Geographical entity query specialization (Phase 7: photograph priority & regional context)
-    if (locationDetails && locationDetails.isLocation) {
+    if (locationDetails && locationDetails.isLocation && locationDetails.requiresMap !== false) {
       const place = locationDetails.placeName;
       const district = locationDetails.district ? ` ${locationDetails.district}` : '';
       const state = locationDetails.state ? ` ${locationDetails.state}` : '';

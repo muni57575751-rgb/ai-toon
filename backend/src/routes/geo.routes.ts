@@ -56,13 +56,19 @@ geoRouter.get('/detect', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const location = await geoDetectionService.detectAndGeocode(topic);
+    const result = await geoDetectionService.evaluateTopic(topic);
     res.json({
       success: true,
       data: {
         topic,
-        isLocation: Boolean(location && location.isLocation),
-        locationDetails: location || null,
+        category: result.classification.category,
+        requiresMap: result.requiresMap,
+        isGeographical: result.requiresMap,
+        confidence: result.classification.confidence,
+        reasoning: result.classification.reasoning,
+        location: result.location,
+        locationDetails: result.location,
+        isLocation: Boolean(result.location && result.location.isLocation),
       },
       meta: { timestamp: new Date().toISOString() },
     });

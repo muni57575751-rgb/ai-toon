@@ -176,9 +176,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
         </div>
       </header>
 
-      {/* Geographical Intelligence & Interactive Map */}
-      {story.locationDetails && story.locationDetails.isLocation && (
-        <LocationMap location={story.locationDetails} />
+      {/* Geographical Intelligence & Interactive Map (Rendered ONLY when genuinely relevant: requiresMap === true) */}
+      {Boolean(story.requiresMap && story.locationDetails && story.locationDetails.isLocation) && (
+        <LocationMap location={story.locationDetails!} />
       )}
 
       {/* 2. Unified Point-Wise Educational Content */}

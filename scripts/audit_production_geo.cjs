@@ -85,7 +85,7 @@ async function testGeoEndpoints() {
   const dataNonGeo = await resNonGeo.json();
   const detectNonGeo = dataNonGeo.data || dataNonGeo;
   console.log('   ✅ Live /api/geo/detect?topic=Photosynthesis:');
-  console.log(`      isGeographical: ${detectNonGeo.isGeographical} (Correctly classified as non-geo)`);
+  console.log(`      Category: [${detectNonGeo.category || 'N/A'}] | requiresMap: ${detectNonGeo.requiresMap}`);
 }
 
 async function testStoryGeneration(token, topic) {

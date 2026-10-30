@@ -25,19 +25,34 @@ export class StoryService {
     // 1. Check in-memory cache first to conserve free-tier API quota
     const cachedStory = storyCache.get(cacheKey);
     if (cachedStory) {
+      if (cachedStory.requiresMap === undefined) {
+        cachedStory.requiresMap = Boolean(cachedStory.locationDetails && cachedStory.locationDetails.isLocation && cachedStory.locationDetails.requiresMap);
+      }
       return { story: cachedStory, cached: true };
     }
 
-    // 2. Detect if the topic is an identifiable geographical place
+    // 2. Perform context-aware topic classification and evaluate map requirement
     let enrichedRequest: StoryGenerationRequest = { ...request };
     try {
-      const location = await geoDetectionService.detectAndGeocode(topic);
-      if (location && location.isLocation) {
-        console.log(`[StoryService] Geographical entity detected for "${topic}": ${location.placeName} (${location.category}) at ${location.latitude}, ${location.longitude}`);
-        enrichedRequest.locationDetails = location;
+      const evaluation = await geoDetectionService.evaluateTopic(topic);
+      enrichedRequest.requiresMap = evaluation.requiresMap;
+      enrichedRequest.topicCategory = evaluation.classification.category;
+
+      if (evaluation.requiresMap && evaluation.location) {
+        console.log(
+          `[StoryService] Geographical entity confirmed for "${topic}" [${evaluation.classification.category}]: ${evaluation.location.placeName} at ${evaluation.location.latitude}, ${evaluation.location.longitude}`
+        );
+        enrichedRequest.locationDetails = evaluation.location;
+      } else {
+        console.log(
+          `[StoryService] Topic "${topic}" classified as [${evaluation.classification.category}] (requiresMap: false). Map will remain hidden.`
+        );
+        enrichedRequest.locationDetails = undefined;
       }
     } catch (geoErr) {
-      console.warn(`[StoryService] Geocoding detection failed for "${topic}":`, geoErr);
+      console.warn(`[StoryService] Topic classification failed for "${topic}":`, geoErr);
+      enrichedRequest.requiresMap = false;
+      enrichedRequest.locationDetails = undefined;
     }
 
     // 3. Check if the topic closely matches a built-in example story
@@ -50,6 +65,8 @@ export class StoryService {
         const enhancedExample = await imageSearchService.enhanceStoryIllustrations({
           ...matchingExample,
           locationDetails: enrichedRequest.locationDetails,
+          requiresMap: Boolean(enrichedRequest.requiresMap),
+          topicCategory: enrichedRequest.topicCategory || 'SCIENCE_CONCEPT',
         });
         return { story: enhancedExample, cached: false };
       }
@@ -62,9 +79,13 @@ export class StoryService {
     try {
       const generated = await provider.generateStory(enrichedRequest, config.aiRequestTimeoutMs);
 
-      // 6. Ensure verified location details are attached
-      if (enrichedRequest.locationDetails) {
+      // 6. Ensure verified location details and map requirements are attached
+      generated.requiresMap = Boolean(enrichedRequest.requiresMap);
+      generated.topicCategory = enrichedRequest.topicCategory || 'GENERAL_TOPIC';
+      if (enrichedRequest.requiresMap && enrichedRequest.locationDetails) {
         generated.locationDetails = enrichedRequest.locationDetails;
+      } else {
+        delete (generated as any).locationDetails;
       }
 
       // 7. Enhance illustrations with authentic educational images from public sources
@@ -75,8 +96,12 @@ export class StoryService {
         console.warn('[StoryService] Image enhancement failed, continuing with SVG fallback:', imgErr);
       }
 
-      if (enrichedRequest.locationDetails) {
+      finalStory.requiresMap = Boolean(enrichedRequest.requiresMap);
+      finalStory.topicCategory = enrichedRequest.topicCategory || 'GENERAL_TOPIC';
+      if (enrichedRequest.requiresMap && enrichedRequest.locationDetails) {
         finalStory.locationDetails = enrichedRequest.locationDetails;
+      } else {
+        delete (finalStory as any).locationDetails;
       }
 
       // Save to cache (includes enhanced image metadata and location details to prevent duplicate requests)
@@ -89,8 +114,15 @@ export class StoryService {
         console.warn(`[StoryService] Live AI generation failed. Falling back to built-in example for "${topic}".`, err);
         const enhancedFallback = await imageSearchService.enhanceStoryIllustrations({
           ...matchingExample,
-          locationDetails: enrichedRequest.locationDetails,
+          locationDetails: enrichedRequest.requiresMap ? enrichedRequest.locationDetails : undefined,
+          requiresMap: Boolean(enrichedRequest.requiresMap),
+          topicCategory: enrichedRequest.topicCategory || 'SCIENCE_CONCEPT',
         });
+        enhancedFallback.requiresMap = Boolean(enrichedRequest.requiresMap);
+        enhancedFallback.topicCategory = enrichedRequest.topicCategory || 'SCIENCE_CONCEPT';
+        if (!enhancedFallback.requiresMap) {
+          delete (enhancedFallback as any).locationDetails;
+        }
         return { story: enhancedFallback, cached: false };
       }
       throw err;

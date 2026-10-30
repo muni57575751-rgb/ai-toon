@@ -172,6 +172,44 @@ const SEED_GEO_RECORDS: Record<string, Partial<LocationDetails>> = {
     geographicalCharacteristics: 'Rich agricultural black soil plains in the lower Krishna basin',
     historicalSignificance: 'Epicenter of the famous 1922 Pedanandipadu non-cooperation tax resistance movement against British rule led by Parvataneni Veerayya Choudhary',
   },
+  'oxford university': {
+    placeName: 'University of Oxford',
+    displayName: 'University of Oxford, Oxford, Oxfordshire, England, United Kingdom',
+    category: 'landmark',
+    villageOrTown: 'Oxford',
+    district: 'Oxfordshire',
+    state: 'England',
+    country: 'United Kingdom',
+    countryCode: 'GB',
+    postalCode: 'OX1 2JD',
+    postalCodeVerified: true,
+    latitude: 51.7548,
+    longitude: -1.2544,
+    bbox: [-1.2700, 51.7450, -1.2400, 51.7650],
+    nearbyTowns: ['London', 'Reading', 'Milton Keynes', 'Swindon'],
+    importantLandmarks: ['Bodleian Library', 'Radcliffe Camera', 'Sheldonian Theatre', 'Christ Church College'],
+    geographicalCharacteristics: 'Historic collegiate campus situated around the River Thames and River Cherwell in central southern England',
+    historicalSignificance: 'Oldest university in the English-speaking world, with teaching dating back to 1096',
+  },
+  'new delhi': {
+    placeName: 'New Delhi',
+    displayName: 'New Delhi, National Capital Territory of Delhi, India',
+    category: 'city',
+    villageOrTown: 'New Delhi',
+    district: 'New Delhi',
+    state: 'Delhi',
+    country: 'India',
+    countryCode: 'IN',
+    postalCode: '110001',
+    postalCodeVerified: true,
+    latitude: 28.6139,
+    longitude: 77.2090,
+    bbox: [77.1000, 28.5000, 77.3000, 28.7000],
+    nearbyTowns: ['Noida', 'Gurugram', 'Ghaziabad', 'Faridabad'],
+    importantLandmarks: ['India Gate', 'Rashtrapati Bhavan', 'Red Fort', 'Humayun Tomb'],
+    geographicalCharacteristics: 'Yamuna River plain located between the Aravalli Ridge and Indo-Gangetic alluvium',
+    historicalSignificance: 'Capital of the Republic of India and historic seat of several ancient and medieval empires',
+  },
 };
 
 export class GeoapifyService {
@@ -246,16 +284,26 @@ export class GeoapifyService {
       return this.cache.get(normKey)!;
     }
 
-    // Check prefix / substring / token matches in seed/cached records
+    // Find the best match (prioritize exact match or longest specific matching key)
+    let bestMatch: LocationDetails | null = null;
+    let bestMatchLength = 0;
+
     for (const [cachedKey, item] of this.cache.entries()) {
-      if (
-        normKey === cachedKey ||
-        normKey.startsWith(cachedKey) ||
-        cachedKey.startsWith(normKey) ||
-        (normKey.includes(cachedKey) && cachedKey.length >= 4)
-      ) {
-        return item;
+      if (normKey === cachedKey) {
+        bestMatch = item;
+        bestMatchLength = cachedKey.length * 2; // Priority to exact match
+        break;
       }
+      if (normKey.startsWith(cachedKey) || cachedKey.startsWith(normKey)) {
+        if (cachedKey.length > bestMatchLength) {
+          bestMatch = item;
+          bestMatchLength = cachedKey.length;
+        }
+      }
+    }
+
+    if (bestMatch && bestMatchLength >= 3) {
+      return bestMatch;
     }
 
     // 2. Check Supabase geocoding_cache (persisted across independent Vercel serverless instances)

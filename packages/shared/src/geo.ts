@@ -2,6 +2,25 @@
  * Geographical Intelligence Data Models for AI Toon
  */
 
+export type TopicCategory =
+  | 'PERSON'
+  | 'PLACE'
+  | 'INSTITUTION'
+  | 'SCIENCE_CONCEPT'
+  | 'TECHNOLOGY_CONCEPT'
+  | 'FOOD'
+  | 'ANIMAL'
+  | 'HISTORICAL_EVENT'
+  | 'GENERAL_TOPIC';
+
+export interface TopicClassification {
+  category: TopicCategory;
+  confidence: number;
+  requiresMap: boolean;
+  reasoning?: string;
+  resolvedLocationQuery?: string | null;
+}
+
 export type LocationCategory =
   | 'village'
   | 'town'
@@ -22,6 +41,12 @@ export type LocationCategory =
 export interface LocationDetails {
   /** Indicates whether the analyzed topic represents an identifiable geographical entity */
   isLocation: boolean;
+
+  /** Explicit indicator whether this location requires map rendering in the UI */
+  requiresMap?: boolean;
+
+  /** High-level topic category classified by the system */
+  topicCategory?: TopicCategory;
 
   /** Primary official or common place name */
   placeName: string;

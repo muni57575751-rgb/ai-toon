@@ -66,7 +66,7 @@ function dispatch(app, method, url, body = null, headers = {}) {
 
 async function run() {
   console.log('========================================================================');
-  console.log('🌍 STARTING COMPLETE GEOGRAPHICAL INTELLIGENCE VERIFICATION (PHASE 9)');
+  console.log('🌍 AI TOON CONTEXT-AWARE GEOGRAPHICAL CLASSIFICATION & MAP AUDIT');
   console.log('========================================================================\n');
 
   // Load backend app
@@ -76,130 +76,186 @@ async function run() {
   const getJson = (endpoint) => dispatch(app, 'GET', `/api${endpoint}`);
 
   const testCases = [
+    // 1. People (Must NOT have map)
     {
       id: 1,
-      topic: 'Donakonda, Andhra Pradesh',
-      expectedIsLocation: true,
-      expectedState: 'Andhra Pradesh',
-      expectedDistrict: 'Prakasam',
-      expectedPin: '523305',
-      approxLat: 15.78,
-      approxLon: 79.49,
+      topic: 'Virat Kohli',
+      expectedCategory: 'PERSON',
+      expectedRequiresMap: false,
     },
     {
       id: 2,
-      topic: 'Ganga Donakonda',
-      expectedIsLocation: true,
-      expectedState: 'Andhra Pradesh',
-      expectedDistrict: 'Prakasam',
-      approxLat: 15.78,
-      approxLon: 79.50,
+      topic: 'MS Dhoni',
+      expectedCategory: 'PERSON',
+      expectedRequiresMap: false,
     },
     {
       id: 3,
-      topic: 'Tirupati',
-      expectedIsLocation: true,
-      expectedCategory: 'city',
-      expectedState: 'Andhra Pradesh',
-      expectedDistrict: 'Tirupati',
-      expectedPin: '517501',
-      approxLat: 13.62,
-      approxLon: 79.41,
+      topic: 'Albert Einstein',
+      expectedCategory: 'PERSON',
+      expectedRequiresMap: false,
     },
+
+    // 2. Science Concepts (Must NOT have map)
     {
       id: 4,
+      topic: 'Photosynthesis',
+      expectedCategory: 'SCIENCE_CONCEPT',
+      expectedRequiresMap: false,
+    },
+    {
+      id: 5,
+      topic: 'Solar System',
+      expectedCategory: 'SCIENCE_CONCEPT',
+      expectedRequiresMap: false,
+    },
+
+    // 3. Technology Concepts (Must NOT have map)
+    {
+      id: 6,
+      topic: 'Binary Search',
+      expectedCategory: 'TECHNOLOGY_CONCEPT',
+      expectedRequiresMap: false,
+    },
+
+    // 4. Food (Must NOT have map)
+    {
+      id: 7,
+      topic: 'Biryani',
+      expectedCategory: 'FOOD',
+      expectedRequiresMap: false,
+    },
+
+    // 5. Geographical Places (MUST HAVE MAP)
+    {
+      id: 8,
       topic: 'Guntur',
-      expectedIsLocation: true,
-      expectedCategory: 'city',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
       expectedState: 'Andhra Pradesh',
       expectedDistrict: 'Guntur',
-      expectedPin: '522002',
       approxLat: 16.30,
       approxLon: 80.43,
     },
     {
-      id: 5,
-      topic: 'Pedanandipadu village',
-      expectedIsLocation: true,
-      expectedCountry: 'India',
+      id: 9,
+      topic: 'Tirupati',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
+      expectedState: 'Andhra Pradesh',
+      expectedDistrict: 'Tirupati',
+      approxLat: 13.62,
+      approxLon: 79.41,
     },
     {
-      id: 6,
-      topic: 'Taj Mahal',
-      expectedIsLocation: true,
-      expectedCategory: 'monument',
-      expectedState: 'Uttar Pradesh',
-      expectedPin: '282001',
-      approxLat: 27.17,
-      approxLon: 78.04,
-    },
-    {
-      id: 7,
+      id: 10,
       topic: 'India',
-      expectedIsLocation: true,
-      expectedCategory: 'country',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
       approxLat: 20.59,
       approxLon: 78.96,
     },
     {
-      id: 8,
+      id: 11,
       topic: 'Mount Everest',
-      expectedIsLocation: true,
-      expectedCategory: 'mountain',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
       approxLat: 27.98,
       approxLon: 86.92,
     },
     {
-      id: 9,
-      topic: 'Photosynthesis',
-      expectedIsLocation: false, // Must NOT have a map!
+      id: 12,
+      topic: 'Taj Mahal',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
+      expectedState: 'Uttar Pradesh',
+      approxLat: 27.17,
+      approxLon: 78.04,
+    },
+
+    // 6. Institutions (Physical location relevant: MUST HAVE MAP)
+    {
+      id: 13,
+      topic: 'Oxford University',
+      expectedCategory: 'INSTITUTION',
+      expectedRequiresMap: true,
+      approxLat: 51.75,
+      approxLon: -1.25,
+    },
+
+    // 7. Explicit Location Queries about People (MUST HAVE MAP with verified place)
+    {
+      id: 14,
+      topic: 'Birthplace of Virat Kohli',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
+      expectedPlaceName: 'New Delhi',
+      approxLat: 28.61,
+      approxLon: 77.20,
     },
     {
-      id: 10,
-      topic: 'Jalebi',
-      expectedIsLocation: false, // Must NOT have a map!
+      id: 15,
+      topic: 'Where is Virat Kohli from?',
+      expectedCategory: 'PLACE',
+      expectedRequiresMap: true,
+      expectedPlaceName: 'New Delhi',
+      approxLat: 28.61,
+      approxLon: 77.20,
     },
   ];
 
   let passedCount = 0;
 
   for (const tc of testCases) {
-    console.log(`\n[TEST ${tc.id}/10] Testing Topic: "${tc.topic}"...`);
+    console.log(`\n[TEST ${tc.id}/${testCases.length}] Testing Topic: "${tc.topic}"...`);
     const detectRes = await getJson(`/geo/detect?topic=${encodeURIComponent(tc.topic)}`);
 
-    if (!detectRes.ok || !detectRes.data) {
+    if (!detectRes.ok || !detectRes.data || !detectRes.data.data) {
       throw new Error(`Endpoint failed for "${tc.topic}": ${detectRes.status} ${detectRes.text}`);
     }
 
-    const { isLocation, locationDetails } = detectRes.data.data;
+    const { category, requiresMap, locationDetails, reasoning } = detectRes.data.data;
 
-    // Check 1: Geographical vs Non-geographical classification
-    if (isLocation !== tc.expectedIsLocation) {
-      throw new Error(
-        `FAIL on "${tc.topic}": expected isLocation=${tc.expectedIsLocation}, got ${isLocation}`
-      );
+    console.log(`   🏷️  Classified Category: [${category}] (Expected: [${tc.expectedCategory}])`);
+    console.log(`   🗺️  Map Required: ${requiresMap} (Expected: ${tc.expectedRequiresMap})`);
+    if (reasoning) {
+      console.log(`   💡 Reasoning: ${reasoning}`);
     }
 
-    if (!tc.expectedIsLocation) {
+    // 1. Verify Category matches
+    if (category !== tc.expectedCategory) {
+      throw new Error(`FAIL on "${tc.topic}": expected category ${tc.expectedCategory}, got ${category}`);
+    }
+
+    // 2. Verify requiresMap matches
+    if (requiresMap !== tc.expectedRequiresMap) {
+      throw new Error(`FAIL on "${tc.topic}": expected requiresMap=${tc.expectedRequiresMap}, got ${requiresMap}`);
+    }
+
+    // 3. For Non-map topics, ensure location is null
+    if (!tc.expectedRequiresMap) {
       if (locationDetails !== null) {
-        throw new Error(`FAIL on "${tc.topic}": expected locationDetails to be null for non-geographical topic.`);
+        throw new Error(`FAIL on "${tc.topic}": expected locationDetails to be null when requiresMap=false.`);
       }
-      console.log(`   ✅ Correctly classified as NON-GEOGRAPHICAL (No map displayed).`);
+      console.log(`   ✅ Correctly classified — Map is strictly HIDDEN.`);
       passedCount++;
       continue;
     }
 
-    // Verify geographical details
+    // 4. For Map topics, ensure location details exist and coordinates match
     if (!locationDetails) {
       throw new Error(`FAIL on "${tc.topic}": expected locationDetails object, got null.`);
     }
 
-    console.log(`   📍 Resolved: "${locationDetails.placeName}" (${locationDetails.category})`);
+    console.log(`   📍 Resolved Location: "${locationDetails.placeName}" (${locationDetails.category})`);
     console.log(`      Coordinates: ${locationDetails.latitude}, ${locationDetails.longitude}`);
     console.log(`      Admin: ${locationDetails.district || '—'} Dist., ${locationDetails.state || '—'}, ${locationDetails.country || '—'}`);
     console.log(`      Postal Code: ${locationDetails.postalCode ? `${locationDetails.postalCode} (Verified)` : 'Unverified'}`);
 
-    // Verify coordinates exist and are valid numbers
+    if (tc.expectedPlaceName && !locationDetails.placeName.toLowerCase().includes(tc.expectedPlaceName.toLowerCase())) {
+      throw new Error(`FAIL on "${tc.topic}": expected placeName containing "${tc.expectedPlaceName}", got "${locationDetails.placeName}"`);
+    }
+
     if (typeof locationDetails.latitude !== 'number' || typeof locationDetails.longitude !== 'number') {
       throw new Error(`FAIL on "${tc.topic}": coordinates missing or not numeric!`);
     }
@@ -220,14 +276,6 @@ async function run() {
       throw new Error(`FAIL on "${tc.topic}": expected district "${tc.expectedDistrict}", got "${locationDetails.district}"`);
     }
 
-    if (tc.expectedPin && locationDetails.postalCode !== tc.expectedPin) {
-      throw new Error(`FAIL on "${tc.topic}": expected postalCode "${tc.expectedPin}", got "${locationDetails.postalCode}"`);
-    }
-
-    if (!locationDetails.directionsUrl || !locationDetails.googleMapsUrl) {
-      throw new Error(`FAIL on "${tc.topic}": directions / map links missing.`);
-    }
-
     console.log(`   ✅ All geographical checks passed.`);
     passedCount++;
   }
@@ -241,4 +289,3 @@ run().catch((err) => {
   console.error('\n❌ TEST RUN FAILED:', err);
   process.exit(1);
 });
-

@@ -1,5 +1,5 @@
 import type { QuizQuestion } from './quiz.js';
-import type { LocationDetails } from './geo.js';
+import type { LocationDetails, TopicCategory } from './geo.js';
 
 export type StoryTone = 'funny' | 'adventure' | 'comic';
 
@@ -52,6 +52,8 @@ export interface Story {
   keyPoints: KeyPoint[];
   illustrations: TopicIllustration[];
   locationDetails?: LocationDetails;
+  requiresMap?: boolean;
+  topicCategory?: TopicCategory;
   keyTakeaway: string;
   quizQuestions?: QuizQuestion[];
   createdAt: string;
@@ -71,5 +73,7 @@ export interface StoryGenerationRequest {
   difficulty?: StoryDifficulty;
   targetAgeGroup?: 'kids' | 'teens' | 'general';
   locationDetails?: LocationDetails;
+  requiresMap?: boolean;
+  topicCategory?: TopicCategory;
 }
 

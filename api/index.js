@@ -37675,7 +37675,7 @@ var GeminiProvider = class {
     const pointsCount = difficulty === "beginner" ? "4 to 5" : difficulty === "advanced" ? "6 to 7" : "5 to 6";
     const loc = request.locationDetails;
     let geoPromptSection = "";
-    if (loc && loc.isLocation) {
+    if (request.requiresMap && loc && loc.isLocation) {
       geoPromptSection = `
 GEOGRAPHICAL LOCATION INTELLIGENCE (VERIFIED DATA):
 The educational topic is an identifiable geographical place: "${loc.placeName}".
@@ -38059,6 +38059,8 @@ var BUILT_IN_EXAMPLE_STORIES = [
     createdAt: "2026-01-01T00:00:00.000Z",
     isCached: false,
     isExample: true,
+    requiresMap: false,
+    topicCategory: "SCIENCE_CONCEPT",
     provider: "AI Toon Built-in Catalog",
     summary: "How green leaves turn sunlight, water, and carbon dioxide into glucose sugar and fresh oxygen.",
     keyTakeaways: ["Plants capture sunlight using chlorophyll.", "Photosynthesis makes glucose sugar for plant energy.", "Oxygen is released for all living creatures."]
@@ -38173,6 +38175,8 @@ var BUILT_IN_EXAMPLE_STORIES = [
     createdAt: "2026-01-01T00:00:00.000Z",
     isCached: false,
     isExample: true,
+    requiresMap: false,
+    topicCategory: "SCIENCE_CONCEPT",
     provider: "AI Toon Built-in Catalog",
     summary: "Explore our 8 planetary worlds orbiting around the powerful central Sun.",
     keyTakeaways: ["The Sun makes up over 99.8% of the system's mass.", "The four inner planets are rocky, outer four are giants.", "Gravity keeps all orbits stable."]
@@ -38287,6 +38291,8 @@ var BUILT_IN_EXAMPLE_STORIES = [
     createdAt: "2026-01-01T00:00:00.000Z",
     isCached: false,
     isExample: true,
+    requiresMap: false,
+    topicCategory: "SCIENCE_CONCEPT",
     provider: "AI Toon Built-in Catalog",
     summary: "Discover how water continuously journeys through evaporation, condensation, and precipitation.",
     keyTakeaways: ["Water changes states between liquid, vapor, and ice.", "The Sun powers the entire water cycle.", "All water on Earth is continuously recycled."]
@@ -39348,10 +39354,11 @@ var ImageSearchService = class {
         pairedKeyPoint,
         story.locationDetails
       );
+      const isGeoStory = Boolean(story.requiresMap && story.locationDetails?.isLocation);
       const searchOptions = {
-        entityCategory: story.locationDetails?.isLocation ? "place" : classification.category,
-        entityName: story.locationDetails?.placeName || classification.entityName,
-        secondaryContext: story.locationDetails?.district || story.locationDetails?.state || classification.secondaryContext,
+        entityCategory: isGeoStory ? "place" : classification.category,
+        entityName: isGeoStory && story.locationDetails?.placeName || classification.entityName,
+        secondaryContext: isGeoStory && (story.locationDetails?.district || story.locationDetails?.state) || classification.secondaryContext,
         excludeIdentifiers: Array.from(usedIdentifiers)
       };
       let chosenCandidate = null;
@@ -39431,7 +39438,7 @@ var ImageSearchService = class {
    */
   buildPrioritizedQueries(topic, classification, ill, illustrationIndex, pairedKeyPoint, locationDetails) {
     const candidateQueries = [];
-    if (locationDetails && locationDetails.isLocation) {
+    if (locationDetails && locationDetails.isLocation && locationDetails.requiresMap !== false) {
       const place = locationDetails.placeName;
       const district = locationDetails.district ? ` ${locationDetails.district}` : "";
       const state = locationDetails.state ? ` ${locationDetails.state}` : "";
@@ -48074,6 +48081,44 @@ var SEED_GEO_RECORDS = {
     importantLandmarks: ["Parvataneni Veerayya Choudhary Memorial", "Sri Rama Temple"],
     geographicalCharacteristics: "Rich agricultural black soil plains in the lower Krishna basin",
     historicalSignificance: "Epicenter of the famous 1922 Pedanandipadu non-cooperation tax resistance movement against British rule led by Parvataneni Veerayya Choudhary"
+  },
+  "oxford university": {
+    placeName: "University of Oxford",
+    displayName: "University of Oxford, Oxford, Oxfordshire, England, United Kingdom",
+    category: "landmark",
+    villageOrTown: "Oxford",
+    district: "Oxfordshire",
+    state: "England",
+    country: "United Kingdom",
+    countryCode: "GB",
+    postalCode: "OX1 2JD",
+    postalCodeVerified: true,
+    latitude: 51.7548,
+    longitude: -1.2544,
+    bbox: [-1.27, 51.745, -1.24, 51.765],
+    nearbyTowns: ["London", "Reading", "Milton Keynes", "Swindon"],
+    importantLandmarks: ["Bodleian Library", "Radcliffe Camera", "Sheldonian Theatre", "Christ Church College"],
+    geographicalCharacteristics: "Historic collegiate campus situated around the River Thames and River Cherwell in central southern England",
+    historicalSignificance: "Oldest university in the English-speaking world, with teaching dating back to 1096"
+  },
+  "new delhi": {
+    placeName: "New Delhi",
+    displayName: "New Delhi, National Capital Territory of Delhi, India",
+    category: "city",
+    villageOrTown: "New Delhi",
+    district: "New Delhi",
+    state: "Delhi",
+    country: "India",
+    countryCode: "IN",
+    postalCode: "110001",
+    postalCodeVerified: true,
+    latitude: 28.6139,
+    longitude: 77.209,
+    bbox: [77.1, 28.5, 77.3, 28.7],
+    nearbyTowns: ["Noida", "Gurugram", "Ghaziabad", "Faridabad"],
+    importantLandmarks: ["India Gate", "Rashtrapati Bhavan", "Red Fort", "Humayun Tomb"],
+    geographicalCharacteristics: "Yamuna River plain located between the Aravalli Ridge and Indo-Gangetic alluvium",
+    historicalSignificance: "Capital of the Republic of India and historic seat of several ancient and medieval empires"
   }
 };
 var GeoapifyService = class _GeoapifyService {
@@ -48134,10 +48179,23 @@ var GeoapifyService = class _GeoapifyService {
     if (this.cache.has(normKey)) {
       return this.cache.get(normKey);
     }
+    let bestMatch = null;
+    let bestMatchLength = 0;
     for (const [cachedKey, item] of this.cache.entries()) {
-      if (normKey === cachedKey || normKey.startsWith(cachedKey) || cachedKey.startsWith(normKey) || normKey.includes(cachedKey) && cachedKey.length >= 4) {
-        return item;
+      if (normKey === cachedKey) {
+        bestMatch = item;
+        bestMatchLength = cachedKey.length * 2;
+        break;
       }
+      if (normKey.startsWith(cachedKey) || cachedKey.startsWith(normKey)) {
+        if (cachedKey.length > bestMatchLength) {
+          bestMatch = item;
+          bestMatchLength = cachedKey.length;
+        }
+      }
+    }
+    if (bestMatch && bestMatchLength >= 3) {
+      return bestMatch;
     }
     try {
       const dbCached = await dbService.fetchGeocache(normKey);
@@ -48393,34 +48451,338 @@ var GeoapifyService = class _GeoapifyService {
 var geoapifyService = new GeoapifyService();
 
 // backend/src/services/geoDetection.service.ts
-var NON_GEOGRAPHICAL_PATTERNS = [
-  // Science concepts
+var KNOWN_ENTITY_LOCATIONS = {
+  // Cricketers & Athletes
+  "virat kohli": "New Delhi, Delhi, India",
+  "kohli": "New Delhi, Delhi, India",
+  "ms dhoni": "Ranchi, Jharkhand, India",
+  "m.s. dhoni": "Ranchi, Jharkhand, India",
+  "dhoni": "Ranchi, Jharkhand, India",
+  "mahendra singh dhoni": "Ranchi, Jharkhand, India",
+  "sachin tendulkar": "Mumbai, Maharashtra, India",
+  "tendulkar": "Mumbai, Maharashtra, India",
+  "rohit sharma": "Nagpur, Maharashtra, India",
+  "kapil dev": "Chandigarh, India",
+  "rahul dravid": "Indore, Madhya Pradesh, India",
+  "sourav ganguly": "Kolkata, West Bengal, India",
+  "yuvraj singh": "Chandigarh, India",
+  "hardik pandya": "Choryasi, Surat, Gujarat, India",
+  "jasprit bumrah": "Ahmedabad, Gujarat, India",
+  "cristiano ronaldo": "Funchal, Madeira, Portugal",
+  "ronaldo": "Funchal, Madeira, Portugal",
+  "lionel messi": "Rosario, Santa Fe, Argentina",
+  "messi": "Rosario, Santa Fe, Argentina",
+  "usain bolt": "Sherwood Content, Trelawny, Jamaica",
+  "michael jordan": "Brooklyn, New York, USA",
+  "roger federer": "Basel, Switzerland",
+  "rafael nadal": "Manacor, Mallorca, Spain",
+  "neeraj chopra": "Khandra, Panipat, Haryana, India",
+  "pv sindhu": "Hyderabad, Telangana, India",
+  "p.v. sindhu": "Hyderabad, Telangana, India",
+  "sania mirza": "Mumbai, Maharashtra, India",
+  // Scientists & Inventors
+  "albert einstein": "Ulm, Baden-W\xFCrttemberg, Germany",
+  "einstein": "Ulm, Baden-W\xFCrttemberg, Germany",
+  "isaac newton": "Woolsthorpe-by-Colsterworth, Lincolnshire, England",
+  "newton": "Woolsthorpe-by-Colsterworth, Lincolnshire, England",
+  "apj abdul kalam": "Rameswaram, Tamil Nadu, India",
+  "a.p.j. abdul kalam": "Rameswaram, Tamil Nadu, India",
+  "abdul kalam": "Rameswaram, Tamil Nadu, India",
+  "alan turing": "Maida Vale, London, England",
+  "marie curie": "Warsaw, Poland",
+  "stephen hawking": "Oxford, Oxfordshire, England",
+  "charles darwin": "Shrewsbury, Shropshire, England",
+  "nikola tesla": "Smiljan, Croatia",
+  "thomas edison": "Milan, Ohio, USA",
+  "galileo galilei": "Pisa, Tuscany, Italy",
+  "galileo": "Pisa, Tuscany, Italy",
+  "c.v. raman": "Tiruchirappalli, Tamil Nadu, India",
+  "cv raman": "Tiruchirappalli, Tamil Nadu, India",
+  "srinivasa ramanujan": "Erode, Tamil Nadu, India",
+  "ramanujan": "Erode, Tamil Nadu, India",
+  "homi bhabha": "Mumbai, Maharashtra, India",
+  "jagadish chandra bose": "Bikrampur, Bengal Presidency",
+  "vikram sarabhai": "Ahmedabad, Gujarat, India",
+  "ada lovelace": "London, England",
+  "richard feynman": "Queens, New York City, USA",
+  // Historical Personalities & Leaders
+  "mahatma gandhi": "Porbandar, Gujarat, India",
+  "gandhi": "Porbandar, Gujarat, India",
+  "jawaharlal nehru": "Prayagraj, Uttar Pradesh, India",
+  "nehru": "Prayagraj, Uttar Pradesh, India",
+  "subhas chandra bose": "Cuttack, Odisha, India",
+  "subhash chandra bose": "Cuttack, Odisha, India",
+  "netaji": "Cuttack, Odisha, India",
+  "bhagat singh": "Banga, Faisalabad District, Punjab",
+  "sardar vallabhbhai patel": "Nadiad, Gujarat, India",
+  "sardar patel": "Nadiad, Gujarat, India",
+  "b.r. ambedkar": "Mhow, Madhya Pradesh, India",
+  "dr. b.r. ambedkar": "Mhow, Madhya Pradesh, India",
+  "ambedkar": "Mhow, Madhya Pradesh, India",
+  "narendra modi": "Vadnagar, Mehsana, Gujarat, India",
+  "modi": "Vadnagar, Mehsana, Gujarat, India",
+  "rabindranath tagore": "Kolkata, West Bengal, India",
+  "tagore": "Kolkata, West Bengal, India",
+  "william shakespeare": "Stratford-upon-Avon, Warwickshire, England",
+  "shakespeare": "Stratford-upon-Avon, Warwickshire, England",
+  "nelson mandela": "Mvezo, Eastern Cape, South Africa",
+  "mandela": "Mvezo, Eastern Cape, South Africa",
+  "abraham lincoln": "Hodgenville, Kentucky, USA",
+  "george washington": "Westmoreland County, Virginia, USA",
+  "leonardo da vinci": "Vinci, Florence, Italy"
+};
+var EXPLICIT_LOCATION_PATTERNS = [
+  /\b(birthplace|birth\s+place|native\s+place|origin|hometown|home\s+town)\s+(of|for)\b/i,
+  /^where\s+(is|was|are|were)\s+(.+?)\s+(from|born|located|situated|found|placed)\??$/i,
+  /^where\s+(is|was)\s+(.+?)\??$/i,
+  /\b(location|geography|map|coordinates|directions|where\s+to\s+find)\s+(of|to|for)\b/i,
+  /\bwhat\s+is\s+the\s+location\s+of\b/i,
+  /\bhow\s+to\s+reach\b/i
+];
+var KNOWN_PEOPLE_LIST = /* @__PURE__ */ new Set([
+  "virat kohli",
+  "kohli",
+  "ms dhoni",
+  "m.s. dhoni",
+  "dhoni",
+  "mahendra singh dhoni",
+  "sachin tendulkar",
+  "tendulkar",
+  "rohit sharma",
+  "kapil dev",
+  "rahul dravid",
+  "sourav ganguly",
+  "yuvraj singh",
+  "hardik pandya",
+  "jasprit bumrah",
+  "ravindra jadeja",
+  "sunil gavaskar",
+  "anil kumble",
+  "vvs laxman",
+  "shikhar dhawan",
+  "rishabh pant",
+  "kl rahul",
+  "shubman gill",
+  "suresh raina",
+  "babar azam",
+  "cristiano ronaldo",
+  "ronaldo",
+  "lionel messi",
+  "messi",
+  "usain bolt",
+  "michael jordan",
+  "roger federer",
+  "rafael nadal",
+  "novak djokovic",
+  "lebron james",
+  "muhammad ali",
+  "pele",
+  "diego maradona",
+  "maradona",
+  "serena williams",
+  "neeraj chopra",
+  "pv sindhu",
+  "p.v. sindhu",
+  "sania mirza",
+  "saina nehwal",
+  "dhyan chand",
+  "milkha singh",
+  "mary kom",
+  "viswanathan anand",
+  "magnus carlsen",
+  "albert einstein",
+  "einstein",
+  "isaac newton",
+  "newton",
+  "apj abdul kalam",
+  "a.p.j. abdul kalam",
+  "abdul kalam",
+  "alan turing",
+  "turing",
+  "marie curie",
+  "curie",
+  "stephen hawking",
+  "hawking",
+  "charles darwin",
+  "darwin",
+  "nikola tesla",
+  "tesla",
+  "thomas edison",
+  "edison",
+  "galileo galilei",
+  "galileo",
+  "alexander graham bell",
+  "louis pasteur",
+  "c.v. raman",
+  "cv raman",
+  "srinivasa ramanujan",
+  "ramanujan",
+  "homi bhabha",
+  "jagadish chandra bose",
+  "vikram sarabhai",
+  "aryabhata",
+  "ada lovelace",
+  "richard feynman",
+  "feynman",
+  "niels bohr",
+  "max planck",
+  "ernest rutherford",
+  "james clerk maxwell",
+  "michael faraday",
+  "gregor mendel",
+  "dmitri mendeleev",
+  "enrico fermi",
+  "robert oppenheimer",
+  "oppenheimer",
+  "john von neumann",
+  "mahatma gandhi",
+  "gandhi",
+  "jawaharlal nehru",
+  "nehru",
+  "subhas chandra bose",
+  "subhash chandra bose",
+  "netaji",
+  "bhagat singh",
+  "sardar vallabhbhai patel",
+  "sardar patel",
+  "b.r. ambedkar",
+  "dr. b.r. ambedkar",
+  "ambedkar",
+  "narendra modi",
+  "modi",
+  "atal bihari vajpayee",
+  "indira gandhi",
+  "lal bahadur shastri",
+  "abraham lincoln",
+  "lincoln",
+  "george washington",
+  "nelson mandela",
+  "mandela",
+  "winston churchill",
+  "martin luther king",
+  "martin luther king jr",
+  "alexander the great",
+  "julius caesar",
+  "caesar",
+  "napoleon bonaparte",
+  "napoleon",
+  "ashoka",
+  "emperor ashoka",
+  "akbar",
+  "emperor akbar",
+  "chhatrapati shivaji",
+  "shivaji maharaj",
+  "shivaji",
+  "rani lakshmibai",
+  "alluri sitarama raju",
+  "tipu sultan",
+  "krishnadevaraya",
+  "cleopatra",
+  "mother teresa",
+  "william shakespeare",
+  "shakespeare",
+  "rabindranath tagore",
+  "tagore",
+  "aristotle",
+  "plato",
+  "socrates",
+  "swami vivekananda",
+  "vivekananda",
+  "gautama buddha",
+  "buddha",
+  "leonardo da vinci",
+  "da vinci",
+  "michelangelo",
+  "pablo picasso",
+  "vincent van gogh",
+  "beethoven",
+  "mozart",
+  "steve jobs",
+  "bill gates",
+  "elon musk",
+  "sundar pichai",
+  "satya nadella"
+]);
+var PERSON_DESCRIPTOR_PATTERNS = [
+  /\b(biography\s+of|life\s+of|story\s+of)\s+([a-z\s]+)/i,
+  /\b(dr|prof|sir|lord|saint|mr|mrs|ms|president|prime\s+minister|king|queen|emperor|empress|cricketer|captain|batsman|bowler|footballer|actor|actress|author|poet|philosopher|scientist|mathematician|physicist|inventor)\b/i
+];
+var SCIENCE_PATTERNS = [
   /\bphotosynthesis\b/i,
-  /\bchloroplast\b/i,
+  /\bsolar\s+system\b/i,
   /\brespiration\b/i,
   /\bmitosis\b/i,
   /\bmeiosis\b/i,
   /\bgravity\b/i,
-  /\bquantum\b/i,
-  /\belectricity\b/i,
-  /\bmagnetism\b/i,
+  /\bgravitational\b/i,
   /\bthermodynamics\b/i,
-  /\batom\b/i,
-  /\bmolecule\b/i,
-  /\bdna\b/i,
-  /\brna\b/i,
-  /\bcell\s+structure\b/i,
-  /\bevolution\b/i,
-  /\bnewton('?s)?\s+(law|laws|motion)\b/i,
-  /\beuler\b/i,
-  /\bpythagor(as|ean)\b/i,
   /\bwater\s+cycle\b/i,
-  /\bsolar\s+system\b/i,
   /\bcirculatory\s+system\b/i,
   /\bdigestive\s+system\b/i,
-  // Food, sweets, and dishes
-  /\bjalebi\b/i,
+  /\bnervous\s+system\b/i,
+  /\bevolution\b/i,
+  /\bnatural\s+selection\b/i,
+  /\bquantum\b/i,
+  /\bnewton('?s)?\s+law/i,
+  /\blaws?\s+of\s+motion\b/i,
+  /\bcell\s+structure\b/i,
+  /\bdna\b/i,
+  /\brna\b/i,
+  /\becosystem\b/i,
+  /\bfood\s+(chain|web)\b/i,
+  /\bperiodic\s+table\b/i,
+  /\bplate\s+tectonics\b/i,
+  /\belectromagnetism\b/i,
+  /\brefraction\b/i,
+  /\breflection\b/i,
+  /\batom(ic)?\b/i,
+  /\bmolecule\b/i,
+  /\bosmosis\b/i,
+  /\bgenetics\b/i,
+  /\bcarbon\s+cycle\b/i,
+  /\bblack\s+hole\b/i,
+  /\bspeed\s+of\s+light\b/i,
+  /\brelativity\b/i,
+  /\bkinetic\s+energy\b/i,
+  /\bpotential\s+energy\b/i,
+  /\bchemical\s+bonding\b/i,
+  /\bacids?\s+and\s+bases?\b/i,
+  /\bchloroplast\b/i,
+  /\bchlorophyll\b/i,
+  /\bmitochondria\b/i
+];
+var TECHNOLOGY_PATTERNS = [
+  /\bbinary\s+search\b/i,
+  /\b(linear|bubble|merge|quick|heap|insertion)\s+sort\b/i,
+  /\balgorithm\b/i,
+  /\bdata\s+structure\b/i,
+  /\blinked\s+list\b/i,
+  /\bstack\b/i,
+  /\bqueue\b/i,
+  /\bhash\s+(table|map)\b/i,
+  /\bbinary\s+tree\b/i,
+  /\bdynamic\s+programming\b/i,
+  /\brecursion\b/i,
+  /\bbig\s+o\b/i,
+  /\bartificial\s+intelligence\b/i,
+  /\bmachine\s+learning\b/i,
+  /\bdeep\s+learning\b/i,
+  /\bneural\s+network\b/i,
+  /\boperating\s+system\b/i,
+  /\bcompiler\b/i,
+  /\bdatabase\b/i,
+  /\bsql\b/i,
+  /\bblockchain\b/i,
+  /\bcryptography\b/i,
+  /\bcybersecurity\b/i,
+  /\bcomputer\s+network\b/i,
+  /\btcp\/?ip\b/i,
+  /\bcloud\s+computing\b/i,
+  /\bobject\s+oriented\s+programming\b/i
+];
+var FOOD_PATTERNS = [
   /\bbiryani\b/i,
+  /\bjalebi\b/i,
   /\bsamosa\b/i,
   /\bdosa\b/i,
   /\bidli\b/i,
@@ -48435,25 +48797,131 @@ var NON_GEOGRAPHICAL_PATTERNS = [
   /\bnaan\b/i,
   /\bcurry\b/i,
   /\bsandwich\b/i,
-  // General non-geographical nouns / animals / devices
-  /\bcomputer\b/i,
-  /\bpython\s+(programming|code)\b/i,
-  /\bjavascript\b/i,
-  /\balgorithm\b/i,
-  /\bartificial\s+intelligence\b/i,
-  /\bmachine\s+learning\b/i,
+  /\btacos\b/i,
+  /\bsushi\b/i,
+  /\bpaneer\b/i,
+  /\bpulao\b/i,
+  /\brash?gulla\b/i,
+  /\bkheer\b/i,
+  /\bkebab\b/i,
+  /\bhalwa\b/i,
+  /\bpav\s+bhaji\b/i,
+  /\bvada\s+pav\b/i,
+  /\bchole\s+bhature\b/i
+];
+var ANIMAL_PATTERNS = [
   /\btiger\b/i,
   /\blion\b/i,
   /\belephant\b/i,
   /\bpeacock\b/i,
-  /\bmathematics\b/i,
-  /\balgebra\b/i,
-  /\bcalculus\b/i,
-  /\bgeometry\b/i,
-  /\bgrammar\b/i,
-  /\bmetaphor\b/i
+  /\bcheetah\b/i,
+  /\bgiraffe\b/i,
+  /\bzebra\b/i,
+  /\bkangaroo\b/i,
+  /\bpanda\b/i,
+  /\bwhale\b/i,
+  /\bdolphin\b/i,
+  /\beagle\b/i,
+  /\bpenguin\b/i,
+  /\bchameleon\b/i,
+  /\boctopus\b/i,
+  /\bkoala\b/i,
+  /\bchimpanzee\b/i,
+  /\bgorilla\b/i,
+  /\bwolf\b/i,
+  /\bbear\b/i,
+  /\bcrocodile\b/i,
+  /\bsnake\b/i,
+  /\bshark\b/i
 ];
-var GEOGRAPHICAL_INDICATORS = [
+var HISTORICAL_EVENT_PATTERNS = [
+  /\bworld\s+war\s+(1|2|i|ii|one|two)\b/i,
+  /\bfrench\s+revolution\b/i,
+  /\bindustrial\s+revolution\b/i,
+  /\bamerican\s+civil\s+war\b/i,
+  /\bcold\s+war\b/i,
+  /\bd-day\b/i,
+  /\bquit\s+india\s+movement\b/i,
+  /\bdandi\s+march\b/i,
+  /\bnon-?cooperation\s+movement\b/i,
+  /\bbattle\s+of\s+(plassey|buxar|panipat)\b/i,
+  /\bsepoy\s+mutiny\b/i,
+  /\brevolt\s+of\s+1857\b/i,
+  /\brenaissance\b/i
+];
+var INSTITUTION_PATTERNS = [
+  /\boxford(\s+university)?\b/i,
+  /\bcambridge(\s+university)?\b/i,
+  /\bharvard(\s+university)?\b/i,
+  /\bstanford(\s+university)?\b/i,
+  /\bmit\b/i,
+  /\bmassachusetts\s+institute\s+of\s+technology\b/i,
+  /\bcaltech\b/i,
+  /\bprinceton(\s+university)?\b/i,
+  /\byale(\s+university)?\b/i,
+  /\biit\s+(madras|bombay|delhi|kanpur|kharagpur|roorkee)\b/i,
+  /\bvignan('?s)?\s+(university|foundation)?\b/i,
+  /\bandhra\s+university\b/i,
+  /\bosmania\s+university\b/i,
+  /\bdelhi\s+university\b/i,
+  /\biisc(\s+bangalore)?\b/i,
+  /\baiims(\s+delhi)?\b/i,
+  /\bbits\s+pilani\b/i,
+  /\buniversity\b/i,
+  /\bcollege\b/i,
+  /\bacademy\b/i
+];
+var PLACE_SEEDS = /* @__PURE__ */ new Set([
+  "guntur",
+  "tirupati",
+  "india",
+  "donakonda",
+  "ganga donakonda",
+  "pedanandipadu",
+  "mount everest",
+  "everest",
+  "taj mahal",
+  "new delhi",
+  "delhi",
+  "hyderabad",
+  "vijayawada",
+  "visakhapatnam",
+  "bengaluru",
+  "bangalore",
+  "chennai",
+  "mumbai",
+  "kolkata",
+  "london",
+  "paris",
+  "tokyo",
+  "new york",
+  "rome",
+  "nepal",
+  "japan",
+  "australia",
+  "andhra pradesh",
+  "telangana",
+  "prakasam",
+  "agra",
+  "red fort",
+  "india gate",
+  "eiffel tower",
+  "statue of unity",
+  "grand canyon",
+  "niagara falls",
+  "amazon river",
+  "ganga river",
+  "himalayas",
+  "sahara desert",
+  "great barrier reef",
+  "colosseum",
+  "pyramids of giza",
+  "qutub minar",
+  "charminar",
+  "kapila theertham",
+  "tirumala hills"
+]);
+var GEOGRAPHICAL_INDICATOR_PATTERNS = [
   /\bvillage\b/i,
   /\btown\b/i,
   /\bcity\b/i,
@@ -48481,67 +48949,218 @@ var GEOGRAPHICAL_INDICATORS = [
   /\bpeninsula\b/i,
   /\bwaterfall\b/i,
   /\bcave\b/i,
-  /\bheritage\b/i,
-  /\btourist\b/i,
-  /\bmahal\b/i,
-  /\bgate\b/i,
-  /\bstupa\b/i,
   /\bdesert\b/i,
   /\bplateau\b/i,
-  /\bforest\b/i
+  /\bforest\b/i,
+  /\bstupa\b/i
 ];
 var GeoDetectionService = class {
   /**
-   * Evaluates if a topic is a geographical entity.
-   * If yes, queries the geocoding service and returns full LocationDetails.
-   * If no, returns null.
+   * Primary context-aware classification method.
+   * Categorizes the user's educational topic and determines whether a map is genuinely relevant.
    */
-  async detectAndGeocode(topic) {
-    const cleanTopic = topic.trim();
-    if (!cleanTopic || cleanTopic.length < 2) {
-      return null;
+  classifyTopic(rawTopic) {
+    const topic = (rawTopic || "").trim();
+    if (!topic || topic.length < 2) {
+      return {
+        category: "GENERAL_TOPIC",
+        confidence: 1,
+        requiresMap: false,
+        reasoning: "Topic string is empty or insufficient."
+      };
     }
-    for (const pattern of NON_GEOGRAPHICAL_PATTERNS) {
-      if (pattern.test(cleanTopic)) {
-        console.log(`[GeoDetection] Topic "${cleanTopic}" matched non-geographical pattern ${pattern}. Skipping geocoding.`);
-        return null;
+    const lower = topic.toLowerCase();
+    const cleanLower = lower.replace(/[?!.,]+/g, "").trim();
+    for (const pattern of EXPLICIT_LOCATION_PATTERNS) {
+      if (pattern.test(topic)) {
+        const extractedEntity = this.extractSubjectFromQuestion(topic);
+        const resolvedPlace = KNOWN_ENTITY_LOCATIONS[extractedEntity.toLowerCase()] || extractedEntity;
+        return {
+          category: "PLACE",
+          confidence: 0.95,
+          requiresMap: true,
+          resolvedLocationQuery: resolvedPlace,
+          reasoning: `User explicitly requested geographical origin or location of "${extractedEntity}". Map will display resolved place: "${resolvedPlace}".`
+        };
       }
     }
-    const directResult = await geoapifyService.geocodeLocation(cleanTopic);
-    if (directResult && directResult.isLocation) {
-      if (this.isConfidentLocation(cleanTopic, directResult)) {
-        return directResult;
+    if (KNOWN_PEOPLE_LIST.has(cleanLower)) {
+      return {
+        category: "PERSON",
+        confidence: 0.98,
+        requiresMap: false,
+        reasoning: `Topic "${topic}" represents an individual person. Biographical topics do not display maps.`
+      };
+    }
+    for (const person of KNOWN_PEOPLE_LIST) {
+      if (cleanLower === person || cleanLower.startsWith(person + " ") || cleanLower.endsWith(" " + person)) {
+        return {
+          category: "PERSON",
+          confidence: 0.95,
+          requiresMap: false,
+          reasoning: `Topic contains reference to individual person "${person}". Geographical map is not relevant.`
+        };
       }
     }
-    const hasIndicator = GEOGRAPHICAL_INDICATORS.some((re) => re.test(cleanTopic));
-    if (hasIndicator) {
-      const stripped = cleanTopic.replace(/\b(the\s+city\s+of|the\s+village\s+of|the\s+temple\s+of|the\s+monument|the|story\s+of|guide\s+to)\b/gi, "").trim();
-      if (stripped && stripped !== cleanTopic) {
-        const retryResult = await geoapifyService.geocodeLocation(stripped);
-        if (retryResult && retryResult.isLocation) {
-          return retryResult;
-        }
+    for (const pat of PERSON_DESCRIPTOR_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "PERSON",
+          confidence: 0.85,
+          requiresMap: false,
+          reasoning: "Topic matches personal biographical or professional descriptor."
+        };
       }
     }
-    return null;
+    for (const pat of SCIENCE_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "SCIENCE_CONCEPT",
+          confidence: 0.95,
+          requiresMap: false,
+          reasoning: "Topic represents a scientific, biological, or physical principle."
+        };
+      }
+    }
+    for (const pat of TECHNOLOGY_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "TECHNOLOGY_CONCEPT",
+          confidence: 0.95,
+          requiresMap: false,
+          reasoning: "Topic represents a computer science, algorithm, or engineering concept."
+        };
+      }
+    }
+    for (const pat of FOOD_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "FOOD",
+          confidence: 0.95,
+          requiresMap: false,
+          reasoning: "Topic represents food, culinary preparations, or recipes."
+        };
+      }
+    }
+    for (const pat of ANIMAL_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "ANIMAL",
+          confidence: 0.95,
+          requiresMap: false,
+          reasoning: "Topic represents wildlife, animals, or biological species."
+        };
+      }
+    }
+    for (const pat of HISTORICAL_EVENT_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "HISTORICAL_EVENT",
+          confidence: 0.9,
+          requiresMap: false,
+          reasoning: "Topic represents a historical event or period."
+        };
+      }
+    }
+    for (const pat of INSTITUTION_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "INSTITUTION",
+          confidence: 0.92,
+          requiresMap: true,
+          resolvedLocationQuery: topic,
+          reasoning: `Topic represents an academic institution where physical campus location is educational.`
+        };
+      }
+    }
+    if (PLACE_SEEDS.has(cleanLower)) {
+      return {
+        category: "PLACE",
+        confidence: 0.98,
+        requiresMap: true,
+        resolvedLocationQuery: topic,
+        reasoning: `Topic "${topic}" is an authoritative known geographical place or physical landmark.`
+      };
+    }
+    for (const pat of GEOGRAPHICAL_INDICATOR_PATTERNS) {
+      if (pat.test(topic)) {
+        return {
+          category: "PLACE",
+          confidence: 0.9,
+          requiresMap: true,
+          resolvedLocationQuery: topic,
+          reasoning: `Topic contains geographical descriptor matching ${pat}.`
+        };
+      }
+    }
+    return {
+      category: "GENERAL_TOPIC",
+      confidence: 0.7,
+      requiresMap: false,
+      reasoning: "Topic does not exhibit genuine geographical intent. Map is hidden by default."
+    };
   }
   /**
-   * Validates whether a geocoding result is genuinely a location match
-   * rather than a spurious partial string match on a common dictionary word.
+   * Evaluates the educational topic, determines map requirements,
+   * and geocodes only when genuinely relevant.
    */
-  isConfidentLocation(rawTopic, result) {
-    const topicLower = rawTopic.toLowerCase().trim();
-    const nameLower = result.placeName.toLowerCase().trim();
-    if (result.confidence && result.confidence >= 0.6) {
-      return true;
+  async evaluateTopic(topic) {
+    const classification = this.classifyTopic(topic);
+    if (!classification.requiresMap) {
+      return {
+        location: null,
+        classification,
+        requiresMap: false
+      };
     }
-    if (nameLower.includes(topicLower) || topicLower.includes(nameLower)) {
-      return true;
+    const targetQuery = (classification.resolvedLocationQuery || topic).trim();
+    try {
+      const location2 = await geoapifyService.geocodeLocation(targetQuery);
+      if (location2 && location2.isLocation) {
+        location2.requiresMap = true;
+        location2.topicCategory = classification.category;
+        return {
+          location: location2,
+          classification,
+          requiresMap: true
+        };
+      }
+    } catch (err) {
+      console.warn(`[GeoDetection] Geocoding lookup failed for query "${targetQuery}":`, err);
     }
-    if (result.district || result.state || result.country) {
-      return true;
+    return {
+      location: null,
+      classification,
+      requiresMap: false
+    };
+  }
+  /**
+   * Backwards-compatible method used across backend routes and story generator.
+   * Returns LocationDetails ONLY when the topic requires a map and resolves to verified coordinates.
+   * Returns null for all non-geographical topics.
+   */
+  async detectAndGeocode(topic) {
+    const result = await this.evaluateTopic(topic);
+    return result.requiresMap ? result.location : null;
+  }
+  /**
+   * Extracts target subject from natural questions (e.g. "Birthplace of Virat Kohli" -> "Virat Kohli")
+   */
+  extractSubjectFromQuestion(question) {
+    const clean = question.trim();
+    const birthMatch = clean.match(/(?:birthplace|birth\s+place|native\s+place|origin|hometown|home\s+town|location|geography|map|coordinates)\s+(?:of|for)\s+(.+)/i);
+    if (birthMatch && birthMatch[1]) {
+      return birthMatch[1].replace(/[?!.,]+/g, "").trim();
     }
-    return false;
+    const whereFromMatch = clean.match(/^where\s+(?:is|was|are|were)\s+(.+?)\s+(?:from|born|located|situated|found)\??$/i);
+    if (whereFromMatch && whereFromMatch[1]) {
+      return whereFromMatch[1].replace(/[?!.,]+/g, "").trim();
+    }
+    const whereIsMatch = clean.match(/^where\s+(?:is|was)\s+(.+?)\??$/i);
+    if (whereIsMatch && whereIsMatch[1]) {
+      return whereIsMatch[1].replace(/[?!.,]+/g, "").trim();
+    }
+    return clean;
   }
 };
 var geoDetectionService = new GeoDetectionService();
@@ -48562,17 +49181,31 @@ var StoryService = class {
     const cacheKey = storyCache.generateKey(request);
     const cachedStory = storyCache.get(cacheKey);
     if (cachedStory) {
+      if (cachedStory.requiresMap === void 0) {
+        cachedStory.requiresMap = Boolean(cachedStory.locationDetails && cachedStory.locationDetails.isLocation && cachedStory.locationDetails.requiresMap);
+      }
       return { story: cachedStory, cached: true };
     }
     let enrichedRequest = { ...request };
     try {
-      const location2 = await geoDetectionService.detectAndGeocode(topic);
-      if (location2 && location2.isLocation) {
-        console.log(`[StoryService] Geographical entity detected for "${topic}": ${location2.placeName} (${location2.category}) at ${location2.latitude}, ${location2.longitude}`);
-        enrichedRequest.locationDetails = location2;
+      const evaluation = await geoDetectionService.evaluateTopic(topic);
+      enrichedRequest.requiresMap = evaluation.requiresMap;
+      enrichedRequest.topicCategory = evaluation.classification.category;
+      if (evaluation.requiresMap && evaluation.location) {
+        console.log(
+          `[StoryService] Geographical entity confirmed for "${topic}" [${evaluation.classification.category}]: ${evaluation.location.placeName} at ${evaluation.location.latitude}, ${evaluation.location.longitude}`
+        );
+        enrichedRequest.locationDetails = evaluation.location;
+      } else {
+        console.log(
+          `[StoryService] Topic "${topic}" classified as [${evaluation.classification.category}] (requiresMap: false). Map will remain hidden.`
+        );
+        enrichedRequest.locationDetails = void 0;
       }
     } catch (geoErr) {
-      console.warn(`[StoryService] Geocoding detection failed for "${topic}":`, geoErr);
+      console.warn(`[StoryService] Topic classification failed for "${topic}":`, geoErr);
+      enrichedRequest.requiresMap = false;
+      enrichedRequest.locationDetails = void 0;
     }
     const matchingExample = this.findMatchingExample(topic);
     const provider = this.getProvider();
@@ -48580,7 +49213,9 @@ var StoryService = class {
       if (matchingExample) {
         const enhancedExample = await imageSearchService.enhanceStoryIllustrations({
           ...matchingExample,
-          locationDetails: enrichedRequest.locationDetails
+          locationDetails: enrichedRequest.locationDetails,
+          requiresMap: Boolean(enrichedRequest.requiresMap),
+          topicCategory: enrichedRequest.topicCategory || "SCIENCE_CONCEPT"
         });
         return { story: enhancedExample, cached: false };
       }
@@ -48590,8 +49225,12 @@ var StoryService = class {
     }
     try {
       const generated = await provider.generateStory(enrichedRequest, config.aiRequestTimeoutMs);
-      if (enrichedRequest.locationDetails) {
+      generated.requiresMap = Boolean(enrichedRequest.requiresMap);
+      generated.topicCategory = enrichedRequest.topicCategory || "GENERAL_TOPIC";
+      if (enrichedRequest.requiresMap && enrichedRequest.locationDetails) {
         generated.locationDetails = enrichedRequest.locationDetails;
+      } else {
+        delete generated.locationDetails;
       }
       let finalStory = generated;
       try {
@@ -48599,8 +49238,12 @@ var StoryService = class {
       } catch (imgErr) {
         console.warn("[StoryService] Image enhancement failed, continuing with SVG fallback:", imgErr);
       }
-      if (enrichedRequest.locationDetails) {
+      finalStory.requiresMap = Boolean(enrichedRequest.requiresMap);
+      finalStory.topicCategory = enrichedRequest.topicCategory || "GENERAL_TOPIC";
+      if (enrichedRequest.requiresMap && enrichedRequest.locationDetails) {
         finalStory.locationDetails = enrichedRequest.locationDetails;
+      } else {
+        delete finalStory.locationDetails;
       }
       storyCache.set(cacheKey, finalStory);
       return { story: finalStory, cached: false };
@@ -48609,8 +49252,15 @@ var StoryService = class {
         console.warn(`[StoryService] Live AI generation failed. Falling back to built-in example for "${topic}".`, err);
         const enhancedFallback = await imageSearchService.enhanceStoryIllustrations({
           ...matchingExample,
-          locationDetails: enrichedRequest.locationDetails
+          locationDetails: enrichedRequest.requiresMap ? enrichedRequest.locationDetails : void 0,
+          requiresMap: Boolean(enrichedRequest.requiresMap),
+          topicCategory: enrichedRequest.topicCategory || "SCIENCE_CONCEPT"
         });
+        enhancedFallback.requiresMap = Boolean(enrichedRequest.requiresMap);
+        enhancedFallback.topicCategory = enrichedRequest.topicCategory || "SCIENCE_CONCEPT";
+        if (!enhancedFallback.requiresMap) {
+          delete enhancedFallback.locationDetails;
+        }
         return { story: enhancedFallback, cached: false };
       }
       throw err;
@@ -51166,13 +51816,19 @@ geoRouter.get("/detect", async (req, res) => {
     return;
   }
   try {
-    const location2 = await geoDetectionService.detectAndGeocode(topic);
+    const result = await geoDetectionService.evaluateTopic(topic);
     res.json({
       success: true,
       data: {
         topic,
-        isLocation: Boolean(location2 && location2.isLocation),
-        locationDetails: location2 || null
+        category: result.classification.category,
+        requiresMap: result.requiresMap,
+        isGeographical: result.requiresMap,
+        confidence: result.classification.confidence,
+        reasoning: result.classification.reasoning,
+        location: result.location,
+        locationDetails: result.location,
+        isLocation: Boolean(result.location && result.location.isLocation)
       },
       meta: { timestamp: (/* @__PURE__ */ new Date()).toISOString() }
     });
