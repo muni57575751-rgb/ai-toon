@@ -1,9 +1,40 @@
 /**
  * Global API configuration.
- * Resolves the backend API base URL using VITE_API_BASE_URL when provided,
- * or defaults to relative '/api' which works seamlessly with Vite dev proxy, preview proxy, and production serverless rewrites.
+ * Resolves the backend API base URL.
+ *
+ * In production on Vercel:
+ * Always defaults to same-origin relative '/api'. This guarantees requests never get routed
+ * to stale preview branches, mismatched CORS origins, or localhost.
+ *
+ * In local development:
+ * Defaults to '/api' which Vite proxies to 'http://localhost:5000' (or uses VITE_API_BASE_URL if explicitly supplied).
  */
 function resolveApiBaseUrl(): string {
+  // In production builds (Vercel deployment):
+  // Always use same-origin relative '/api' unless a valid same-origin relative path was provided.
+  if (import.meta.env.PROD) {
+    const raw = import.meta.env.VITE_API_BASE_URL;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      // If a relative path was specified (e.g. /api), clean and use it
+      if (trimmed.startsWith('/')) {
+        const clean = trimmed.replace(/\/+$/, '');
+        return clean || '/api';
+      }
+      // If an absolute URL matching the current browser origin was provided, use relative /api
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        if (trimmed.startsWith(window.location.origin)) {
+          return '/api';
+        }
+      }
+      console.warn(
+        `[AI Toon] Ignoring foreign VITE_API_BASE_URL (${trimmed}) in production. Enforcing same-origin '/api'.`
+      );
+    }
+    return '/api';
+  }
+
+  // Development environment handling:
   const raw = import.meta.env.VITE_API_BASE_URL;
   if (!raw || typeof raw !== 'string') {
     return '/api';
@@ -24,18 +55,9 @@ function resolveApiBaseUrl(): string {
     return '/api';
   }
 
-  // In production builds, ignore localhost or local dev addresses and use same-origin /api
-  if (import.meta.env.PROD && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
-    console.warn(
-      `[AI Toon] VITE_API_BASE_URL points to localhost in a production build. Falling back to same-origin '/api'.`
-    );
-    return '/api';
-  }
-
-  // If an absolute HTTP/HTTPS URL was provided (e.g. http://localhost:5000 or https://api.example.com):
+  // If an absolute HTTP/HTTPS URL was provided (e.g. http://localhost:5000):
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     const clean = trimmed.replace(/\/+$/, '');
-    // Ensure all backend routes mounted under /api resolve properly
     if (clean.endsWith('/api')) {
       return clean;
     }
@@ -55,15 +77,15 @@ export const API_BASE_URL: string = resolveApiBaseUrl();
 
 /**
  * Returns the backend root origin (without /api) for direct health checks or diagnostics.
- * E.g. "http://localhost:5000/api" -> "http://localhost:5000"
- * E.g. "/api" -> window.location.origin
+ * E.g. in browser: window.location.origin
+ * E.g. in dev: http://localhost:5000
  */
 export function getBackendOrigin(): string {
-  if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
-    return API_BASE_URL.replace(/\/api$/, '');
-  }
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
+  }
+  if (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')) {
+    return API_BASE_URL.replace(/\/api$/, '');
   }
   return import.meta.env.DEV ? 'http://localhost:5000' : '';
 }

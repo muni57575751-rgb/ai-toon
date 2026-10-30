@@ -1,73 +1,99 @@
 import React, { useState, useEffect } from 'react';
 import type { HealthCheckData } from '@ai-toon/shared';
-import { API_BASE_URL, getBackendOrigin, safeJsonParse } from '../../config/api';
+import { API_BASE_URL, safeJsonParse } from '../../config/api';
 
 export const SystemStatus: React.FC = () => {
   const [health, setHealth] = useState<HealthCheckData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeEndpoint, setActiveEndpoint] = useState<string>(`${API_BASE_URL}/health`);
+  const [httpStatus, setHttpStatus] = useState<number | null>(null);
+  const [activeEndpoint, setActiveEndpoint] = useState<string>('/api/health');
 
   const checkBackend = async () => {
     setLoading(true);
     setError(null);
+    setHttpStatus(null);
 
+    // Normalize base URL to ensure clean, non-duplicated /api/health target on same domain
+    const cleanBase = (API_BASE_URL || '/api').trim().replace(/\/+$/, '');
+    let targetEndpoint = cleanBase.endsWith('/api') ? `${cleanBase}/health` : `${cleanBase}/api/health`;
+
+    // In browser production, ensure same-origin relative path is always preferred
+    if (import.meta.env.PROD && typeof window !== 'undefined' && targetEndpoint.startsWith('http')) {
+      targetEndpoint = '/api/health';
+    }
+
+    setActiveEndpoint(targetEndpoint);
+
+    // 12-second abort timeout prevents premature cancellation during serverless cold starts
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
+    const timer = setTimeout(() => controller.abort(), 12000);
 
     try {
-      let targetEndpoint = `${API_BASE_URL}/health`;
-      let res: Response | null = null;
-
+      let res: Response;
       try {
         res = await fetch(targetEndpoint, {
           signal: controller.signal,
           headers: { Accept: 'application/json' },
         });
-      } catch (initialErr) {
-        // If relative /api/health failed to connect, try direct origin fallback (e.g. http://localhost:5000/health)
-        const origin = getBackendOrigin();
-        if (targetEndpoint.startsWith('/api') && origin) {
+      } catch (fetchErr: any) {
+        // Fallback to relative /api/health if an absolute URL failed cross-origin/network fetch
+        if (targetEndpoint.startsWith('http')) {
           try {
-            const fallbackEndpoint = `${origin}/health`;
-            const fallbackRes = await fetch(fallbackEndpoint, {
+            targetEndpoint = '/api/health';
+            setActiveEndpoint(targetEndpoint);
+            res = await fetch(targetEndpoint, {
               signal: controller.signal,
               headers: { Accept: 'application/json' },
             });
-            if (fallbackRes.ok) {
-              res = fallbackRes;
-              targetEndpoint = fallbackEndpoint;
-            }
           } catch {
-            // Keep original error
+            throw fetchErr;
           }
-        }
-
-        if (!res) {
-          throw initialErr;
+        } else {
+          throw fetchErr;
         }
       }
 
-      setActiveEndpoint(targetEndpoint);
+      setHttpStatus(res.status);
 
       const parsed = await safeJsonParse<any>(res, 'Backend currently offline');
-      const candidate = parsed.data?.data || parsed.data;
+      const raw = parsed.data || {};
+      const dataObj = raw.data || raw;
 
-      if (parsed.ok && candidate && (candidate.status === 'ok' || parsed.data?.success)) {
+      // Recognize healthy response matching { status: "ok" } or { success: true }
+      const isHealthy =
+        res.ok &&
+        (raw.status === 'ok' ||
+          dataObj.status === 'ok' ||
+          raw.success === true ||
+          dataObj.success === true);
+
+      if (isHealthy) {
         setHealth({
           status: 'ok',
-          service: candidate.service || 'ai-toon-backend',
-          version: candidate.version || '0.1.0',
-          timestamp: candidate.timestamp || new Date().toISOString(),
-          uptime: typeof candidate.uptime === 'number' ? candidate.uptime : 0,
+          service: dataObj.service || raw.service || 'ai-toon-backend',
+          version: dataObj.version || raw.version || '0.1.0',
+          timestamp: dataObj.timestamp || raw.timestamp || new Date().toISOString(),
+          uptime:
+            typeof dataObj.uptime === 'number'
+              ? dataObj.uptime
+              : typeof raw.uptime === 'number'
+              ? raw.uptime
+              : 0,
         });
+        setError(null);
       } else {
-        throw new Error(parsed.error || candidate?.error?.message || `Server returned HTTP ${res.status}`);
+        const errMsg =
+          parsed.error ||
+          dataObj?.error?.message ||
+          raw?.message ||
+          `Server returned HTTP ${res.status}`;
+        throw new Error(errMsg);
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
-          setError('Connection timed out');
+          setError('Connection timed out (warming up serverless API)');
         } else if (err.message.includes('Failed to fetch') || err.message.includes('fetch failed')) {
           setError('Failed to fetch');
         } else {
@@ -106,7 +132,8 @@ export const SystemStatus: React.FC = () => {
               height: '42px',
               borderRadius: '12px',
               background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-              boxShadow: 'var(--clay-volume-subtle), 4px 6px 12px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff',
+              boxShadow:
+                'var(--clay-volume-subtle), 4px 6px 12px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -147,7 +174,15 @@ export const SystemStatus: React.FC = () => {
         }}
       >
         <div>
-          <div style={{ fontWeight: 800, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: '0.98rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
             Status:
             {loading ? (
               <span style={{ color: 'var(--navy-500)', fontWeight: 600 }}>Pinging backend...</span>
@@ -170,7 +205,7 @@ export const SystemStatus: React.FC = () => {
                     boxShadow: '0 0 10px rgba(52, 211, 153, 0.8)',
                   }}
                 />
-                Connected ({health.service} v{health.version})
+                Online ({health.service} v{health.version})
               </span>
             ) : (
               <span
@@ -195,10 +230,21 @@ export const SystemStatus: React.FC = () => {
               </span>
             )}
           </div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--navy-600)', margin: '0.35rem 0 0', fontWeight: 600 }}>
+          <p
+            style={{
+              fontSize: '0.82rem',
+              color: 'var(--navy-600)',
+              margin: '0.35rem 0 0',
+              fontWeight: 600,
+            }}
+          >
             {health
-              ? `Uptime: ${health.uptime}s • Endpoint: ${activeEndpoint} • Verified: ${new Date(health.timestamp).toLocaleTimeString()}`
-              : (import.meta.env.DEV ? 'Express server running on http://localhost:5000 • Run "npm run dev" to connect' : 'Vercel Serverless API connecting on same origin (/api)...')}
+              ? `Uptime: ${health.uptime}s • Endpoint: ${activeEndpoint} • Verified: ${new Date(
+                  health.timestamp
+                ).toLocaleTimeString()}`
+              : `Endpoint: ${activeEndpoint}${
+                  httpStatus ? ` • HTTP ${httpStatus}` : ''
+                } • ${error ? `Diagnostics: ${error}` : 'Connecting to Vercel Serverless API...'}`}
           </p>
         </div>
 
