@@ -1,4 +1,5 @@
 import type { QuizQuestion } from './quiz.js';
+import type { LocationDetails } from './geo.js';
 
 export type StoryTone = 'funny' | 'adventure' | 'comic';
 
@@ -50,6 +51,7 @@ export interface Story {
   introduction: string;
   keyPoints: KeyPoint[];
   illustrations: TopicIllustration[];
+  locationDetails?: LocationDetails;
   keyTakeaway: string;
   quizQuestions?: QuizQuestion[];
   createdAt: string;
@@ -68,5 +70,6 @@ export interface StoryGenerationRequest {
   language: SupportedLanguage;
   difficulty?: StoryDifficulty;
   targetAgeGroup?: 'kids' | 'teens' | 'general';
+  locationDetails?: LocationDetails;
 }
 

@@ -1,4 +1,4 @@
-import type { Story, TopicIllustration, KeyPoint } from '@ai-toon/shared';
+import type { Story, TopicIllustration, KeyPoint, LocationDetails } from '@ai-toon/shared';
 import type { IImageSearchProvider, ImageSearchOptions, ImageSearchResult } from './imageSearch.types.js';
 import { wikimediaProvider } from './wikimedia.provider.js';
 import { imageSearchCache } from './imageSearch.cache.js';
@@ -108,12 +108,19 @@ export class ImageSearchService {
       const pairedKeyPoint = this.findPairedKeyPoint(story.keyPoints, ill, idx);
 
       // Build slot-specific prioritized queries
-      const queries = this.buildPrioritizedQueries(story.topic, classification, ill, idx, pairedKeyPoint);
+      const queries = this.buildPrioritizedQueries(
+        story.topic,
+        classification,
+        ill,
+        idx,
+        pairedKeyPoint,
+        story.locationDetails
+      );
 
       const searchOptions: ImageSearchOptions = {
-        entityCategory: classification.category,
-        entityName: classification.entityName,
-        secondaryContext: classification.secondaryContext,
+        entityCategory: story.locationDetails?.isLocation ? 'place' : classification.category,
+        entityName: story.locationDetails?.placeName || classification.entityName,
+        secondaryContext: story.locationDetails?.district || story.locationDetails?.state || classification.secondaryContext,
         excludeIdentifiers: Array.from(usedIdentifiers),
       };
 
@@ -217,9 +224,23 @@ export class ImageSearchService {
     classification: EntityClassification,
     ill: TopicIllustration,
     illustrationIndex: number,
-    pairedKeyPoint?: KeyPoint
+    pairedKeyPoint?: KeyPoint,
+    locationDetails?: LocationDetails
   ): string[] {
     const candidateQueries: string[] = [];
+
+    // Geographical entity query specialization (Phase 7: photograph priority & regional context)
+    if (locationDetails && locationDetails.isLocation) {
+      const place = locationDetails.placeName;
+      const district = locationDetails.district ? ` ${locationDetails.district}` : '';
+      const state = locationDetails.state ? ` ${locationDetails.state}` : '';
+
+      candidateQueries.push(`${place}${district}${state} photograph`.trim());
+      candidateQueries.push(`${place}${state} landmark`.trim());
+      candidateQueries.push(`${place} ${locationDetails.category}`.trim());
+      candidateQueries.push(`${place} view`.trim());
+      candidateQueries.push(place);
+    }
 
     // 1. Concept hint from title and paired key point
     const titleHint = (ill.title || '').replace(/illustration|figure|\d+/gi, '').trim();

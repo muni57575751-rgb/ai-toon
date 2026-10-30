@@ -160,3 +160,4 @@ CREATE POLICY "Public insert login_audit" ON public.login_audit FOR INSERT WITH 
 
 CREATE POLICY "Public read settings" ON public.system_settings FOR SELECT USING (true);
 CREATE POLICY "Public update settings" ON public.system_settings FOR UPDATE USING (true);
+

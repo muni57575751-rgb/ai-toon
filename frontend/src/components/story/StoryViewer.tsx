@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Story, QuizQuestion, KeyPoint, TopicIllustration, QuizOption } from '@ai-toon/shared';
 import { CartoonIllustration } from './CartoonIllustration';
+import { LocationMap } from '../geo/LocationMap';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
 
@@ -174,6 +175,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
           {story.introduction || story.summary}
         </div>
       </header>
+
+      {/* Geographical Intelligence & Interactive Map */}
+      {story.locationDetails && story.locationDetails.isLocation && (
+        <LocationMap location={story.locationDetails} />
+      )}
 
       {/* 2. Unified Point-Wise Educational Content */}
       <section

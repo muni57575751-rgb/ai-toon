@@ -5,6 +5,7 @@ import adminRouter from './admin.routes.js';
 import memberRouter from './member.routes.js';
 import authRouter from './auth.routes.js';
 import searchRouter from './search.routes.js';
+import geoRouter from './geo.routes.js';
 
 const apiRouter = Router();
 
@@ -13,6 +14,9 @@ apiRouter.use('/health', healthRouter);
 
 // Story generation, Q&A, and examples endpoint: /api/stories
 apiRouter.use('/stories', storyRouter);
+
+// Geographical Intelligence & Geocoding endpoints: /api/geo
+apiRouter.use('/geo', geoRouter);
 
 // Dedicated authentication & registration endpoints: /api/auth
 apiRouter.use('/auth', authRouter);

@@ -256,9 +256,41 @@ export class GeminiProvider implements IAiProvider {
     const difficulty = request.difficulty || 'intermediate';
     const pointsCount = difficulty === 'beginner' ? '4 to 5' : difficulty === 'advanced' ? '6 to 7' : '5 to 6';
 
+    const loc = request.locationDetails;
+    let geoPromptSection = '';
+    if (loc && loc.isLocation) {
+      geoPromptSection = `
+GEOGRAPHICAL LOCATION INTELLIGENCE (VERIFIED DATA):
+The educational topic is an identifiable geographical place: "${loc.placeName}".
+Authoritative verified data:
+- Category: ${loc.category}
+- Administrative Hierarchy: ${loc.villageOrTown ? `Village/Town: ${loc.villageOrTown}, ` : ''}${loc.mandalOrTehsil ? `Mandal/Tehsil: ${loc.mandalOrTehsil}, ` : ''}${loc.district ? `District: ${loc.district}, ` : ''}${loc.state ? `State: ${loc.state}, ` : ''}Country: ${loc.country || 'India'}
+${loc.postalCode && loc.postalCodeVerified ? `- Verified PIN / Postal Code: ${loc.postalCode}` : '- Postal Code: Not officially verified (DO NOT FABRICATE OR INVENT A POSTAL CODE)'}
+- Coordinates: Latitude ${loc.latitude}, Longitude ${loc.longitude}
+${loc.nearbyTowns && loc.nearbyTowns.length ? `- Nearby Towns & Centers: ${loc.nearbyTowns.join(', ')}` : ''}
+${loc.importantLandmarks && loc.importantLandmarks.length ? `- Notable Landmarks: ${loc.importantLandmarks.join(', ')}` : ''}
+${loc.geographicalCharacteristics ? `- Natural Landscape: ${loc.geographicalCharacteristics}` : ''}
+${loc.historicalSignificance ? `- Historical Heritage: ${loc.historicalSignificance}` : ''}
+
+MANDATORY GEOGRAPHICAL LESSON STRUCTURE:
+1. Introduction: Clearly identify the location, its administrative position, and significance.
+2. The key points MUST cover:
+   - Point 1: Exact location and administrative hierarchy (village, mandal/tehsil, district, state, country, and verified PIN code if verified).
+   - Point 2: Physical geography, terrain, coordinates, climate, and landscape.
+   - Point 3: Historical significance and origins of the location.
+   - Point 4: Cultural traditions, temples, monuments, local life, and nearby places to visit.
+   - Point 5: Regional importance and transportation connectivity.
+3. For Illustrations:
+   - searchQuery MUST search for authentic location photography (e.g. "${loc.placeName} ${loc.district || ''} ${loc.state || ''} photograph", "${loc.placeName} landmark photo").
+   - NEVER search for cartoon drawings of places when real photographs exist.
+4. Quiz: Test student knowledge on the administrative hierarchy, geography, and historical importance of ${loc.placeName}.
+5. STRICT ANTI-FABRICATION RULE: Never invent coordinates, postal codes, or imaginary historical events.
+`;
+    }
+
     return `You are AI Toon, an expert educator and visual learning specialist.
 Explain the educational topic "${request.topic}" as an engaging point-wise learning guide supported by 2 to 3 cartoon illustrations and a 3-question quiz.
-
+${geoPromptSection}
 CRITICAL INSTRUCTIONS:
 - DO NOT generate scenes, slides, chapters, or comic panels.
 - Generate a unified, point-wise educational explanation that will be read as a single continuous article.
@@ -411,6 +443,7 @@ Return ONLY valid JSON matching this schema. Do not add markdown backticks outsi
       introduction: parsed.introduction || `Let's explore ${request.topic} with this point-wise visual learning guide.`,
       keyPoints,
       illustrations,
+      locationDetails: request.locationDetails,
       keyTakeaway: parsed.keyTakeaway || 'Mastering this concept helps us understand the world around us.',
       quizQuestions,
       createdAt: new Date().toISOString(),

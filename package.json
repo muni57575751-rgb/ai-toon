@@ -18,7 +18,7 @@
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
     "build:api": "node scripts/build-api.cjs",
-    "test": "node scripts/verify_approval_sync.cjs",
+    "test": "node scripts/verify_approval_sync.cjs && node scripts/verify_geo_intelligence.cjs",
     "typecheck": "npm run typecheck --workspace=@ai-toon/shared && npm run typecheck --workspace=ai-toon-backend && npm run typecheck --workspace=frontend",
     "typecheck:shared": "npm run typecheck --workspace=@ai-toon/shared",
     "typecheck:backend": "npm run typecheck --workspace=ai-toon-backend",

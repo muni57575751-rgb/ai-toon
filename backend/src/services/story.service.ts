@@ -5,6 +5,7 @@ import { BUILT_IN_EXAMPLE_STORIES } from './exampleStories.data.js';
 import { config } from '../config/env.js';
 
 import { imageSearchService } from './imageSearch/imageSearch.service.js';
+import { geoDetectionService } from './geoDetection.service.js';
 import type { IAiProvider } from './ai/ai.types.js';
 
 export class StoryService {
@@ -27,14 +28,29 @@ export class StoryService {
       return { story: cachedStory, cached: true };
     }
 
-    // 2. Check if the topic closely matches a built-in example story
+    // 2. Detect if the topic is an identifiable geographical place
+    let enrichedRequest: StoryGenerationRequest = { ...request };
+    try {
+      const location = await geoDetectionService.detectAndGeocode(topic);
+      if (location && location.isLocation) {
+        console.log(`[StoryService] Geographical entity detected for "${topic}": ${location.placeName} (${location.category}) at ${location.latitude}, ${location.longitude}`);
+        enrichedRequest.locationDetails = location;
+      }
+    } catch (geoErr) {
+      console.warn(`[StoryService] Geocoding detection failed for "${topic}":`, geoErr);
+    }
+
+    // 3. Check if the topic closely matches a built-in example story
     const matchingExample = this.findMatchingExample(topic);
 
-    // 3. Check AI Provider
+    // 4. Check AI Provider
     const provider = this.getProvider();
     if (!provider.isConfigured()) {
       if (matchingExample) {
-        const enhancedExample = await imageSearchService.enhanceStoryIllustrations(matchingExample);
+        const enhancedExample = await imageSearchService.enhanceStoryIllustrations({
+          ...matchingExample,
+          locationDetails: enrichedRequest.locationDetails,
+        });
         return { story: enhancedExample, cached: false };
       }
       throw new Error(
@@ -42,11 +58,16 @@ export class StoryService {
       );
     }
 
-    // 4. Request from live AI provider with timeout
+    // 5. Request from live AI provider with timeout
     try {
-      const generated = await provider.generateStory(request, config.aiRequestTimeoutMs);
+      const generated = await provider.generateStory(enrichedRequest, config.aiRequestTimeoutMs);
 
-      // 5. Enhance illustrations with authentic educational images from public sources
+      // 6. Ensure verified location details are attached
+      if (enrichedRequest.locationDetails) {
+        generated.locationDetails = enrichedRequest.locationDetails;
+      }
+
+      // 7. Enhance illustrations with authentic educational images from public sources
       let finalStory = generated;
       try {
         finalStory = await imageSearchService.enhanceStoryIllustrations(generated);
@@ -54,7 +75,11 @@ export class StoryService {
         console.warn('[StoryService] Image enhancement failed, continuing with SVG fallback:', imgErr);
       }
 
-      // Save to cache (includes enhanced image metadata to prevent duplicate requests)
+      if (enrichedRequest.locationDetails) {
+        finalStory.locationDetails = enrichedRequest.locationDetails;
+      }
+
+      // Save to cache (includes enhanced image metadata and location details to prevent duplicate requests)
       storyCache.set(cacheKey, finalStory);
 
       return { story: finalStory, cached: false };
@@ -62,7 +87,10 @@ export class StoryService {
       // If live AI provider fails or is rate-limited, fall back to matching example if available
       if (matchingExample) {
         console.warn(`[StoryService] Live AI generation failed. Falling back to built-in example for "${topic}".`, err);
-        const enhancedFallback = await imageSearchService.enhanceStoryIllustrations(matchingExample);
+        const enhancedFallback = await imageSearchService.enhanceStoryIllustrations({
+          ...matchingExample,
+          locationDetails: enrichedRequest.locationDetails,
+        });
         return { story: enhancedFallback, cached: false };
       }
       throw err;
