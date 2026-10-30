@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { LocationDetails, LocationCategory } from '@ai-toon/shared';
 import { config } from '../config/env.js';
+import { dbService } from './db.service.js';
 
 let currentDir = process.cwd();
 try {
@@ -176,6 +177,7 @@ const SEED_GEO_RECORDS: Record<string, Partial<LocationDetails>> = {
 export class GeoapifyService {
   private readonly apiKey: string;
   private readonly cache = new Map<string, LocationDetails>();
+  private static lastNominatimCallTime = 0;
 
   constructor() {
     this.apiKey = (config.geoapifyApiKey || process.env.GEOAPIFY_API_KEY || '').trim();
@@ -256,13 +258,27 @@ export class GeoapifyService {
       }
     }
 
-    // 2. Query Geoapify Forward Geocoding if API key is present
+    // 2. Check Supabase geocoding_cache (persisted across independent Vercel serverless instances)
+    try {
+      const dbCached = await dbService.fetchGeocache(normKey);
+      if (dbCached && dbCached.placeName && typeof dbCached.latitude === 'number') {
+        const full = this.completeLocationDetails(dbCached);
+        this.cache.set(normKey, full);
+        return full;
+      }
+    } catch {
+      // Non-blocking fallback if Supabase is initializing or table not yet applied
+    }
+
+    // 3. Query Geoapify Forward Geocoding if API key is present
     if (this.apiKey && !this.apiKey.includes('your-geoapify-key')) {
       try {
         const geoapifyResult = await this.queryGeoapifyForward(query);
         if (geoapifyResult) {
           this.cache.set(normKey, geoapifyResult);
           this.saveCacheToDisk();
+          // Persist to Supabase asynchronously for cross-serverless caching
+          dbService.upsertGeocache(normKey, geoapifyResult.placeName, geoapifyResult).catch(() => {});
           return geoapifyResult;
         }
       } catch (err) {
@@ -270,12 +286,14 @@ export class GeoapifyService {
       }
     }
 
-    // 3. Resilient OpenStreetMap Fallback (Free, zero-credential, compliant)
+    // 4. Resilient OpenStreetMap Fallback (Free, zero-credential, compliant)
     try {
       const osmResult = await this.queryOsmNominatim(query);
       if (osmResult) {
         this.cache.set(normKey, osmResult);
         this.saveCacheToDisk();
+        // Persist to Supabase asynchronously for cross-serverless caching
+        dbService.upsertGeocache(normKey, osmResult.placeName, osmResult).catch(() => {});
         return osmResult;
       }
     } catch (osmErr) {
@@ -354,9 +372,19 @@ export class GeoapifyService {
   }
 
   /**
-   * Fallback to OpenStreetMap Nominatim when Geoapify API key is not configured or depleted
+   * Fallback to OpenStreetMap Nominatim when Geoapify API key is not configured or depleted.
+   * Strictly enforces Nominatim Public Usage Policy (max 1 request per second).
    */
   private async queryOsmNominatim(query: string): Promise<LocationDetails | null> {
+    // 1 request per second throttling to respect Nominatim policy
+    const now = Date.now();
+    const timeSinceLastCall = now - GeoapifyService.lastNominatimCallTime;
+    if (timeSinceLastCall < 1000) {
+      const waitMs = 1000 - timeSinceLastCall;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+    GeoapifyService.lastNominatimCallTime = Date.now();
+
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
       query
     )}&format=json&addressdetails=1&limit=1`;

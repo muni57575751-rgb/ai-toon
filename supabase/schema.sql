@@ -99,6 +99,14 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 7. GEOCODING CACHE TABLE (Cross-serverless instance persistence)
+CREATE TABLE IF NOT EXISTS public.geocoding_cache (
+    query_key TEXT PRIMARY KEY,
+    place_name TEXT NOT NULL,
+    location_data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 7. SEED MASTER ADMIN (Muni)
 INSERT INTO public.members (
     id, email, full_name, password, role, verification_status, session_status, created_at, verified_at, verified_by
@@ -127,8 +135,9 @@ CREATE INDEX IF NOT EXISTS idx_members_status ON public.members(verification_sta
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON public.notifications(status);
 CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user ON public.quiz_attempts(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_stories_user ON public.user_stories(user_id);
+CREATE INDEX IF NOT EXISTS idx_geocoding_cache_place ON public.geocoding_cache(place_name);
 
--- 9. ENABLE ROW LEVEL SECURITY (RLS)
+-- 10. ENABLE ROW LEVEL SECURITY (RLS)
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quiz_attempts ENABLE ROW LEVEL SECURITY;
@@ -136,6 +145,7 @@ ALTER TABLE public.user_stories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.login_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.geocoding_cache ENABLE ROW LEVEL SECURITY;
 
 -- Anonymous/Authenticated Read Policies
 CREATE POLICY "Public read members" ON public.members FOR SELECT USING (true);
@@ -160,4 +170,8 @@ CREATE POLICY "Public insert login_audit" ON public.login_audit FOR INSERT WITH 
 
 CREATE POLICY "Public read settings" ON public.system_settings FOR SELECT USING (true);
 CREATE POLICY "Public update settings" ON public.system_settings FOR UPDATE USING (true);
+
+CREATE POLICY "Public read geocoding_cache" ON public.geocoding_cache FOR SELECT USING (true);
+CREATE POLICY "Public insert geocoding_cache" ON public.geocoding_cache FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update geocoding_cache" ON public.geocoding_cache FOR UPDATE USING (true);
 

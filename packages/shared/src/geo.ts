@@ -109,3 +109,4 @@ export interface LocationDetails {
     coordinates: [number, number];
   }>;
 }
+

@@ -5,6 +5,7 @@ import {
   UserRole,
   MemberVerificationStatus,
   normalizeVerificationStatus,
+  LocationDetails,
 } from '@ai-toon/shared';
 
 const SUPABASE_URL =
@@ -229,6 +230,49 @@ class DatabaseService {
         approved_role: n.approvedRole || 'user',
       };
       const { error } = await this.client.from('notifications').upsert(payload, { onConflict: 'id' });
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Fetches cached geocoding result from Supabase public.geocoding_cache
+   */
+  public async fetchGeocache(queryKey: string): Promise<LocationDetails | null> {
+    if (!this.client) return null;
+    try {
+      const { data, error } = await this.client
+        .from('geocoding_cache')
+        .select('location_data')
+        .eq('query_key', queryKey)
+        .maybeSingle();
+
+      if (error || !data || !data.location_data) {
+        return null;
+      }
+      return data.location_data as LocationDetails;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Upserts cached geocoding result to Supabase public.geocoding_cache
+   */
+  public async upsertGeocache(queryKey: string, placeName: string, locationData: LocationDetails): Promise<boolean> {
+    if (!this.client) return false;
+    try {
+      const payload = {
+        query_key: queryKey,
+        place_name: placeName,
+        location_data: locationData,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await this.client
+        .from('geocoding_cache')
+        .upsert(payload, { onConflict: 'query_key' });
+
       return !error;
     } catch {
       return false;
