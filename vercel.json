@@ -7,10 +7,14 @@
   "rewrites": [
     {
       "source": "/health",
-      "destination": "/api/health"
+      "destination": "/api?__url=/api/health"
     },
     {
-      "source": "/((?!api/|api$|health|assets/|favicon\\.ico|favicon\\.svg|icons\\.svg|robots\\.txt|manifest\\.json).*)",
+      "source": "/api/(.*)",
+      "destination": "/api?__url=/api/$1"
+    },
+    {
+      "source": "/((?!api(?:/|$)|health|assets/|favicon\\.ico|favicon\\.svg|icons\\.svg|robots\\.txt|manifest\\.json).*)",
       "destination": "/index.html"
     }
   ],

@@ -28019,7 +28019,9 @@ var createApp = () => {
     } else if (req.query && typeof req.query.__url === "string") {
       const original = req.query.__url;
       delete req.query.__url;
-      req.url = original;
+      const qIdx = req.url ? req.url.indexOf("?") : -1;
+      const qStr = qIdx !== -1 ? req.url.slice(qIdx) : "";
+      req.url = original.includes("?") ? original : `${original}${qStr}`;
     }
     next();
   });
