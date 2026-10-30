@@ -13,6 +13,7 @@ node_modules/
 dist/
 build/
 out/
+output/
 *.tsbuildinfo
 !packages/shared/dist/
 !packages/shared/dist/**
