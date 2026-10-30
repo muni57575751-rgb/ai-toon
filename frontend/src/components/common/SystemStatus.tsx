@@ -1,27 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import type { ApiResponse, HealthCheckData } from '@ai-toon/shared';
-import { API_BASE_URL, safeJsonParse } from '../../config/api';
+import type { HealthCheckData } from '@ai-toon/shared';
+import { API_BASE_URL, getBackendOrigin, safeJsonParse } from '../../config/api';
 
 export const SystemStatus: React.FC = () => {
   const [health, setHealth] = useState<HealthCheckData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeEndpoint, setActiveEndpoint] = useState<string>(`${API_BASE_URL}/health`);
 
   const checkBackend = async () => {
     setLoading(true);
     setError(null);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+
     try {
-      const res = await fetch(`${API_BASE_URL}/health`);
-      const parsed = await safeJsonParse<ApiResponse<HealthCheckData>>(res, 'Backend currently offline');
-      if (parsed.ok && parsed.data?.success && parsed.data.data) {
-        setHealth(parsed.data.data);
-      } else {
-        throw new Error(parsed.error || parsed.data?.error?.message || `Server returned HTTP ${res.status}`);
+      let targetEndpoint = `${API_BASE_URL}/health`;
+      let res: Response | null = null;
+
+      try {
+        res = await fetch(targetEndpoint, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+      } catch (initialErr) {
+        // If relative /api/health failed to connect, try direct origin fallback (e.g. http://localhost:5000/health)
+        const origin = getBackendOrigin();
+        if (targetEndpoint.startsWith('/api') && origin) {
+          try {
+            const fallbackEndpoint = `${origin}/health`;
+            const fallbackRes = await fetch(fallbackEndpoint, {
+              signal: controller.signal,
+              headers: { Accept: 'application/json' },
+            });
+            if (fallbackRes.ok) {
+              res = fallbackRes;
+              targetEndpoint = fallbackEndpoint;
+            }
+          } catch {
+            // Keep original error
+          }
+        }
+
+        if (!res) {
+          throw initialErr;
+        }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Backend currently offline');
+
+      setActiveEndpoint(targetEndpoint);
+
+      const parsed = await safeJsonParse<any>(res, 'Backend currently offline');
+      const candidate = parsed.data?.data || parsed.data;
+
+      if (parsed.ok && candidate && (candidate.status === 'ok' || parsed.data?.success)) {
+        setHealth({
+          status: 'ok',
+          service: candidate.service || 'ai-toon-backend',
+          version: candidate.version || '0.1.0',
+          timestamp: candidate.timestamp || new Date().toISOString(),
+          uptime: typeof candidate.uptime === 'number' ? candidate.uptime : 0,
+        });
+      } else {
+        throw new Error(parsed.error || candidate?.error?.message || `Server returned HTTP ${res.status}`);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          setError('Connection timed out');
+        } else if (err.message.includes('Failed to fetch') || err.message.includes('fetch failed')) {
+          setError('Failed to fetch');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('Backend currently offline');
+      }
       setHealth(null);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   };
@@ -32,26 +89,30 @@ export const SystemStatus: React.FC = () => {
 
   return (
     <div className="neoclay-card" style={{ marginBottom: '2.5rem' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        marginBottom: '1.25rem'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          marginBottom: '1.25rem',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-            boxShadow: 'var(--clay-volume-subtle), 4px 6px 12px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.4rem'
-          }}>
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
+              boxShadow: 'var(--clay-volume-subtle), 4px 6px 12px rgba(12, 58, 96, 0.08), -3px -3px 8px #ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.4rem',
+            }}
+          >
             🔌
           </div>
           <div>
@@ -75,58 +136,69 @@ export const SystemStatus: React.FC = () => {
       </div>
 
       {/* Recessed Neumorphic Clay Well */}
-      <div className="neoclay-recessed" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
+      <div
+        className="neoclay-recessed"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
           <div style={{ fontWeight: 800, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             Status:
             {loading ? (
-              <span style={{ color: 'var(--navy-500)', fontWeight: 600 }}>Pinging /api/health...</span>
+              <span style={{ color: 'var(--navy-500)', fontWeight: 600 }}>Pinging backend...</span>
             ) : health ? (
-              <span style={{
-                color: 'var(--clay-mint-dark)',
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem'
-              }}>
-                <span style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: 'var(--clay-mint)',
-                  boxShadow: '0 0 10px rgba(52, 211, 153, 0.8)'
-                }} />
+              <span
+                style={{
+                  color: 'var(--clay-mint-dark)',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <span
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: 'var(--clay-mint)',
+                    boxShadow: '0 0 10px rgba(52, 211, 153, 0.8)',
+                  }}
+                />
                 Connected ({health.service} v{health.version})
               </span>
             ) : (
-              <span style={{
-                color: 'var(--clay-coral-dark)',
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem'
-              }}>
-                <span style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: 'var(--clay-coral)',
-                  boxShadow: '0 0 10px rgba(251, 113, 133, 0.8)'
-                }} />
+              <span
+                style={{
+                  color: 'var(--clay-coral-dark)',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <span
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: 'var(--clay-coral)',
+                    boxShadow: '0 0 10px rgba(251, 113, 133, 0.8)',
+                  }}
+                />
                 Offline ({error})
               </span>
             )}
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--navy-600)', margin: '0.35rem 0 0', fontWeight: 600 }}>
             {health
-              ? `Uptime: ${health.uptime}s • Endpoint: /api/health • Verified: ${new Date(health.timestamp).toLocaleTimeString()}`
-              : 'Express server running on http://localhost:5000'}
+              ? `Uptime: ${health.uptime}s • Endpoint: ${activeEndpoint} • Verified: ${new Date(health.timestamp).toLocaleTimeString()}`
+              : 'Express server running on http://localhost:5000 • Run "npm run dev" to connect'}
           </p>
         </div>
 

@@ -4,9 +4,9 @@ import { config } from './config/env.js';
 export const app = createApp();
 
 if (!process.env.VERCEL) {
-  const server = app.listen(config.port, () => {
+  const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`🚀 [AI Toon Backend] Running on http://localhost:${config.port}`);
-    console.log(`📡 [Health Check] Available at http://localhost:${config.port}/api/health`);
+    console.log(`📡 [Health Check] Available at http://localhost:${config.port}/api/health and http://localhost:${config.port}/health`);
     console.log(`🌐 [Environment] Mode: ${config.nodeEnv}`);
   });
 

@@ -61,7 +61,8 @@ Required JSON format:
 }
 Return ONLY valid JSON.`;
 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${aiProvider.model}:generateContent?key=${config.aiApiKey}`;
+        const chatbotApiKey = process.env.GEMINI_CHATBOT_API_KEY || process.env.CHATBOT_API_KEY || config.aiApiKey;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${aiProvider.model}:generateContent?key=${chatbotApiKey}`;
         const aiRes = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
