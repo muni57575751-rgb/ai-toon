@@ -11,7 +11,8 @@
     "test:retry": "tsx src/test-ai-retry.ts",
     "test:images": "tsx src/test-image-search.ts",
     "test:admin": "tsx src/test-admin-auth.ts",
-    "test:comprehensive": "tsx src/test-comprehensive-suite.ts"
+    "test:comprehensive": "tsx src/test-comprehensive-suite.ts",
+    "test:vercel": "tsx src/test-vercel-serverless.ts"
   },
   "dependencies": {
     "@ai-toon/shared": "*",

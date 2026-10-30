@@ -120,7 +120,7 @@ export const SystemStatus: React.FC = () => {
               Backend API Connection
             </h2>
             <span style={{ fontSize: '0.82rem', color: 'var(--navy-600)', fontWeight: 600 }}>
-              Live connection status between React client & Express server
+              Live connection status between React client & Vercel Serverless Express API
             </span>
           </div>
         </div>
@@ -198,7 +198,7 @@ export const SystemStatus: React.FC = () => {
           <p style={{ fontSize: '0.82rem', color: 'var(--navy-600)', margin: '0.35rem 0 0', fontWeight: 600 }}>
             {health
               ? `Uptime: ${health.uptime}s • Endpoint: ${activeEndpoint} • Verified: ${new Date(health.timestamp).toLocaleTimeString()}`
-              : 'Express server running on http://localhost:5000 • Run "npm run dev" to connect'}
+              : (import.meta.env.DEV ? 'Express server running on http://localhost:5000 • Run "npm run dev" to connect' : 'Vercel Serverless API connecting on same origin (/api)...')}
           </p>
         </div>
 

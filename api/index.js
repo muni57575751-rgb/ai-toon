@@ -1,3 +1,4 @@
+import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -23578,18 +23579,25 @@ var import_express = __toESM(require_express2(), 1);
 // backend/src/controllers/health.controller.ts
 var startTime = Date.now();
 var getHealth = (_req, res) => {
+  const uptimeSeconds = Math.floor((Date.now() - startTime) / 1e3);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
   const healthData = {
     status: "ok",
     service: "ai-toon-backend",
     version: "0.1.0",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    uptime: Math.floor((Date.now() - startTime) / 1e3)
+    timestamp: now,
+    uptime: uptimeSeconds
   };
   const response = {
+    status: "ok",
     success: true,
+    service: "ai-toon-backend",
+    version: "0.1.0",
+    uptime: uptimeSeconds,
+    timestamp: now,
     data: healthData,
     meta: {
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      timestamp: now
     }
   };
   res.status(200).json(response);
@@ -25700,6 +25708,21 @@ function resolveDataDir() {
       } catch {
       }
     }
+    for (const cand of candidates) {
+      if (fs2.existsSync(cand)) {
+        try {
+          const files = fs2.readdirSync(cand);
+          for (const f of files) {
+            const dest = path2.resolve(tmpDir, f);
+            if (!fs2.existsSync(dest) && f.endsWith(".json")) {
+              fs2.copyFileSync(path2.resolve(cand, f), dest);
+            }
+          }
+          break;
+        } catch {
+        }
+      }
+    }
     return tmpDir;
   }
 }
@@ -26726,7 +26749,8 @@ Required JSON format:
   "example": "A relatable real-world example or analogy."
 }
 Return ONLY valid JSON.`;
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${aiProvider.model}:generateContent?key=${config.aiApiKey}`;
+        const chatbotApiKey = process.env.GEMINI_CHATBOT_API_KEY || process.env.CHATBOT_API_KEY || config.aiApiKey;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${aiProvider.model}:generateContent?key=${chatbotApiKey}`;
         const aiRes = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -27960,24 +27984,26 @@ var errorHandler = (err, _req, res, _next) => {
 // backend/src/app.ts
 var createApp = () => {
   const app2 = (0, import_express8.default)();
-  app2.use(
-    (0, import_cors.default)({
-      origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (origin === config.frontendUrl || origin === "http://localhost:5173" || origin === "http://127.0.0.1:5173" || origin.endsWith(".vercel.app")) {
-          return callback(null, true);
-        }
-        return callback(null, true);
-      },
-      credentials: true
-    })
-  );
+  const corsMiddleware = (0, import_cors.default)({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const isAllowed = origin === config.frontendUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin.endsWith(".vercel.app");
+      return callback(null, isAllowed);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-user-id", "x-user-email", "x-user-role", "x-session-id"]
+  });
+  app2.use(corsMiddleware);
+  app2.options("*", corsMiddleware);
   app2.use(import_express8.default.json());
   app2.use(import_express8.default.urlencoded({ extended: true }));
   app2.use((req, _res, next) => {
     const headerPath = req.headers["x-matched-path"] || req.headers["x-forwarded-uri"] || req.headers["x-original-url"] || req.headers["x-invoke-path"] || req.headers["x-rewrite-url"];
-    if (headerPath && headerPath.startsWith("/api") && headerPath !== "/api" && headerPath !== "/api/") {
-      req.url = headerPath;
+    if (headerPath && (headerPath.startsWith("/api") || headerPath === "/health" || headerPath.startsWith("/health")) && headerPath !== "/api" && headerPath !== "/api/") {
+      const qIdx = req.url.indexOf("?");
+      const qStr = qIdx !== -1 ? req.url.slice(qIdx) : "";
+      req.url = headerPath.split("?")[0] + qStr;
     } else if (req.query && typeof req.query.__url === "string") {
       const original = req.query.__url;
       delete req.query.__url;
@@ -27985,6 +28011,8 @@ var createApp = () => {
     }
     next();
   });
+  app2.get("/health", getHealth);
+  app2.get("/api/health", getHealth);
   app2.use("/api", api_routes_default);
   app2.use("/", api_routes_default);
   const welcomeHandler = (req, res) => {
@@ -27992,14 +28020,15 @@ var createApp = () => {
       message: "Welcome to AI Toon API \u2014 Story-Based Learning Using Artificial Intelligence",
       version: "0.1.0",
       status: "active",
+      endpoints: {
+        health: "/api/health",
+        directHealth: "/health"
+      },
       requestInfo: {
         url: req.url,
         originalUrl: req.originalUrl,
         matchedPath: req.headers["x-matched-path"],
         invokePath: req.headers["x-invoke-path"]
-      },
-      endpoints: {
-        health: "/api/health"
       }
     });
   };

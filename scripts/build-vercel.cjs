@@ -34,7 +34,7 @@ const funcApiDir = path.resolve(functionsDir, 'api.func');
 const vcConfig = {
   runtime: 'nodejs20.x',
   handler: 'index.js',
-  maxDuration: 15,
+  maxDuration: 60,
   launcherType: 'Nodejs',
   shouldAddHelpers: true,
 };
@@ -54,6 +54,10 @@ const config = {
   routes: [
     {
       handle: 'filesystem',
+    },
+    {
+      src: '^/health$',
+      dest: '/api',
     },
     {
       src: '^/api(?:/.*)?$',

@@ -29,6 +29,7 @@ export const StoryGeneratorPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedStory, setGeneratedStory] = useState<Story | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState<boolean>(false);
 
   // Examples & AI Provider Status
   const [examples, setExamples] = useState<Story[]>([]);
@@ -69,6 +70,35 @@ export const StoryGeneratorPage: React.FC = () => {
 
     fetchMeta();
   }, []);
+
+  
+  const handleVoiceInput = () => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setErrorMsg('Voice input is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+    try {
+      const recognition = new SpeechRec();
+      recognition.lang = language === 'te' ? 'te-IN' : language === 'hi' ? 'hi-IN' : 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      setIsListening(true);
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setTopic(transcript);
+        }
+        setIsListening(false);
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => setIsListening(false);
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
 
   const handleGenerate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -250,16 +280,35 @@ export const StoryGeneratorPage: React.FC = () => {
                   <label className="form-label" htmlFor="story-topic">
                     Educational Topic, Person, or Institution
                   </label>
-                  <input
-                    id="story-topic"
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. Narendra Modi, Vignan University, Photosynthesis, Binary Search..."
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    disabled={isGenerating}
-                    required
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      id="story-topic"
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Narendra Modi, Vignan University, Photosynthesis, Binary Search..."
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      disabled={isGenerating}
+                      required
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVoiceInput}
+                      className={isListening ? 'btn-liquid-primary' : 'btn-liquid-secondary'}
+                      title={isListening ? 'Listening... Speak now' : 'Click to speak your topic'}
+                      style={{
+                        padding: '0.65rem 0.95rem',
+                        fontSize: '1.1rem',
+                        borderRadius: 'var(--radius-md)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isListening ? '🔴' : '🎙️'}
+                    </button>
+                  </div>
                   <span style={{ fontSize: '0.82rem', color: 'var(--liquid-navy-subtle)', fontWeight: 600 }}>
                     💡 Topic-aware search retrieves official photographs for people/universities, and labeled diagrams for science/tech.
                   </span>

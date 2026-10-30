@@ -21,6 +21,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
   const [qaResult, setQaResult] = useState<QaResponse | null>(null);
   const [qaLoading, setQaLoading] = useState(false);
   const [qaError, setQaError] = useState<string | null>(null);
+  const [qaListening, setQaListening] = useState<boolean>(false);
 
   const keyPoints = story.keyPoints || [];
   const illustrations = story.illustrations || [];
@@ -60,6 +61,35 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
       });
     } catch (err) {
       console.warn('Failed to record quiz attempt:', err);
+    }
+  };
+
+  
+  const handleQaVoiceInput = () => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setQaError('Voice input is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+    try {
+      const recognition = new SpeechRec();
+      recognition.lang = story.language === 'te' ? 'te-IN' : story.language === 'hi' ? 'hi-IN' : 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      setQaListening(true);
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setQaQuestion(transcript);
+        }
+        setQaListening(false);
+      };
+      recognition.onerror = () => setQaListening(false);
+      recognition.onend = () => setQaListening(false);
+      recognition.start();
+    } catch {
+      setQaListening(false);
     }
   };
 
@@ -535,6 +565,24 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
               color: 'var(--navy-900)',
             }}
           />
+          <button
+            type="button"
+            onClick={handleQaVoiceInput}
+            title={qaListening ? 'Listening... Speak now' : 'Click to ask with your voice'}
+            style={{
+              background: qaListening ? 'rgba(239, 68, 68, 0.15)' : 'rgba(243, 232, 255, 0.8)',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.45rem 0.75rem',
+              cursor: 'pointer',
+              fontSize: '1.05rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {qaListening ? '🔴' : '🎙️'}
+          </button>
           <button
             type="submit"
             disabled={qaLoading || !qaQuestion.trim()}

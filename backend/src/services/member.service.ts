@@ -61,6 +61,23 @@ function resolveDataDir(): string {
         // ignore
       }
     }
+    // Copy bundled seed data to writable tmpDir if not already present
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        try {
+          const files = fs.readdirSync(cand);
+          for (const f of files) {
+            const dest = path.resolve(tmpDir, f);
+            if (!fs.existsSync(dest) && f.endsWith('.json')) {
+              fs.copyFileSync(path.resolve(cand, f), dest);
+            }
+          }
+          break;
+        } catch {
+          // ignore
+        }
+      }
+    }
     return tmpDir;
   }
 }

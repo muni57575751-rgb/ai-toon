@@ -24,6 +24,14 @@ function resolveApiBaseUrl(): string {
     return '/api';
   }
 
+  // In production builds, ignore localhost or local dev addresses and use same-origin /api
+  if (import.meta.env.PROD && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
+    console.warn(
+      `[AI Toon] VITE_API_BASE_URL points to localhost in a production build. Falling back to same-origin '/api'.`
+    );
+    return '/api';
+  }
+
   // If an absolute HTTP/HTTPS URL was provided (e.g. http://localhost:5000 or https://api.example.com):
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     const clean = trimmed.replace(/\/+$/, '');
@@ -57,7 +65,7 @@ export function getBackendOrigin(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return 'http://localhost:5000';
+  return import.meta.env.DEV ? 'http://localhost:5000' : '';
 }
 
 /**

@@ -39,8 +39,10 @@ export const createApp = (): Express => {
       (req.headers['x-invoke-path'] as string) ||
       (req.headers['x-rewrite-url'] as string);
 
-    if (headerPath && headerPath.startsWith('/api') && headerPath !== '/api' && headerPath !== '/api/') {
-      req.url = headerPath;
+    if (headerPath && (headerPath.startsWith('/api') || headerPath === '/health' || headerPath.startsWith('/health')) && headerPath !== '/api' && headerPath !== '/api/') {
+      const qIdx = req.url.indexOf('?');
+      const qStr = qIdx !== -1 ? req.url.slice(qIdx) : '';
+      req.url = headerPath.split('?')[0] + qStr;
     } else if (req.query && typeof req.query.__url === 'string') {
       const original = req.query.__url;
       delete req.query.__url;

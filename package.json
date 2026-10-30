@@ -17,7 +17,7 @@
     "build:shared": "npm run build --workspace=@ai-toon/shared",
     "build:backend": "npm run build --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
-    "build:api": "npx esbuild backend/src/serverless.ts --bundle --platform=node --format=esm --outfile=api/index.js",
+    "build:api": "node scripts/build-api.cjs",
     "typecheck": "npm run typecheck --workspace=@ai-toon/shared && npm run typecheck --workspace=ai-toon-backend && npm run typecheck --workspace=frontend",
     "typecheck:shared": "npm run typecheck --workspace=@ai-toon/shared",
     "typecheck:backend": "npm run typecheck --workspace=ai-toon-backend",
