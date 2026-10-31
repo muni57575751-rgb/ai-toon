@@ -701,7 +701,7 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
       className="liquid-glass-card"
       style={{
         margin: '2rem 0',
-        padding: '1.5rem',
+        padding: 'clamp(0.95rem, 2.5vw, 1.5rem)',
         borderRadius: 'var(--radius-xl)',
         background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(221, 242, 255, 0.45) 50%, rgba(255, 228, 239, 0.45) 100%)',
         backdropFilter: 'blur(18px) saturate(160%)',
@@ -798,7 +798,7 @@ export const CartoonIllustration: React.FC<CartoonIllustrationProps> = ({
       <div
         style={{
           marginTop: '1rem',
-          padding: '1.1rem 1.35rem',
+          padding: 'clamp(0.85rem, 2.5vw, 1.1rem) clamp(0.85rem, 2.5vw, 1.35rem)',
           borderRadius: 'var(--radius-md)',
           background: 'rgba(255, 255, 255, 0.75)',
           backdropFilter: 'blur(12px)',

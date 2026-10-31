@@ -185,7 +185,7 @@ export const StoryGeneratorPage: React.FC = () => {
     <div className="app-shell">
       <Header />
 
-      <main className="container" style={{ padding: '2.5rem 1.75rem' }}>
+      <main className="container page-main-container">
         {/* Navigation Breadcrumb */}
         <div
           style={{
@@ -209,12 +209,12 @@ export const StoryGeneratorPage: React.FC = () => {
         {generatedStory ? (
           <StoryViewer story={generatedStory} onReset={handleResetStory} />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.45fr 1fr', gap: '2.5rem', alignItems: 'start' }}>
+          <div className="generator-layout-grid">
             {/* Left: Story Creation Form */}
             <div
               className="liquid-glass-card"
               style={{
-                padding: '2.5rem 2.25rem',
+                padding: 'clamp(1.2rem, 3.5vw, 2.5rem)',
                 borderRadius: 'var(--radius-xl)',
                 background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(221, 242, 255, 0.45) 50%, rgba(255, 228, 239, 0.45) 100%)',
               }}
@@ -236,7 +236,7 @@ export const StoryGeneratorPage: React.FC = () => {
                   ✨
                 </div>
                 <div>
-                  <h1 style={{ fontSize: '1.95rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
+                  <h1 style={{ fontSize: 'clamp(1.35rem, 3.5vw, 1.95rem)', overflowWrap: 'break-word', margin: 0, color: 'var(--liquid-navy-dark)' }}>
                     Visual Learning Generator
                   </h1>
                   <span style={{ fontSize: '0.9rem', color: 'var(--liquid-navy-muted)', fontWeight: 600 }}>
@@ -332,7 +332,7 @@ export const StoryGeneratorPage: React.FC = () => {
                 {/* Language Selector (English, Telugu, Hindi) */}
                 <div className="form-group">
                   <label className="form-label">Lesson Language</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  <div className="generator-select-grid-3">
                     {[
                       { code: 'en' as SupportedLanguage, label: 'English', flag: '🇬🇧' },
                       { code: 'te' as SupportedLanguage, label: 'Telugu (తెలుగు)', flag: '🇮🇳' },
@@ -361,7 +361,7 @@ export const StoryGeneratorPage: React.FC = () => {
                 {/* Storytelling Style / Tone Selector */}
                 <div className="form-group">
                   <label className="form-label">Educational Tone</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  <div className="generator-select-grid-3">
                     {[
                       { toneVal: 'funny' as StoryTone, label: 'Funny', emoji: '🎭', desc: 'Witty & playful' },
                       { toneVal: 'adventure' as StoryTone, label: 'Adventure', emoji: '🗺️', desc: 'Heroic discovery' },
@@ -391,7 +391,7 @@ export const StoryGeneratorPage: React.FC = () => {
                 {/* Difficulty Selector */}
                 <div className="form-group">
                   <label className="form-label">Student Level</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  <div className="generator-select-grid-3">
                     {[
                       { level: 'beginner' as StoryDifficulty, label: 'Beginner', badge: '🌱 4-5 Points' },
                       { level: 'intermediate' as StoryDifficulty, label: 'Intermediate', badge: '🧠 5-6 Points' },
@@ -455,7 +455,7 @@ export const StoryGeneratorPage: React.FC = () => {
               <div
                 className="liquid-glass-card"
                 style={{
-                  padding: '2rem 1.85rem',
+                  padding: 'clamp(1.2rem, 3vw, 2rem) clamp(1rem, 3vw, 1.85rem)',
                   borderRadius: 'var(--radius-xl)',
                   background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(234, 228, 255, 0.45) 50%, rgba(221, 242, 255, 0.5) 100%)',
                 }}
@@ -544,7 +544,7 @@ export const StoryGeneratorPage: React.FC = () => {
               <div
                 className="liquid-glass-card"
                 style={{
-                  padding: '1.85rem',
+                  padding: 'clamp(1.1rem, 3vw, 1.85rem)',
                   borderRadius: 'var(--radius-xl)',
                   background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 240, 223, 0.45) 50%, rgba(221, 242, 255, 0.5) 100%)',
                 }}

@@ -207,7 +207,18 @@
 
 @media (max-width: 520px) {
   .auth-card {
-    padding: 2.25rem 1.6rem;
+    padding: 1.75rem 1.15rem;
     border-radius: var(--radius-lg);
+  }
+  .auth-page-container {
+    padding: 1.5rem 0.75rem;
+  }
+  .auth-title {
+    font-size: 1.6rem;
+  }
+  .auth-icon-badge {
+    width: 54px;
+    height: 54px;
+    font-size: 1.75rem;
   }
 }

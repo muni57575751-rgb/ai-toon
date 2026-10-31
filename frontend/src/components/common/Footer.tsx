@@ -8,37 +8,37 @@ export const Footer: React.FC = () => {
   return (
     <footer
       style={{
-        margin: '4rem 1rem 1.5rem',
+        margin: '3rem 0.5rem 1.5rem',
       }}
     >
       <div
         className="container"
         style={{
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(221, 242, 255, 0.4) 40%, rgba(234, 228, 255, 0.4) 100%)',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(221, 242, 255, 0.45) 40%, rgba(234, 228, 255, 0.45) 100%)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           borderRadius: 'var(--radius-lg)',
           border: 'var(--liquid-border-card)',
           boxShadow: 'var(--shadow-liquid-subtle)',
-          padding: '1.75rem 2.25rem',
+          padding: '1.35rem 1.25rem',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1.25rem',
-          fontSize: '0.9rem',
+          gap: '1rem',
+          fontSize: '0.88rem',
           color: 'var(--liquid-navy-muted)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '1.4rem' }}>🎨</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{ fontSize: '1.35rem' }}>🎨</span>
           <div>
             <strong style={{ color: 'var(--liquid-navy-dark)' }}>AI Toon</strong> — Playful Cartoon Visual Learning for Students
           </div>
         </div>
 
         {/* Quick Links */}
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', fontSize: '0.9rem' }}>
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <Link to="/" style={{ color: 'var(--liquid-navy)', fontWeight: 700 }}>
             Home
           </Link>
@@ -63,14 +63,14 @@ export const Footer: React.FC = () => {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span className="liquid-badge badge-mint" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="liquid-badge badge-mint" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}>
             Supabase Auth
           </span>
-          <span className="liquid-badge badge-blue" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
+          <span className="liquid-badge badge-blue" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}>
             Wikimedia Commons
           </span>
-          <span className="liquid-badge badge-lavender" style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}>
+          <span className="liquid-badge badge-lavender" style={{ fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}>
             Gemini AI
           </span>
         </div>

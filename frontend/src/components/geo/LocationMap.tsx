@@ -126,7 +126,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
     <section
       className="liquid-glass-card"
       style={{
-        padding: '2rem 2.25rem',
+        padding: 'clamp(1rem, 3vw, 2rem) clamp(0.85rem, 3.5vw, 2.25rem)',
         borderRadius: 'var(--radius-xl)',
         background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 249, 255, 0.6) 40%, rgba(234, 228, 255, 0.5) 100%)',
         border: '1.5px solid rgba(186, 230, 253, 0.8)',
@@ -143,7 +143,8 @@ export const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
             <h2
               style={{
                 margin: 0,
-                fontSize: '1.65rem',
+                fontSize: 'clamp(1.25rem, 3.5vw, 1.65rem)',
+                overflowWrap: 'break-word',
                 fontWeight: 800,
                 color: 'var(--liquid-navy-dark)',
                 lineHeight: 1.2,
@@ -311,7 +312,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
       <div
         style={{
           position: 'relative',
-          height: '380px',
+          height: 'clamp(240px, 48vw, 380px)',
           borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
           border: '2px solid rgba(186, 230, 253, 0.9)',

@@ -106,7 +106,7 @@ export const DashboardPage: React.FC = () => {
     <div className="app-shell">
       <Header />
 
-      <main className="container" style={{ padding: '2.5rem 1.75rem' }}>
+      <main className="container page-main-container">
         {/* Student Welcome Banner with Mascot */}
         <section
           className="liquid-glass-card"
@@ -118,7 +118,7 @@ export const DashboardPage: React.FC = () => {
             flexWrap: 'wrap',
             gap: '1.5rem',
             marginBottom: '2.5rem',
-            padding: '2.5rem 2.25rem',
+            padding: 'clamp(1.25rem, 3.5vw, 2.5rem)',
             borderRadius: 'var(--radius-xl)',
           }}
         >
@@ -142,7 +142,7 @@ export const DashboardPage: React.FC = () => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '2rem', margin: 0, color: 'var(--liquid-navy-dark)' }}>
+                <h1 style={{ fontSize: 'clamp(1.35rem, 4vw, 2rem)', margin: 0, color: 'var(--liquid-navy-dark)', overflowWrap: 'break-word' }}>
                   Welcome back, {displayName}!
                 </h1>
                 <span
@@ -260,7 +260,7 @@ export const DashboardPage: React.FC = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
               gap: '1.25rem',
             }}
           >
@@ -371,7 +371,7 @@ export const DashboardPage: React.FC = () => {
           className="liquid-glass-card"
           style={{
             marginBottom: '2.5rem',
-            padding: '2.25rem',
+            padding: 'clamp(1.25rem, 3vw, 2.25rem)',
             borderRadius: 'var(--radius-xl)',
             background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(221, 242, 255, 0.45) 50%, rgba(234, 228, 255, 0.45) 100%)',
           }}
@@ -425,7 +425,7 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1rem' }}>
               {savedStories.map((story, sIdx) => (
                 <div
                   key={`${story.id}-${sIdx}`}
@@ -478,7 +478,7 @@ export const DashboardPage: React.FC = () => {
           className="liquid-glass-card"
           style={{
             marginBottom: '2.5rem',
-            padding: '2.25rem',
+            padding: 'clamp(1.25rem, 3vw, 2.25rem)',
             borderRadius: 'var(--radius-xl)',
             background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.4) 100%)',
           }}
@@ -511,7 +511,7 @@ export const DashboardPage: React.FC = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
               gap: '1.5rem',
               background: '#ffffff',
               padding: '1.5rem',

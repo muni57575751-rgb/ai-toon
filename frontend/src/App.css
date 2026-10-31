@@ -94,7 +94,7 @@
 }
 
 .hero-title {
-  font-size: 2.45rem;
+  font-size: clamp(1.65rem, 5vw, 2.45rem);
   margin-bottom: 1.15rem;
   letter-spacing: -0.025em;
   color: var(--liquid-navy-dark);
@@ -231,7 +231,7 @@
    ========================================================= */
 .architecture-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
   gap: 1.5rem;
 }
 
@@ -309,7 +309,7 @@
    ========================================================= */
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 255px), 1fr));
   gap: 1.25rem;
 }
 
@@ -343,7 +343,7 @@
   .hero-banner {
     grid-template-columns: 1fr;
     text-align: center;
-    padding: 2.25rem 1.5rem;
+    padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1rem, 3.5vw, 1.5rem);
   }
 
   .hero-tags {
@@ -352,5 +352,57 @@
 
   .hero-illustration {
     margin-top: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-banner {
+    padding: 1.5rem 1rem;
+    margin-top: 0.75rem;
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .hero-app-brand-badge {
+    padding: 0.35rem 0.85rem 0.35rem 0.4rem;
+    gap: 0.5rem;
+  }
+
+  .brand-pill-text {
+    font-size: 0.82rem;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .brand-pill-desc {
+    font-size: 0.8rem;
+  }
+
+  .hero-description {
+    font-size: 0.96rem;
+    line-height: 1.55;
+    margin-bottom: 1.35rem;
+  }
+
+  .floating-toon-card {
+    padding: 1.5rem 1.15rem;
+    max-width: 280px;
+    border-radius: var(--radius-lg);
+  }
+
+  .toon-emoji {
+    font-size: 2.75rem;
+  }
+
+  .style-tag {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+  }
+
+  .arch-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .feature-item-card {
+    padding: 1.1rem 1rem;
   }
 }

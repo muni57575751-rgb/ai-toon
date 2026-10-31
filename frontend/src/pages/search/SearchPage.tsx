@@ -108,7 +108,8 @@ export const SearchPage: React.FC = () => {
             <h1
               style={{
                 fontFamily: 'var(--font-heading)',
-                fontSize: '2.4rem',
+                fontSize: 'clamp(1.5rem, 4vw, 2.4rem)',
+                overflowWrap: 'break-word',
                 color: 'var(--navy-900)',
                 marginBottom: '0.5rem',
               }}
@@ -125,7 +126,8 @@ export const SearchPage: React.FC = () => {
             onSubmit={handleSubmit}
             style={{
               display: 'flex',
-              gap: '0.75rem',
+              gap: '0.65rem',
+              flexWrap: 'wrap',
               background: '#ffffff',
               padding: '0.65rem 0.85rem',
               borderRadius: 'var(--radius-lg)',

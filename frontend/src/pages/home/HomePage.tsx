@@ -40,7 +40,7 @@ export const HomePage: React.FC = () => {
     <div className="app-shell">
       <Header />
 
-      <main className="container" style={{ padding: '2.5rem 1.75rem' }}>
+      <main className="container page-main-container">
         {/* Hero Section */}
         <section className="hero-banner">
           <div className="hero-content">

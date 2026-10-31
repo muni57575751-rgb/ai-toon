@@ -80,32 +80,25 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '2.25rem',
+        gap: '2rem',
         maxWidth: '960px',
         margin: '0 auto',
         width: '100%',
       }}
     >
       {/* 1. Header Card with Title, Metadata, and Back Button */}
-      <header
-        className="liquid-glass-card"
-        style={{
-          padding: '2.5rem 2.75rem',
-          borderRadius: 'var(--radius-xl)',
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(221, 242, 255, 0.5) 45%, rgba(234, 228, 255, 0.45) 80%, rgba(255, 228, 239, 0.45) 100%)',
-        }}
-      >
+      <header className="liquid-glass-card story-header-card">
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '1rem',
+            gap: '0.85rem',
             marginBottom: '1.25rem',
           }}
         >
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span className="liquid-badge badge-blue">
               Topic: {story.topic}
             </span>
@@ -149,11 +142,12 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
         {/* Main Article Title */}
         <h1
           style={{
-            fontSize: '2.25rem',
+            fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
             fontWeight: 800,
             color: 'var(--liquid-navy-dark)',
             lineHeight: 1.25,
             marginBottom: '1.25rem',
+            overflowWrap: 'break-word',
           }}
         >
           {story.title}
@@ -163,10 +157,10 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
         <div
           className="liquid-glass-inset"
           style={{
-            padding: '1.25rem 1.5rem',
+            padding: 'clamp(1rem, 2.5vw, 1.35rem) clamp(1rem, 3vw, 1.5rem)',
             borderRadius: 'var(--radius-lg)',
             borderLeft: '5px solid var(--accent-cyan)',
-            fontSize: '1.05rem',
+            fontSize: 'clamp(0.95rem, 2vw, 1.05rem)',
             lineHeight: 1.68,
             color: 'var(--liquid-navy)',
             fontWeight: 600,
@@ -182,27 +176,21 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
       )}
 
       {/* 2. Unified Point-Wise Educational Content */}
-      <section
-        className="liquid-glass-card"
-        style={{
-          padding: '2.75rem',
-          borderRadius: 'var(--radius-xl)',
-          background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 240, 223, 0.3) 25%, rgba(221, 242, 255, 0.45) 60%, rgba(234, 228, 255, 0.45) 100%)',
-        }}
-      >
-        <div style={{ marginBottom: '1.75rem', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+      <section className="liquid-glass-card story-section-card">
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '36px',
-              height: '36px',
+              width: '34px',
+              height: '34px',
+              minWidth: '34px',
               borderRadius: '50%',
               background: 'linear-gradient(135deg, #ddf2ff 0%, #bae6fd 100%)',
               color: 'var(--accent-cyan-hover)',
               fontWeight: 900,
-              fontSize: '1.1rem',
+              fontSize: '1rem',
               boxShadow: '0 4px 10px rgba(14, 165, 233, 0.2)',
             }}
           >
@@ -211,9 +199,10 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
           <h2
             style={{
               margin: 0,
-              fontSize: '1.55rem',
+              fontSize: 'clamp(1.2rem, 3vw, 1.55rem)',
               fontWeight: 800,
               color: 'var(--liquid-navy-dark)',
+              lineHeight: 1.3,
             }}
           >
             Core Concepts & Point-Wise Breakdown
@@ -221,7 +210,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
         </div>
 
         {/* List of Numbered Points with Integrated Visuals */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.85rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {keyPoints.map((point: KeyPoint, index: number) => {
             const pointNum = point.pointNumber || index + 1;
 
@@ -237,43 +226,37 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
               <React.Fragment key={`point_${pointNum}`}>
                 {/* Single Point Item */}
                 <div
-                  className="liquid-glass-inset"
+                  className="liquid-glass-inset story-point-item"
                   style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '1.35rem',
-                    padding: '1.5rem 1.65rem',
-                    borderRadius: 'var(--radius-lg)',
-                    background: index % 2 === 0 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(240, 249, 255, 0.65)',
-                    border: '1.5px solid rgba(221, 242, 255, 0.85)',
+                    background: index % 2 === 0 ? 'rgba(255, 255, 255, 0.88)' : 'rgba(240, 249, 255, 0.7)',
                   }}
                 >
                   {/* Number Badge */}
                   <div
                     style={{
                       flexShrink: 0,
-                      width: '42px',
-                      height: '42px',
+                      width: '38px',
+                      height: '38px',
                       borderRadius: '50%',
                       background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
                       color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '1.2rem',
+                      fontSize: '1.1rem',
                       fontWeight: 800,
-                      boxShadow: '0 6px 16px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.8)',
+                      boxShadow: '0 4px 14px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.8)',
                     }}
                   >
                     {pointNum}
                   </div>
 
                   {/* Point Content */}
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <h3
                       style={{
-                        margin: '0 0 0.65rem 0',
-                        fontSize: '1.22rem',
+                        margin: '0 0 0.55rem 0',
+                        fontSize: 'clamp(1.05rem, 2.5vw, 1.22rem)',
                         fontWeight: 800,
                         color: 'var(--liquid-navy-dark)',
                         lineHeight: 1.35,
@@ -285,13 +268,13 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                     <ul
                       style={{
                         margin: 0,
-                        paddingLeft: '1.4rem',
+                        paddingLeft: '1.25rem',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '0.5rem',
+                        gap: '0.45rem',
                         color: 'var(--liquid-navy)',
-                        fontSize: '0.98rem',
-                        lineHeight: 1.62,
+                        fontSize: 'clamp(0.9rem, 2vw, 0.98rem)',
+                        lineHeight: 1.6,
                         fontWeight: 500,
                       }}
                     >
@@ -368,8 +351,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
         {/* 3. Key Takeaway Section */}
         <div
           style={{
-            marginTop: '2.5rem',
-            padding: '1.65rem 1.85rem',
+            marginTop: '2rem',
+            padding: 'clamp(1rem, 3vw, 1.65rem) clamp(1rem, 3.5vw, 1.85rem)',
             borderRadius: 'var(--radius-xl)',
             background: 'linear-gradient(135deg, rgba(255, 240, 223, 0.95) 0%, rgba(254, 243, 199, 0.8) 100%)',
             border: '2px solid rgba(251, 191, 36, 0.6)',
@@ -382,7 +365,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
             <h3
               style={{
                 margin: 0,
-                fontSize: '1.2rem',
+                fontSize: 'clamp(1.05rem, 2.5vw, 1.2rem)',
                 fontWeight: 800,
                 color: '#92400e',
               }}
@@ -393,7 +376,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
           <p
             style={{
               margin: 0,
-              fontSize: '1.02rem',
+              fontSize: 'clamp(0.92rem, 2vw, 1.02rem)',
               lineHeight: 1.65,
               color: '#78350f',
               fontWeight: 600,
@@ -406,14 +389,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
 
       {/* 3. Interactive Quiz Section */}
       {quizQuestions.length > 0 && (
-        <section
-          className="liquid-glass-card"
-          style={{
-            padding: '2.75rem',
-            borderRadius: 'var(--radius-xl)',
-            background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(234, 228, 255, 0.45) 50%, rgba(221, 242, 255, 0.45) 100%)',
-          }}
-        >
+        <section className="liquid-glass-card story-section-card">
           <div
             style={{
               display: 'flex',
@@ -421,7 +397,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
               alignItems: 'center',
               flexWrap: 'wrap',
               gap: '1rem',
-              marginBottom: '1.85rem',
+              marginBottom: '1.5rem',
             }}
           >
             <div>
@@ -431,7 +407,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
               <h2
                 style={{
                   margin: 0,
-                  fontSize: '1.55rem',
+                  fontSize: 'clamp(1.2rem, 3vw, 1.55rem)',
                   fontWeight: 800,
                   color: 'var(--liquid-navy-dark)',
                 }}
@@ -441,7 +417,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
             </div>
 
             {submitted ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <span
                   style={{
                     padding: '0.55rem 1.15rem',
@@ -450,7 +426,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                     color: correctCount === quizQuestions.length ? '#065f46' : '#92400e',
                     border: correctCount === quizQuestions.length ? '1.5px solid #34d399' : '1.5px solid #fbbf24',
                     fontWeight: 800,
-                    fontSize: '1rem',
+                    fontSize: '0.95rem',
                     boxShadow: '0 4px 12px rgba(36, 50, 75, 0.08)',
                   }}
                 >
@@ -482,7 +458,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
           </div>
 
           {/* Quiz Questions List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
             {quizQuestions.map((q: QuizQuestion, qIndex: number) => {
               const selectedOptId = selectedAnswers[q.id];
               const isCorrect = selectedOptId === q.correctOptionId;
@@ -492,15 +468,15 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                   key={q.id || `q_${qIndex}`}
                   className="liquid-glass-inset"
                   style={{
-                    padding: '1.6rem 1.75rem',
+                    padding: 'clamp(1rem, 3vw, 1.6rem) clamp(0.95rem, 3vw, 1.75rem)',
                     borderRadius: 'var(--radius-lg)',
-                    background: 'rgba(255, 255, 255, 0.85)',
+                    background: 'rgba(255, 255, 255, 0.88)',
                   }}
                 >
                   <p
                     style={{
-                      margin: '0 0 1.15rem 0',
-                      fontSize: '1.1rem',
+                      margin: '0 0 1rem 0',
+                      fontSize: 'clamp(0.98rem, 2.2vw, 1.1rem)',
                       fontWeight: 800,
                       color: 'var(--liquid-navy-dark)',
                       lineHeight: 1.48,
@@ -514,10 +490,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
 
                   {/* Options Grid */}
                   <div
+                    className="quiz-options-grid"
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                      gap: '0.85rem',
                       marginBottom: submitted ? '1.15rem' : 0,
                     }}
                   >
@@ -554,12 +528,13 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.75rem',
-                            padding: '0.85rem 1.15rem',
+                            padding: '0.8rem 1rem',
+                            minHeight: 'var(--touch-target-min)',
                             borderRadius: 'var(--radius-md)',
                             background: optBg,
                             border: optBorder,
                             color: optColor,
-                            fontSize: '0.96rem',
+                            fontSize: '0.94rem',
                             fontWeight: isSelected || (submitted && isThisCorrect) ? 800 : 600,
                             textAlign: 'left',
                             cursor: submitted ? 'default' : 'pointer',
@@ -585,7 +560,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                           >
                             {opt.id}
                           </span>
-                          <span style={{ flex: 1 }}>{opt.text}</span>
+                          <span style={{ flex: 1, minWidth: 0 }}>{opt.text}</span>
                         </button>
                       );
                     })}
@@ -595,11 +570,11 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
                   {submitted && (
                     <div
                       style={{
-                        padding: '0.95rem 1.25rem',
+                        padding: '0.85rem 1.15rem',
                         borderRadius: 'var(--radius-md)',
                         background: isCorrect ? 'rgba(209, 250, 229, 0.9)' : 'rgba(255, 240, 223, 0.9)',
                         borderLeft: `4px solid ${isCorrect ? '#10b981' : '#f59e0b'}`,
-                        fontSize: '0.92rem',
+                        fontSize: '0.9rem',
                         lineHeight: 1.55,
                         color: 'var(--liquid-navy)',
                         boxShadow: '0 2px 8px rgba(36, 50, 75, 0.04)',
@@ -620,13 +595,15 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ story, onReset }) => {
 
       {/* Footer Return / Reset CTA */}
       {onReset && (
-        <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0 3rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0 2rem' }}>
           <button
             onClick={onReset}
             className="btn-liquid-primary"
             style={{
-              padding: '0.95rem 2.5rem',
-              fontSize: '1.05rem',
+              padding: '0.9rem 2.25rem',
+              fontSize: '1rem',
+              width: '100%',
+              maxWidth: '380px',
             }}
           >
             ✨ Learn Another Topic
